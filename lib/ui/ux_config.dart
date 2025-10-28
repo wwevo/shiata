@@ -66,7 +66,7 @@ class UXConfig {
 
 class TopSheetConfig {
   const TopSheetConfig({
-    this.expandedHeight = 280.0,
+    this.expandedHeight = 420.0,
     this.collapsedHeight = 24.0,
   });
   final double expandedHeight; // full calendar height
@@ -130,9 +130,9 @@ class HandleConfig {
 
 class CalendarGridConfig {
   const CalendarGridConfig({
-    this.padding = 12.0,
-    this.crossAxisSpacing = 8.0,
-    this.mainAxisSpacing = 8.0,
+    this.padding = 0.0,
+    this.crossAxisSpacing = 4.0,
+    this.mainAxisSpacing = 4.0,
     this.columns = 7,
     this.rows = 6,
     this.paintMinHeightPx = 40.0, // below this skip painting

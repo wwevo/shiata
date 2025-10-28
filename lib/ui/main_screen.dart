@@ -2,14 +2,22 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'ux_config.dart';
+import 'editors/protein_editor.dart';
+import 'editors/fat_editor.dart';
+import '../data/providers.dart';
+import '../domain/widgets/registry.dart';
+import '../data/repo/entries_repository.dart';
+import 'dart:convert';
 
 // Handedness toggle for split-gesture control in the middle section.
 enum Handedness { left, right }
 
 final handednessProvider = StateProvider<Handedness>((_) => Handedness.left);
+
+// Selected day (local date at midnight) for Day Details panel
+final selectedDayProvider = StateProvider<DateTime?>((_) => null);
 
 // Hosts the top calendar sheet and overlaps it above the middle content using a Stack.
 class TopSheetHost extends StatefulWidget {
@@ -200,19 +208,38 @@ class _TopSheetHostState extends State<TopSheetHost> with SingleTickerProviderSt
   }
 }
 
-class _MonthGridDummyFit extends StatelessWidget {
-  const _MonthGridDummyFit({required this.grid});
+class _MonthCalendar extends ConsumerWidget {
+  const _MonthCalendar({Key? key, required this.grid}) : super(key: key);
   final CalendarGridConfig grid;
+
   @override
-  Widget build(BuildContext context) {
-    // Fills the available section exactly (no scroll), computing aspect ratio
-    // so [grid.columns] x [grid.rows] fit with padding and spacing.
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch selected day so selection highlight updates immediately
+    final selectedDay = ref.watch(selectedDayProvider);
+    // Compute current month range (local time)
+    final now = DateTime.now();
+    // Start of current month in local time
+    final firstOfMonthLocal = DateTime(now.year, now.month, 1);
+    // Offset so that the first calendar cell is a Sunday
+    final offsetToSunday = firstOfMonthLocal.weekday % 7; // Mon=1..Sun=7
+    final firstCellLocal = firstOfMonthLocal.subtract(Duration(days: offsetToSunday));
+    // Use UTC for day iteration to avoid DST-related duplicate/missing local dates
+    final firstCellUtc = DateTime.utc(firstCellLocal.year, firstCellLocal.month, firstCellLocal.day);
+    final daysToShow = grid.columns * grid.rows; // 42
+
+    final repo = ref.watch(entriesRepositoryProvider);
+    final registry = ref.watch(widgetRegistryProvider);
+
+    if (repo == null) {
+      return const SizedBox.shrink();
+    }
+
+    // Build responsive grid with aspect ratio matching available space
     return LayoutBuilder(
       builder: (context, constraints) {
         final gridWidth = constraints.maxWidth - grid.padding * 2;
         final gridHeight = constraints.maxHeight - grid.padding * 2;
         if (gridWidth <= 0 || gridHeight <= grid.paintMinHeightPx) {
-          // Avoid laying out text at extremely small sizes (Impeller glyph bounds errors).
           return const SizedBox.shrink();
         }
         final totalSpacingW = grid.crossAxisSpacing * (grid.columns - 1);
@@ -224,25 +251,258 @@ class _MonthGridDummyFit extends StatelessWidget {
         }
         final aspect = cellWidth / cellHeight;
 
-        return GridView.builder(
-          physics: const NeverScrollableScrollPhysics(),
-          padding: EdgeInsets.all(grid.padding),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: grid.columns,
-            mainAxisSpacing: grid.mainAxisSpacing,
-            crossAxisSpacing: grid.crossAxisSpacing,
-            childAspectRatio: aspect,
+        // Stream for entries within the visible calendar window (local dates)
+        final startLocal = firstCellLocal;
+        final endLocal = firstCellLocal.add(Duration(days: daysToShow));
+
+        return StreamBuilder<Map<DateTime, List<dynamic>>>(
+          // We'll map EntryRecord type dynamically (avoid import cycles in this file)
+          stream: repo.watchByDayRange(startLocal, endLocal, onlyShowInCalendar: true).cast<Map<DateTime, List<dynamic>>>(),
+          builder: (context, snapshot) {
+            final byDay = snapshot.data ?? const <DateTime, List<dynamic>>{};
+
+            return GridView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.all(grid.padding),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: grid.columns,
+                mainAxisSpacing: grid.mainAxisSpacing,
+                crossAxisSpacing: grid.crossAxisSpacing,
+                childAspectRatio: aspect,
+              ),
+              itemCount: daysToShow,
+              itemBuilder: (context, i) {
+                final date = firstCellUtc.add(Duration(days: i)).toLocal();
+                final isCurrentMonth = date.month == now.month;
+                final dayKey = DateTime(date.year, date.month, date.day);
+                final items = byDay[dayKey] ?? const [];
+
+                // Map widget kinds to accent colors
+                final colors = <Color>[];
+                for (final rec in items) {
+                  final kindId = (rec as dynamic).widgetKind as String? ?? 'unknown';
+                  final kind = registry.byId(kindId);
+                  if (kind != null) {
+                    colors.add(kind.accentColor);
+                  }
+                }
+                // Cap visible dots at 4
+                final maxDots = 4;
+                final showDots = colors.take(maxDots).toList();
+                final overflow = (colors.length - maxDots).clamp(0, 999);
+
+                return LayoutBuilder(
+                  builder: (cellCtx, cellConstraints) {
+                    final cellH = cellConstraints.maxHeight;
+                    final cellW = cellConstraints.maxWidth;
+                    // Guard: when cells are very small during animation, avoid laying out text/rows
+                    const minContentH = 28.0; // safe minimum to render text + dots
+                    final canRenderContent = cellH >= minContentH && cellW >= minContentH;
+
+                    final selected = ref.read(selectedDayProvider);
+                    final isSelected = selected != null &&
+                        selected.year == date.year && selected.month == date.month && selected.day == date.day;
+                    return GestureDetector(
+                      onTap: () {
+                        ref.read(selectedDayProvider.notifier).state = DateTime(date.year, date.month, date.day);
+                      },
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: isCurrentMonth ? 0.4 : 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: isSelected
+                              ? Border.all(color: Theme.of(context).colorScheme.primary, width: 2)
+                              : null,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: canRenderContent
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${date.day}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.fade,
+                                      softWrap: false,
+                                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                            color: isCurrentMonth
+                                                ? Theme.of(context).colorScheme.onSurface
+                                                : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                                          ),
+                                    ),
+                                    const Spacer(),
+                                    if (showDots.isNotEmpty)
+                                      Wrap(
+                                        spacing: 2,
+                                        runSpacing: 2,
+                                        children: [
+                                          for (final c in showDots)
+                                            Container(
+                                              width: 6,
+                                              height: 6,
+                                              decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+                                            ),
+                                          if (overflow > 0)
+                                            Text('+$overflow', style: Theme.of(context).textTheme.labelSmall),
+                                        ],
+                                      ),
+                                  ],
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _DayDetailsPanel extends ConsumerWidget {
+  const _DayDetailsPanel({super.key});
+
+  String _fmtTime(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(selectedDayProvider);
+    final repo = ref.watch(entriesRepositoryProvider);
+    final registry = ref.watch(widgetRegistryProvider);
+    if (selected == null || repo == null) {
+      // Hint area
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Tap a day to see details',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
           ),
-          itemCount: grid.columns * grid.rows + 1, // pad to a full grid
-          itemBuilder: (_, i) => DecoratedBox(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(8),
+        ),
+      );
+    }
+
+    return StreamBuilder<List<EntryRecord>>(
+      stream: repo.watchByDay(selected),
+      builder: (context, snapshot) {
+        final entries = snapshot.data ?? const <EntryRecord>[];
+        if (entries.isEmpty) {
+          // Empty state with Add actions (temporary until CAS in Step 8)
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${selected.year}-${selected.month.toString().padLeft(2, '0')}-${selected.day.toString().padLeft(2, '0')}',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        final now = DateTime.now();
+                        final initial = DateTime(selected.year, selected.month, selected.day, now.hour, now.minute);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => ProteinEditorScreen(initialTargetAt: initial)),
+                        );
+                      },
+                      icon: const Icon(Icons.fitness_center),
+                      label: const Text('Add Protein'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        final now = DateTime.now();
+                        final initial = DateTime(selected.year, selected.month, selected.day, now.hour, now.minute);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => FatEditorScreen(initialTargetAt: initial)),
+                        );
+                      },
+                      icon: const Icon(Icons.opacity),
+                      label: const Text('Add Fat'),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            child: Center(
-              child: Text('${i + 1}', style: Theme.of(context).textTheme.bodyMedium),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+              child: Text(
+                '${selected.year}-${selected.month.toString().padLeft(2, '0')}-${selected.day.toString().padLeft(2, '0')}',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
             ),
-          ),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                itemCount: entries.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (ctx, i) {
+                  final e = entries[i];
+                  final localTime = DateTime.fromMillisecondsSinceEpoch(e.targetAt, isUtc: true).toLocal();
+                  final kind = registry.byId(e.widgetKind);
+                  final color = kind?.accentColor ?? Theme.of(context).colorScheme.primary;
+                  final icon = kind?.icon ?? Icons.circle;
+                  // Derive short summary from payload
+                  String summary = '';
+                  try {
+                    final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
+                    final grams = (map['grams'] as num?)?.toInt();
+                    if (grams != null) summary = '$grams g';
+                  } catch (_) {}
+                  return ListTile(
+                    onTap: () {
+                      // Open editor in edit mode based on kind id
+                      if (e.widgetKind == 'protein') {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProteinEditorScreen(entryId: e.id)));
+                      } else if (e.widgetKind == 'fat') {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => FatEditorScreen(entryId: e.id)));
+                      }
+                    },
+                    leading: CircleAvatar(
+                      backgroundColor: color,
+                      foregroundColor: Colors.white,
+                      child: Icon(icon, size: 18),
+                    ),
+                    title: Text('${kind?.displayName ?? e.widgetKind} • ${summary.isEmpty ? '—' : summary}'),
+                    subtitle: Row(
+                      children: [
+                        Text(_fmtTime(localTime)),
+                        if (!e.showInCalendar) ...[
+                          const SizedBox(width: 8),
+                          Icon(Icons.event_busy, size: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+                          const SizedBox(width: 4),
+                          Text('Hidden', style: Theme.of(context).textTheme.labelSmall),
+                        ]
+                      ],
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                  );
+                },
+              ),
+            ),
+          ],
         );
       },
     );
@@ -286,7 +546,14 @@ class _CalendarSheet extends StatelessWidget {
                     maintainState: true,
                     maintainAnimation: true,
                     maintainSize: false,
-                    child: _MonthGridDummyFit(grid: config.calendarGrid),
+                    child: Column(
+                                          children: [
+                                            // Calendar grid takes top portion
+                                            Flexible(flex: 3, child: _MonthCalendar(grid: config.calendarGrid)),
+                                            // Day details panel uses remaining portion
+                                            Flexible(flex: 2, child: _DayDetailsPanel()),
+                                          ],
+                                        ),
                   ),
                 ),
               ),
@@ -316,7 +583,7 @@ class _HandleBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final inactive = theme.colorScheme.onSurface.withOpacity(0.32);
+    final inactive = theme.colorScheme.onSurface.withValues(alpha: 0.32);
     final active = theme.colorScheme.primaryContainer;
     final color = isActive ? active : inactive;
     return AnimatedContainer(
@@ -368,19 +635,51 @@ class _MiddlePanelState extends ConsumerState<MiddlePanel> {
     final handedness = ref.watch(handednessProvider);
 
     // Content underlay: regular list (acts as widgets list or search results)
-    final content = ListView.builder(
+    final content = ListView(
       controller: _scrollController,
       padding: const EdgeInsets.only(top: 16, bottom: 80),
-      itemCount: 12, // reduce to 5 widgets
-      itemBuilder: (_, i) => ListTile(
-        title: Text('Widget #$i'),
-        subtitle: const Text('Tap to open'),
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Open widget #$i (demo)')),
-          );
-        },
-      ),
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Card(
+            elevation: 1,
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.indigo,
+                child: const Icon(Icons.fitness_center, color: Colors.white),
+              ),
+              title: const Text('Protein'),
+              subtitle: const Text('Tap to open'),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ProteinEditorScreen()),
+                );
+              },
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Card(
+            elevation: 1,
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.amber,
+                child: const Icon(Icons.opacity, color: Colors.white),
+              ),
+              title: const Text('Fat'),
+              subtitle: const Text('Tap to open'),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const FatEditorScreen()),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
     );
 
     // Overlay: 50/50 split. One half captures vertical drags to control Top; the other is pass-through.
