@@ -29,8 +29,10 @@ class FatKind extends WidgetKind {
         priority: 10,
         color: accentColor,
         run: (ctx, date) async {
+          final now = DateTime.now();
+          final initial = DateTime(date.year, date.month, date.day, now.hour, now.minute);
           await Navigator.of(ctx).push(
-            MaterialPageRoute(builder: (_) => FatEditorScreen()),
+            MaterialPageRoute(builder: (_) => FatEditorScreen(initialTargetAt: initial)),
           );
         },
       ),

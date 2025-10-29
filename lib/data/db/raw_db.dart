@@ -5,7 +5,7 @@ import 'package:drift/drift.dart';
 /// Minimal Drift database without generated tables.
 /// We use customStatement/customSelect and manage schema manually for now.
 class AppDb extends GeneratedDatabase {
-  AppDb(QueryExecutor executor) : super(executor);
+  AppDb(super.executor);
 
   /// Bump when schema changes (for future migrations).
   @override

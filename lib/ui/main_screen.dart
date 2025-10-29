@@ -6,8 +6,12 @@ import 'package:flutter/services.dart';
 import 'ux_config.dart';
 import 'editors/protein_editor.dart';
 import 'editors/fat_editor.dart';
+import 'editors/carbohydrate_editor.dart';
+import 'main_actions_list.dart';
 import '../data/providers.dart';
 import '../domain/widgets/registry.dart';
+import '../domain/widgets/widget_kind.dart';
+import '../domain/widgets/create_action.dart';
 import '../data/repo/entries_repository.dart';
 import 'dart:convert';
 
@@ -16,8 +20,26 @@ enum Handedness { left, right }
 
 final handednessProvider = StateProvider<Handedness>((_) => Handedness.left);
 
+// Visible month anchor (first day of month, local). Used by calendar navigation.
+final visibleMonthProvider = StateProvider<DateTime>((_) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, 1);
+});
+
 // Selected day (local date at midnight) for Day Details panel
-final selectedDayProvider = StateProvider<DateTime?>((_) => null);
+final selectedDayProvider = StateProvider<DateTime?>((ref) {
+  final now = DateTime.now();
+  // Initialize selected day to today. Do not mutate other providers here to
+  // avoid Riverpod initialization side-effects.
+  return DateTime(now.year, now.month, now.day);
+});
+
+// Middle content mode
+enum MiddleMode { main, search }
+final middleModeProvider = StateProvider<MiddleMode>((_) => MiddleMode.main);
+
+// Search query
+final searchQueryProvider = StateProvider<String>((_) => '');
 
 // Hosts the top calendar sheet and overlaps it above the middle content using a Stack.
 class TopSheetHost extends StatefulWidget {
@@ -209,17 +231,31 @@ class _TopSheetHostState extends State<TopSheetHost> with SingleTickerProviderSt
 }
 
 class _MonthCalendar extends ConsumerWidget {
-  const _MonthCalendar({Key? key, required this.grid}) : super(key: key);
+  const _MonthCalendar({required this.grid});
   final CalendarGridConfig grid;
+
+  void _changeMonth(WidgetRef ref, DateTime current, int delta) {
+    final next = DateTime(current.year, current.month + delta, 1);
+    ref.read(visibleMonthProvider.notifier).state = next;
+    // Keep a selected day always; if selection falls outside new month, pick a sensible default.
+    final sel = ref.read(selectedDayProvider);
+    if (sel == null || sel.year != next.year || sel.month != next.month) {
+      final today = DateTime.now();
+      if (today.year == next.year && today.month == next.month) {
+        ref.read(selectedDayProvider.notifier).state = DateTime(today.year, today.month, today.day);
+      } else {
+        ref.read(selectedDayProvider.notifier).state = DateTime(next.year, next.month, 1);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Watch selected day so selection highlight updates immediately
     final selectedDay = ref.watch(selectedDayProvider);
-    // Compute current month range (local time)
-    final now = DateTime.now();
-    // Start of current month in local time
-    final firstOfMonthLocal = DateTime(now.year, now.month, 1);
+    final visibleMonth = ref.watch(visibleMonthProvider);
+    // Start of visible month in local time
+    final firstOfMonthLocal = DateTime(visibleMonth.year, visibleMonth.month, 1);
     // Offset so that the first calendar cell is a Sunday
     final offsetToSunday = firstOfMonthLocal.weekday % 7; // Mon=1..Sun=7
     final firstCellLocal = firstOfMonthLocal.subtract(Duration(days: offsetToSunday));
@@ -234,11 +270,18 @@ class _MonthCalendar extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
+    String monthLabel(DateTime m) {
+      final monthNames = const [
+        'January','February','March','April','May','June','July','August','September','October','November','December'
+      ];
+      return '${monthNames[m.month - 1]} ${m.year}';
+    }
+
     // Build responsive grid with aspect ratio matching available space
     return LayoutBuilder(
       builder: (context, constraints) {
         final gridWidth = constraints.maxWidth - grid.padding * 2;
-        final gridHeight = constraints.maxHeight - grid.padding * 2;
+        final gridHeight = constraints.maxHeight - grid.padding * 2 - 36; // reserve header height
         if (gridWidth <= 0 || gridHeight <= grid.paintMinHeightPx) {
           return const SizedBox.shrink();
         }
@@ -255,13 +298,42 @@ class _MonthCalendar extends ConsumerWidget {
         final startLocal = firstCellLocal;
         final endLocal = firstCellLocal.add(Duration(days: daysToShow));
 
-        return StreamBuilder<Map<DateTime, List<dynamic>>>(
+        final header = Padding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: 'Previous month',
+                icon: const Icon(Icons.chevron_left),
+                onPressed: () => _changeMonth(ref, visibleMonth, -1),
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    monthLabel(visibleMonth),
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Next month',
+                icon: const Icon(Icons.chevron_right),
+                onPressed: () => _changeMonth(ref, visibleMonth, 1),
+              ),
+            ],
+          ),
+        );
+
+        final gridWidget = StreamBuilder<Map<DateTime, List<dynamic>>>(
           // We'll map EntryRecord type dynamically (avoid import cycles in this file)
-          stream: repo.watchByDayRange(startLocal, endLocal, onlyShowInCalendar: true).cast<Map<DateTime, List<dynamic>>>(),
+          stream: repo
+              .watchByDayRange(startLocal, endLocal, onlyShowInCalendar: true)
+              .cast<Map<DateTime, List<dynamic>>>(),
           builder: (context, snapshot) {
             final byDay = snapshot.data ?? const <DateTime, List<dynamic>>{};
+            final hasAny = byDay.values.any((l) => l.isNotEmpty);
 
-            return GridView.builder(
+            final gridView = GridView.builder(
               physics: const NeverScrollableScrollPhysics(),
               padding: EdgeInsets.all(grid.padding),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -273,23 +345,23 @@ class _MonthCalendar extends ConsumerWidget {
               itemCount: daysToShow,
               itemBuilder: (context, i) {
                 final date = firstCellUtc.add(Duration(days: i)).toLocal();
-                final isCurrentMonth = date.month == now.month;
+                final isCurrentMonth = date.month == visibleMonth.month && date.year == visibleMonth.year;
                 final dayKey = DateTime(date.year, date.month, date.day);
                 final items = byDay[dayKey] ?? const [];
 
-                // Map widget kinds to accent colors
-                final colors = <Color>[];
-                for (final rec in items) {
-                  final kindId = (rec as dynamic).widgetKind as String? ?? 'unknown';
+                // Map entries to accent colors for dot rendering
+                final entriesWithColor = <({EntryRecord entry, Color color})>[];
+                for (final rec in items.cast<EntryRecord>()) {
+                  final kindId = rec.widgetKind;
                   final kind = registry.byId(kindId);
                   if (kind != null) {
-                    colors.add(kind.accentColor);
+                    entriesWithColor.add((entry: rec, color: kind.accentColor));
                   }
                 }
                 // Cap visible dots at 4
                 final maxDots = 4;
-                final showDots = colors.take(maxDots).toList();
-                final overflow = (colors.length - maxDots).clamp(0, 999);
+                final visible = entriesWithColor.take(maxDots).toList();
+                final overflow = (entriesWithColor.length - maxDots).clamp(0, 999);
 
                 return LayoutBuilder(
                   builder: (cellCtx, cellConstraints) {
@@ -305,6 +377,7 @@ class _MonthCalendar extends ConsumerWidget {
                     return GestureDetector(
                       onTap: () {
                         ref.read(selectedDayProvider.notifier).state = DateTime(date.year, date.month, date.day);
+                        ref.read(visibleMonthProvider.notifier).state = DateTime(date.year, date.month, 1);
                       },
                       child: DecoratedBox(
                         decoration: BoxDecoration(
@@ -332,19 +405,44 @@ class _MonthCalendar extends ConsumerWidget {
                                           ),
                                     ),
                                     const Spacer(),
-                                    if (showDots.isNotEmpty)
+                                    if (visible.isNotEmpty)
                                       Wrap(
                                         spacing: 2,
                                         runSpacing: 2,
                                         children: [
-                                          for (final c in showDots)
-                                            Container(
-                                              width: 6,
-                                              height: 6,
-                                              decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+                                          for (final v in visible)
+                                            GestureDetector(
+                                              onTap: () {
+                                                final e = v.entry;
+                                                // Open editor directly for this entry
+                                                if (e.widgetKind == 'protein') {
+                                                  Navigator.of(context).push(
+                                                    MaterialPageRoute(builder: (_) => ProteinEditorScreen(entryId: e.id)),
+                                                  );
+                                                } else if (e.widgetKind == 'fat') {
+                                                  Navigator.of(context).push(
+                                                    MaterialPageRoute(builder: (_) => FatEditorScreen(entryId: e.id)),
+                                                  );
+                                                } else if (e.widgetKind == 'carbohydrate') {
+                                                  Navigator.of(context).push(
+                                                    MaterialPageRoute(builder: (_) => CarbohydrateEditorScreen(entryId: e.id)),
+                                                  );
+                                                }
+                                              },
+                                              child: Container(
+                                                width: 8,
+                                                height: 8,
+                                                decoration: BoxDecoration(color: v.color, shape: BoxShape.circle),
+                                              ),
                                             ),
                                           if (overflow > 0)
-                                            Text('+$overflow', style: Theme.of(context).textTheme.labelSmall),
+                                            GestureDetector(
+                                              onTap: () {
+                                                // Select day to open Day Details
+                                                ref.read(selectedDayProvider.notifier).state = DateTime(date.year, date.month, date.day);
+                                              },
+                                              child: Text('+$overflow', style: Theme.of(context).textTheme.labelSmall),
+                                            ),
                                         ],
                                       ),
                                   ],
@@ -357,15 +455,196 @@ class _MonthCalendar extends ConsumerWidget {
                 );
               },
             );
+            if (!hasAny) {
+              return Stack(
+                children: [
+                  gridView,
+                  Center(
+                    child: Text(
+                      'No entries this month yet',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                    ),
+                  ),
+                ],
+              );
+            } else {
+              return gridView;
+            }
           },
+        );
+
+        return GestureDetector(
+          onHorizontalDragEnd: (details) {
+            final v = details.primaryVelocity ?? 0;
+            if (v < 0) {
+              _changeMonth(ref, visibleMonth, 1); // swipe left → next month
+            } else if (v > 0) {
+              _changeMonth(ref, visibleMonth, -1); // swipe right → previous month
+            }
+          },
+          child: Column(
+            children: [
+              header,
+              Expanded(child: gridWidget),
+            ],
+          ),
         );
       },
     );
   }
 }
 
+class CreateActionSheetContent extends StatelessWidget {
+  const CreateActionSheetContent({super.key, required this.items, required this.targetDate});
+  final List<({WidgetKind kind, CreateAction action})> items;
+  final DateTime targetDate;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Add entry', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (ctx, cons) {
+                final width = cons.maxWidth;
+                final col = width >= 480 ? 4 : width >= 360 ? 3 : 2;
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: col,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 1.9,
+                  ),
+                  itemCount: items.length,
+                  itemBuilder: (ctx, i) {
+                    final it = items[i];
+                    final color = it.action.color ?? it.kind.accentColor;
+                    return OutlinedButton(
+                      onPressed: () async {
+                        Navigator.of(ctx).pop();
+                        await it.action.run(context, targetDate);
+                      },
+                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                      child: Row(
+                        children: [
+                          CircleAvatar(backgroundColor: color, foregroundColor: Colors.white, child: Icon(it.action.icon, size: 18)),
+                          const SizedBox(width: 12),
+                          Expanded(child: Text('${it.kind.displayName}: ${it.action.label}', overflow: TextOverflow.ellipsis)),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _showSideCreateActionSheet(BuildContext context, WidgetRef ref, DateTime targetDate, {required bool fromRight}) async {
+  final registry = ref.read(widgetRegistryProvider);
+  final items = registry.actionsForDate(context, targetDate);
+  final ux = ref.read(uxConfigProvider);
+  final cfg = ux.sideSheet;
+  final size = MediaQuery.of(context).size;
+  final bool isTablet = size.width >= 600;
+
+  double base = size.width * cfg.widthFraction;
+  double maxW = isTablet ? cfg.tabletMaxWidth : cfg.maxWidth;
+  double width = base.clamp(cfg.minWidth, maxW);
+  // Keep some margin to the far edge if possible
+  final double maxAllowed = size.width - cfg.horizontalMargin;
+  if (width > maxAllowed) width = maxAllowed;
+
+  await showGeneralDialog(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'Dismiss',
+    pageBuilder: (ctx, _, _) {
+      final begin = Offset(fromRight ? 1 : -1, 0);
+      return Align(
+        alignment: fromRight ? Alignment.centerRight : Alignment.centerLeft,
+        child: Material(
+          elevation: 8,
+          color: Theme.of(ctx).colorScheme.surface,
+          child: SizedBox(
+            width: width,
+            height: double.infinity,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                CreateActionSheetContent(items: items, targetDate: targetDate),
+                // Tap any empty space inside the panel to close it
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => Navigator.of(ctx).maybePop(),
+                    child: const SizedBox.shrink(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+    transitionBuilder: (_, anim, _, child) {
+      final tween = Tween<Offset>(begin: Offset(fromRight ? 1 : -1, 0), end: Offset.zero).chain(CurveTween(curve: Curves.easeOutCubic));
+      return SlideTransition(position: anim.drive(tween), child: child);
+    },
+  );
+}
+
+Future<void> showCreateActionSheet(BuildContext context, WidgetRef ref, DateTime targetDate) async {
+  final ux = ref.read(uxConfigProvider);
+  final handed = ref.read(handednessProvider);
+
+  ActionSheetPresentation mode = ux.actionSheetPresentation;
+  if (mode == ActionSheetPresentation.auto) {
+    final size = MediaQuery.of(context).size;
+    mode = size.width >= 600 ? ActionSheetPresentation.side : ActionSheetPresentation.bottom;
+  }
+
+  if (mode == ActionSheetPresentation.bottom) {
+    final registry = ref.read(widgetRegistryProvider);
+    final items = registry.actionsForDate(context, targetDate);
+    await showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (ctx) => CreateActionSheetContent(items: items, targetDate: targetDate),
+    );
+    return;
+  }
+
+  // Side sheet: align with handedness. Right-handed → from right (LTR/RTL nuance optional).
+  final textDir = Directionality.of(context);
+  bool fromRight;
+  if (handed == Handedness.right) {
+    fromRight = true;
+  } else {
+    fromRight = false;
+  }
+  // If in RTL, you may want to flip for conventional expectations; we prioritize handedness per request.
+  await _showSideCreateActionSheet(context, ref, targetDate, fromRight: fromRight);
+}
+
 class _DayDetailsPanel extends ConsumerWidget {
-  const _DayDetailsPanel({super.key});
+  const _DayDetailsPanel();
 
   String _fmtTime(DateTime dt) {
     final h = dt.hour.toString().padLeft(2, '0');
@@ -399,44 +678,39 @@ class _DayDetailsPanel extends ConsumerWidget {
       builder: (context, snapshot) {
         final entries = snapshot.data ?? const <EntryRecord>[];
         if (entries.isEmpty) {
-          // Empty state with Add actions (temporary until CAS in Step 8)
+          // Empty state: show date and a single Add button that opens the Create Action Sheet
           return Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${selected.year}-${selected.month.toString().padLeft(2, '0')}-${selected.day.toString().padLeft(2, '0')}',
-                  style: Theme.of(context).textTheme.titleSmall,
+                Builder(
+                  builder: (ctx) {
+                    final handed = ref.watch(handednessProvider);
+                    final dateText = Expanded(
+                      child: Text(
+                        '${selected.year}-${selected.month.toString().padLeft(2, '0')}-${selected.day.toString().padLeft(2, '0')}',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    );
+                    final addBtn = IconButton(
+                      tooltip: 'Add',
+                      onPressed: () => showCreateActionSheet(context, ref, selected),
+                      icon: const Icon(Icons.add_circle_outline),
+                    );
+                    return Row(
+                      children: handed == Handedness.left
+                          ? [addBtn, const SizedBox(width: 8), dateText]
+                          : [dateText, addBtn],
+                    );
+                  },
                 ),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        final now = DateTime.now();
-                        final initial = DateTime(selected.year, selected.month, selected.day, now.hour, now.minute);
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => ProteinEditorScreen(initialTargetAt: initial)),
-                        );
-                      },
-                      icon: const Icon(Icons.fitness_center),
-                      label: const Text('Add Protein'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        final now = DateTime.now();
-                        final initial = DateTime(selected.year, selected.month, selected.day, now.hour, now.minute);
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => FatEditorScreen(initialTargetAt: initial)),
-                        );
-                      },
-                      icon: const Icon(Icons.opacity),
-                      label: const Text('Add Fat'),
-                    ),
-                  ],
+                Text(
+                  'No entries for this day yet',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
                 ),
               ],
             ),
@@ -448,9 +722,26 @@ class _DayDetailsPanel extends ConsumerWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: Text(
-                '${selected.year}-${selected.month.toString().padLeft(2, '0')}-${selected.day.toString().padLeft(2, '0')}',
-                style: Theme.of(context).textTheme.titleSmall,
+              child: Builder(
+                builder: (ctx) {
+                  final handed = ref.watch(handednessProvider);
+                  final dateText = Expanded(
+                    child: Text(
+                      '${selected.year}-${selected.month.toString().padLeft(2, '0')}-${selected.day.toString().padLeft(2, '0')}',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  );
+                  final addBtn = IconButton(
+                    tooltip: 'Add',
+                    onPressed: () => showCreateActionSheet(context, ref, selected),
+                    icon: const Icon(Icons.add_circle_outline),
+                  );
+                  return Row(
+                    children: handed == Handedness.left
+                        ? [addBtn, const SizedBox(width: 8), dateText]
+                        : [dateText, addBtn],
+                  );
+                },
               ),
             ),
             Expanded(
@@ -478,6 +769,8 @@ class _DayDetailsPanel extends ConsumerWidget {
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProteinEditorScreen(entryId: e.id)));
                       } else if (e.widgetKind == 'fat') {
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => FatEditorScreen(entryId: e.id)));
+                      } else if (e.widgetKind == 'carbohydrate') {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => CarbohydrateEditorScreen(entryId: e.id)));
                       }
                     },
                     leading: CircleAvatar(
@@ -497,7 +790,55 @@ class _DayDetailsPanel extends ConsumerWidget {
                         ]
                       ],
                     ),
-                    trailing: const Icon(Icons.chevron_right),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'Delete',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Delete entry?'),
+                                content: const Text('This will remove the entry. You can undo from the snackbar.'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                                  FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
+                                ],
+                              ),
+                            );
+                            if (confirm != true) return;
+                            // Capture data for undo before deleting
+                            final original = e;
+                            await repo.delete(e.id);
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('Entry deleted'),
+                                action: SnackBarAction(
+                                  label: 'UNDO',
+                                  onPressed: () async {
+                                    final local = DateTime.fromMillisecondsSinceEpoch(original.targetAt, isUtc: true).toLocal();
+                                    try {
+                                      final payload = jsonDecode(original.payloadJson) as Map<String, Object?>;
+                                      await repo.create(
+                                        widgetKind: original.widgetKind,
+                                        targetAtLocal: local,
+                                        payload: payload,
+                                        showInCalendar: original.showInCalendar,
+                                        schemaVersion: original.schemaVersion,
+                                      );
+                                    } catch (_) {}
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const Icon(Icons.chevron_right),
+                      ],
+                    ),
                   );
                 },
               ),
@@ -635,52 +976,10 @@ class _MiddlePanelState extends ConsumerState<MiddlePanel> {
     final handedness = ref.watch(handednessProvider);
 
     // Content underlay: regular list (acts as widgets list or search results)
-    final content = ListView(
-      controller: _scrollController,
-      padding: const EdgeInsets.only(top: 16, bottom: 80),
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Card(
-            elevation: 1,
-            clipBehavior: Clip.antiAlias,
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.indigo,
-                child: const Icon(Icons.fitness_center, color: Colors.white),
-              ),
-              title: const Text('Protein'),
-              subtitle: const Text('Tap to open'),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ProteinEditorScreen()),
-                );
-              },
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Card(
-            elevation: 1,
-            clipBehavior: Clip.antiAlias,
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.amber,
-                child: const Icon(Icons.opacity, color: Colors.white),
-              ),
-              title: const Text('Fat'),
-              subtitle: const Text('Tap to open'),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const FatEditorScreen()),
-                );
-              },
-            ),
-          ),
-        ),
-      ],
-    );
+    final mode = ref.watch(middleModeProvider);
+    final content = mode == MiddleMode.search
+        ? _SearchResults(controller: _scrollController)
+        : MainActionsList(controller: _scrollController);
 
     // Overlay: 50/50 split. One half captures vertical drags to control Top; the other is pass-through.
     final overlay = Positioned.fill(
@@ -765,14 +1064,94 @@ class BottomControls extends ConsumerWidget {
                 border: InputBorder.none,
               ),
               onChanged: (q) {
-                // TODO: swap MiddlePanel to search-results mode
+                ref.read(searchQueryProvider.notifier).state = q;
+                ref.read(middleModeProvider.notifier).state = q.trim().isEmpty ? MiddleMode.main : MiddleMode.search;
               },
             ),
           ),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
+          IconButton(
+            tooltip: 'Search',
+            onPressed: () {
+              final q = ref.read(searchQueryProvider);
+              ref.read(middleModeProvider.notifier).state = q.trim().isEmpty ? MiddleMode.main : MiddleMode.search;
+            },
+            icon: const Icon(Icons.search),
+          ),
         ],
       ),
     );
   }
 }
 
+class _SearchResults extends ConsumerWidget {
+  const _SearchResults({required this.controller});
+  final ScrollController controller;
+
+  String _fmtTime(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repo = ref.watch(entriesRepositoryProvider);
+    final registry = ref.watch(widgetRegistryProvider);
+    final q = ref.watch(searchQueryProvider);
+    if (repo == null) {
+      return const SizedBox.shrink();
+    }
+    return StreamBuilder<List<EntryRecord>>(
+      stream: repo.watchSearch(q),
+      builder: (context, snapshot) {
+        final results = snapshot.data ?? const <EntryRecord>[];
+        if (q.trim().isEmpty) {
+          return const Center(child: Text('Type to search'));
+        }
+        if (results.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text('No results for "$q"', style: Theme.of(context).textTheme.bodyMedium),
+            ),
+          );
+        }
+        return ListView.separated(
+          controller: controller,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          itemCount: results.length,
+          separatorBuilder: (_, _) => const Divider(height: 1),
+          itemBuilder: (ctx, i) {
+            final e = results[i];
+            final kind = registry.byId(e.widgetKind);
+            final color = kind?.accentColor ?? Theme.of(context).colorScheme.primary;
+            final icon = kind?.icon ?? Icons.circle;
+            // Basic summary from payload
+            String summary = '';
+            try {
+              final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
+              final grams = (map['grams'] as num?)?.toInt();
+              if (grams != null) summary = '$grams g';
+            } catch (_) {}
+            final localTime = DateTime.fromMillisecondsSinceEpoch(e.targetAt, isUtc: true).toLocal();
+            return ListTile(
+              onTap: () {
+                if (e.widgetKind == 'protein') {
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProteinEditorScreen(entryId: e.id)));
+                } else if (e.widgetKind == 'fat') {
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => FatEditorScreen(entryId: e.id)));
+                } else if (e.widgetKind == 'carbohydrate') {
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => CarbohydrateEditorScreen(entryId: e.id)));
+                }
+              },
+              leading: CircleAvatar(backgroundColor: color, foregroundColor: Colors.white, child: Icon(icon, size: 18)),
+              title: Text('${kind?.displayName ?? e.widgetKind} • ${summary.isEmpty ? '—' : summary}'),
+              subtitle: Text('${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')}  ${_fmtTime(localTime)}'),
+              trailing: const Icon(Icons.chevron_right),
+            );
+          },
+        );
+      },
+    );
+  }
+}

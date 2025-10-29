@@ -47,3 +47,44 @@ This app’s layout/interaction is driven by a centralized configuration in `lib
 ### Phase Two preview
 - Middle modes: `MainList`, `WidgetDetail(widgetId)`, `SearchResults(query)`.
 - Keep the top sheet mounted; switch/push the Middle content. If multiple widgets on a day, show a small chooser.
+
+## What’s new in 0.2.0
+- Three macronutrient kinds are available: Protein (indigo), Fat (amber), Carbohydrate (red).
+- Create/Edit editors for each kind with grams, date/time picker, and "Show in calendar" toggle.
+- Create Action Sheet (CAS) now defaults to a side sheet that slides in from the same side as the Add button (handedness‑aware). Bottom sheet remains available.
+- Calendar is navigable via header arrows and horizontal swipes.
+- Day Details supports deletion with confirmation and an Undo snackbar.
+- Simple search: type in the bottom field to see live results; tap to open the correct editor.
+- Middle section list is generated from the `WidgetRegistry` and launches the primary action for each kind.
+
+## New UX config options (0.2.0)
+- `ActionSheetPresentation` (in `ux_config.dart`):
+  - `bottom` | `side` (default) | `auto` (phones bottom, tablets side).
+- `SideSheetConfig` (in `ux_config.dart`):
+  - `minWidth`, `maxWidth`, `tabletMaxWidth`: clamp panel width per device size.
+  - `widthFraction`: base fraction of screen width (phones) before clamping.
+  - `horizontalMargin`: keeps a margin to the far edge on compact screens.
+
+### Example: forcing bottom sheet temporarily
+```dart
+final ux = const UXConfig(
+  actionSheetPresentation: ActionSheetPresentation.bottom,
+);
+```
+
+### Example: tuning side sheet width
+```dart
+final ux = const UXConfig(
+  actionSheetPresentation: ActionSheetPresentation.side,
+  sideSheet: SideSheetConfig(
+    minWidth: 320,
+    maxWidth: 440,
+    tabletMaxWidth: 560,
+    widthFraction: 0.88,
+    horizontalMargin: 16,
+  ),
+);
+```
+
+### Handedness
+- The Add button in Day Details appears on the left for left‑handed mode and on the right for right‑handed. Use the existing toggle in the bottom bar to switch. The side CAS opens from the same side for spatial consistency.

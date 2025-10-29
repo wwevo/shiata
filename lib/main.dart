@@ -6,6 +6,7 @@ import 'data/db/db_lifecycle.dart';
 import 'domain/widgets/registry.dart';
 import 'domain/widgets/kinds/protein_kind.dart';
 import 'domain/widgets/kinds/fat_kind.dart';
+import 'domain/widgets/kinds/carbohydrate_kind.dart';
 
 void main() {
   runApp(ProviderScope(
@@ -14,6 +15,7 @@ void main() {
         WidgetRegistry({
           'protein': const ProteinKind(),
           'fat': const FatKind(),
+          'carbohydrate': const CarbohydrateKind(),
         }),
       ),
     ],

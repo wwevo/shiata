@@ -33,6 +33,8 @@ class UXConfig {
     this.handle = const HandleConfig(),
     this.calendarGrid = const CalendarGridConfig(),
     this.visuals = const VisualsConfig(),
+    this.actionSheetPresentation = ActionSheetPresentation.side,
+    this.sideSheet = const SideSheetConfig(),
   });
 
   final TopSheetConfig topSheet;
@@ -42,6 +44,8 @@ class UXConfig {
   final HandleConfig handle;
   final CalendarGridConfig calendarGrid;
   final VisualsConfig visuals;
+  final ActionSheetPresentation actionSheetPresentation;
+  final SideSheetConfig sideSheet;
 
   UXConfig copyWith({
     TopSheetConfig? topSheet,
@@ -51,6 +55,8 @@ class UXConfig {
     HandleConfig? handle,
     CalendarGridConfig? calendarGrid,
     VisualsConfig? visuals,
+    ActionSheetPresentation? actionSheetPresentation,
+    SideSheetConfig? sideSheet,
   }) {
     return UXConfig(
       topSheet: topSheet ?? this.topSheet,
@@ -60,6 +66,8 @@ class UXConfig {
       handle: handle ?? this.handle,
       calendarGrid: calendarGrid ?? this.calendarGrid,
       visuals: visuals ?? this.visuals,
+      actionSheetPresentation: actionSheetPresentation ?? this.actionSheetPresentation,
+      sideSheet: sideSheet ?? this.sideSheet,
     );
   }
 }
@@ -158,6 +166,42 @@ class VisualsConfig {
   final Curve opacityCurve;
 }
 
+/// Sizing configuration for the side action sheet.
+class SideSheetConfig {
+  const SideSheetConfig({
+    this.minWidth = 320.0,
+    this.maxWidth = 420.0,
+    this.tabletMaxWidth = 520.0,
+    this.widthFraction = 0.86, // fraction of screen width (phones)
+    this.horizontalMargin = 16.0, // ensure some margin from the edge on small screens
+  });
+
+  /// Minimum panel width regardless of screen size.
+  final double minWidth;
+
+  /// Maximum panel width on phones/compact screens.
+  final double maxWidth;
+
+  /// Maximum panel width on tablets/large screens (>= 600dp).
+  final double tabletMaxWidth;
+
+  /// Fraction of the available width to use as a base before clamping.
+  final double widthFraction;
+
+  /// Minimal margin to keep between the panel and the opposite edge.
+  final double horizontalMargin;
+}
+
 /// Provider for the UX configuration. Override this at a scope if you want to
 /// A/B test or device-tune values.
 final uxConfigProvider = Provider<UXConfig>((ref) => const UXConfig());
+
+/// Presentation options for the Create Action Sheet (CAS).
+enum ActionSheetPresentation {
+  /// Classic bottom sheet using `showModalBottomSheet`.
+  bottom,
+  /// Side sheet sliding from the left/right edge (default), width-constrained.
+  side,
+  /// Pick automatically based on size class (phones bottom, tablets side).
+  auto,
+}

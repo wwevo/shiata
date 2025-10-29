@@ -2,22 +2,22 @@ import 'package:flutter/material.dart';
 
 import '../../widgets/create_action.dart';
 import '../../widgets/widget_kind.dart';
-import '../../../ui/editors/protein_editor.dart';
+import '../../../ui/editors/carbohydrate_editor.dart';
 
-class ProteinKind extends WidgetKind {
-  const ProteinKind();
-
-  @override
-  String get id => 'protein';
+class CarbohydrateKind extends WidgetKind {
+  const CarbohydrateKind();
 
   @override
-  String get displayName => 'Protein';
+  String get id => 'carbohydrate';
 
   @override
-  IconData get icon => Icons.fitness_center;
+  String get displayName => 'Carbohydrate';
 
   @override
-  Color get accentColor => Colors.indigo;
+  IconData get icon => Icons.rice_bowl; // represents carbs/grains
+
+  @override
+  Color get accentColor => Colors.red; // red accent as requested
 
   @override
   List<CreateAction> createActions(BuildContext context, DateTime targetDate) {
@@ -29,12 +29,10 @@ class ProteinKind extends WidgetKind {
         priority: 10,
         color: accentColor,
         run: (ctx, date) async {
-          // For now, navigate to the placeholder ProteinScreen. Later this will
-          // open the real create editor with prefilled date/time.
           final now = DateTime.now();
           final initial = DateTime(date.year, date.month, date.day, now.hour, now.minute);
           await Navigator.of(ctx).push(
-            MaterialPageRoute(builder: (_) => ProteinEditorScreen(initialTargetAt: initial)),
+            MaterialPageRoute(builder: (_) => CarbohydrateEditorScreen(initialTargetAt: initial)),
           );
         },
       ),

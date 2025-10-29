@@ -67,6 +67,7 @@ class _ProteinEditorScreenState extends ConsumerState<ProteinEditorScreen> {
       lastDate: DateTime.now().add(const Duration(days: 3650)),
     );
     if (date == null) return;
+    if (!context.mounted) return; // avoid using BuildContext across async gaps
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_targetAt),
@@ -76,6 +77,7 @@ class _ProteinEditorScreenState extends ConsumerState<ProteinEditorScreen> {
       ),
     );
     if (time == null) return;
+    if (!context.mounted) return;
     setState(() {
       _targetAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
     });
@@ -133,10 +135,13 @@ class _ProteinEditorScreenState extends ConsumerState<ProteinEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Protein — Create'),
+        title: Text(widget.entryId == null ? 'Protein — Create' : 'Protein — Edit'),
         actions: [
           IconButton(
             onPressed: () => _save(context),

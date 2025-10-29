@@ -161,3 +161,56 @@ This sequence minimizes risk and lets you verify visible progress at each step. 
 - CAS can support pinned/favorites later; keep model flexible.
 
 If this step order looks good, say “go” and we’ll begin implementing Step 1. We’ll keep each change small and verifiable before moving on.
+
+---
+
+## 0.2.0 Implementation Notes (since 0.1.9)
+
+### Calendar navigation and selection
+- Providers:
+  - `visibleMonthProvider` anchors the visible month (local, first day). Initialized independently.
+  - `selectedDayProvider` always holds a day (defaults to today). No null state at runtime.
+- Navigation:
+  - Header buttons (chevrons) and horizontal swipe gestures (`onHorizontalDragEnd`) change months.
+  - When month changes, selection is kept valid: if current selection is not in the new month, it switches to today (if within the month) or the 1st of the new month.
+- DST/locale correctness:
+  - Calendar cell iteration uses UTC dates and converts to local per-cell to avoid duplicate/missing local days.
+
+### Create Action Sheet (CAS) side-sheet by default
+- Configurable via `UXConfig.actionSheetPresentation` with `ActionSheetPresentation.bottom|side|auto`.
+- Side-sheet implementation uses `showGeneralDialog` + `SlideTransition`:
+  - Slides from the same side as the handedness-aware Add button.
+  - Width calculation tuned via `SideSheetConfig` (min/max/tabletMax/widthFraction/horizontalMargin).
+  - Dismissal: back button, scrim tap, and tapping empty space inside the panel.
+- Bottom-sheet implementation remains available via `showModalBottomSheet` and shares the same `CreateActionSheetContent`.
+
+### Handedness-aware Add button
+- `handednessProvider` controls placement of the Add icon in Day Details header (left for left‑handed, right for right‑handed).
+- CAS side aligns with handedness for spatial consistency.
+
+### Deletion with Undo in Day Details
+- Each entry row has a delete icon; confirmation via `AlertDialog`.
+- On delete, a `SnackBar` appears with `UNDO` action that reconstructs the original entry using persisted fields.
+- Streams update immediately via `EntriesRepository`’s internal change broadcast.
+
+### Simple Search mode
+- Bottom search field toggles middle content between Main list and Search results.
+- Repository exposes `watchSearch(query)` using a simple `LIKE` across `widget_kind` and `payload_json`, ordered by `updated_at DESC`.
+- Results open the correct editor on tap.
+
+### Dynamic middle list (scalable)
+- Extracted to `lib/ui/main_actions_list.dart`.
+- Renders one card per `WidgetKind` from the `WidgetRegistry`.
+- For each kind, chooses the highest-priority action (`createActions` sorted by `priority`) and runs it for the selected day.
+
+### Riverpod initialization fix
+- Removed cross-provider mutation during provider initialization (no writing to `visibleMonthProvider` inside `selectedDayProvider`’s build).
+- This resolves the `StateNotifierListenerError` and follows Riverpod’s rule that providers must not modify others while building.
+
+### Editors and kinds
+- Added `CarbohydrateKind` (red) and `CarbohydrateEditorScreen` mirroring Protein/Fat.
+- All three editors support: grams validation, date/time picker, `show in calendar`, create and edit flows.
+
+### UXConfig additions
+- `ActionSheetPresentation` and `SideSheetConfig` added to `UXConfig` with sensible defaults (`side` by default).
+- See README for quick-tuning examples.

@@ -64,6 +64,7 @@ class _FatEditorScreenState extends ConsumerState<FatEditorScreen> {
       lastDate: DateTime.now().add(const Duration(days: 3650)),
     );
     if (date == null) return;
+    if (!context.mounted) return;
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_targetAt),
@@ -73,6 +74,7 @@ class _FatEditorScreenState extends ConsumerState<FatEditorScreen> {
       ),
     );
     if (time == null) return;
+    if (!context.mounted) return;
     setState(() {
       _targetAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
     });
@@ -128,6 +130,9 @@ class _FatEditorScreenState extends ConsumerState<FatEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
