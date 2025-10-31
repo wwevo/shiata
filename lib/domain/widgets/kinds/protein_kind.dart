@@ -20,6 +20,18 @@ class ProteinKind extends WidgetKind {
   Color get accentColor => Colors.indigo;
 
   @override
+  String get unit => 'g';
+
+  @override
+  int get minValue => 0;
+
+  @override
+  int get maxValue => 300;
+
+  @override
+  bool get defaultShowInCalendar => false;
+
+  @override
   List<CreateAction> createActions(BuildContext context, DateTime targetDate) {
     return [
       CreateAction(
@@ -29,8 +41,6 @@ class ProteinKind extends WidgetKind {
         priority: 10,
         color: accentColor,
         run: (ctx, date) async {
-          // For now, navigate to the placeholder ProteinScreen. Later this will
-          // open the real create editor with prefilled date/time.
           final now = DateTime.now();
           final initial = DateTime(date.year, date.month, date.day, now.hour, now.minute);
           await Navigator.of(ctx).push(

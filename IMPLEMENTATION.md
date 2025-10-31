@@ -164,6 +164,32 @@ If this step order looks good, say “go” and we’ll begin implementing Step 
 
 ---
 
+## 0.3.0 Implementation Notes (since 0.2.0)
+
+### Domain model changes
+- Products & components
+  - Tables (idempotent creation in `ensureInitialized()`): `products`, `product_components` (per‑100g integer coefficients), indexes.
+  - Entries extended: `product_id`, `product_grams`, `is_static` (non‑breaking); index on `entries(product_id)`.
+- Services
+  - `ProductService.createProductEntry(...)` — parent (visible) + child nutrients (hidden); integer amounts computed with `amount = (per100g × grams) / 100`.
+  - `ProductService.updateParentAndChildren(...)` — edit grams/static; recreate children.
+  - `ProductService.updateAllEntriesForProductToCurrentFormula(productId)` — propagate template changes to non‑static entries; transaction-based; single refresh.
+  - `ProductService.deleteProductTemplate(productId)` — convert instances: detach children linkage, set them visible, delete parents; remove template & components.
+
+### UI features
+- Products page (basket) and Product Template Editor (per‑100g integers; add/remove kinds; save, propagate, Undo).
+- CAS dynamic Products section; instances open Product Editor (grams; Static toggle); Day Details expandable product rows with composed nutrients.
+- Per‑instance component overrides (Day Details → tune): edits child amounts and marks instance Static.
+
+### Integer-only policy
+- All nutrient values are integers; units are canonical (g/mg/µg/mL). Per‑100g coefficients ensure integer scaling to grams.
+
+### Error handling & UX
+- Template save: confirm propagation with Undo; editor auto-refreshes after Undo.
+- Parent delete: Undo restores parent+children; template delete converts instances (keep values, make visible).
+
+---
+
 ## 0.2.0 Implementation Notes (since 0.1.9)
 
 ### Calendar navigation and selection

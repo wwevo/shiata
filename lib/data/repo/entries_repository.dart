@@ -19,6 +19,9 @@ class EntryRecord {
     this.sourceEventId,
     this.sourceEntryId,
     this.sourceWidgetKind,
+    this.productId,
+    this.productGrams,
+    this.isStatic = false,
   });
 
   final String id;
@@ -32,6 +35,9 @@ class EntryRecord {
   final String? sourceEventId;
   final String? sourceEntryId;
   final String? sourceWidgetKind;
+  final String? productId;
+  final int? productGrams;
+  final bool isStatic;
 
   Map<String, Object?> toDb() => {
         'id': id,
@@ -45,6 +51,9 @@ class EntryRecord {
         'source_event_id': sourceEventId,
         'source_entry_id': sourceEntryId,
         'source_widget_kind': sourceWidgetKind,
+        'product_id': productId,
+        'product_grams': productGrams,
+        'is_static': isStatic ? 1 : 0,
       };
 
   static EntryRecord fromDb(Map<String, Object?> row) {
@@ -60,6 +69,9 @@ class EntryRecord {
       sourceEventId: row['source_event_id'] as String?,
       sourceEntryId: row['source_entry_id'] as String?,
       sourceWidgetKind: row['source_widget_kind'] as String?,
+      productId: row['product_id'] as String?,
+      productGrams: row['product_grams'] as int?,
+      isStatic: ((row['is_static'] ?? 0) as int) != 0,
     );
   }
 }
@@ -84,6 +96,9 @@ class EntriesRepository {
     String? sourceEventId,
     String? sourceEntryId,
     String? sourceWidgetKind,
+    String? productId,
+    int? productGrams,
+    bool isStatic = false,
   }) async {
     await _ready;
     final nowUtc = DateTime.now().toUtc().millisecondsSinceEpoch;
@@ -101,6 +116,9 @@ class EntriesRepository {
       sourceEventId: sourceEventId,
       sourceEntryId: sourceEntryId,
       sourceWidgetKind: sourceWidgetKind,
+      productId: productId,
+      productGrams: productGrams,
+      isStatic: isStatic,
     );
 
     final cols = rec.toDb().keys.join(', ');
@@ -137,6 +155,51 @@ class EntriesRepository {
     await _ready;
     await db.customStatement('DELETE FROM entries WHERE id = ?;', [id]);
     _notify();
+  }
+
+  Future<List<EntryRecord>> listChildrenOfParent(String parentEntryId) async {
+    await _ready;
+    final rows = await db.customSelect(
+      'SELECT * FROM entries WHERE source_entry_id = ? ORDER BY widget_kind ASC;',
+      variables: [Variable.withString(parentEntryId)],
+      readsFrom: const {},
+    ).get();
+    return rows.map((r) => EntryRecord.fromDb(r.data)).toList();
+  }
+
+  Future<void> deleteChildrenOfParent(String parentEntryId) async {
+    await _ready;
+    await db.customStatement('DELETE FROM entries WHERE source_entry_id = ?;', [parentEntryId]);
+    _notify();
+  }
+
+  Future<void> detachChildrenOfParent(String parentEntryId) async {
+    await _ready;
+    await db.customStatement(
+      'UPDATE entries SET source_entry_id = NULL, source_widget_kind = NULL WHERE source_entry_id = ?;',
+      [parentEntryId],
+    );
+    _notify();
+  }
+
+  /// Convert product children into standalone entries: detach linkage and make them visible in calendar.
+  Future<void> convertChildrenOfParentToStandalone(String parentEntryId) async {
+    await _ready;
+    await db.customStatement(
+      'UPDATE entries SET source_entry_id = NULL, source_widget_kind = NULL, show_in_calendar = 1 WHERE source_entry_id = ?;',
+      [parentEntryId],
+    );
+    _notify();
+  }
+
+  Future<List<EntryRecord>> listParentsByProductId(String productId) async {
+    await _ready;
+    final rows = await db.customSelect(
+      "SELECT * FROM entries WHERE widget_kind = 'product' AND product_id = ?;",
+      variables: [Variable.withString(productId)],
+      readsFrom: const {},
+    ).get();
+    return rows.map((r) => EntryRecord.fromDb(r.data)).toList();
   }
 
   Future<EntryRecord?> getById(String id) async {

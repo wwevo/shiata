@@ -18,6 +18,18 @@ abstract class WidgetKind {
   /// Accent color used for calendar dots, action glyphs, etc.
   Color get accentColor;
 
+  /// Canonical unit for this kind's amount (e.g., 'g', 'mg', 'ug').
+  String get unit;
+
+  /// Inclusive min allowed integer value for the amount field.
+  int get minValue;
+
+  /// Inclusive max allowed integer value for the amount field.
+  int get maxValue;
+
+  /// Whether newly created entries for this kind should default to show in calendar.
+  bool get defaultShowInCalendar;
+
   /// Returns the list of create actions to show for the given target date.
   List<CreateAction> createActions(BuildContext context, DateTime targetDate);
 }

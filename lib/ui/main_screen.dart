@@ -7,12 +7,17 @@ import 'ux_config.dart';
 import 'editors/protein_editor.dart';
 import 'editors/fat_editor.dart';
 import 'editors/carbohydrate_editor.dart';
+import 'editors/generic_nutrient_editor.dart';
 import 'main_actions_list.dart';
+import 'editors/product_editor.dart';
+import 'products/product_templates_page.dart';
+import 'editors/instance_components_editor.dart';
 import '../data/providers.dart';
 import '../domain/widgets/registry.dart';
 import '../domain/widgets/widget_kind.dart';
 import '../domain/widgets/create_action.dart';
 import '../data/repo/entries_repository.dart';
+import '../data/repo/product_service.dart';
 import 'dart:convert';
 
 // Handedness toggle for split-gesture control in the middle section.
@@ -40,6 +45,11 @@ final middleModeProvider = StateProvider<MiddleMode>((_) => MiddleMode.main);
 
 // Search query
 final searchQueryProvider = StateProvider<String>((_) => '');
+
+// Expanded product parents in Day Details (by parent entry id)
+final expandedProductsProvider = StateProvider<Set<String>>((_) => <String>{});
+// CAS: whether the Nutrients grid is expanded (session-scoped)
+final nutrientsExpandedProvider = StateProvider<bool>((_) => false);
 
 // Hosts the top calendar sheet and overlaps it above the middle content using a Stack.
 class TopSheetHost extends StatefulWidget {
@@ -356,6 +366,8 @@ class _MonthCalendar extends ConsumerWidget {
                   final kind = registry.byId(kindId);
                   if (kind != null) {
                     entriesWithColor.add((entry: rec, color: kind.accentColor));
+                  } else if (kindId == 'product') {
+                    entriesWithColor.add((entry: rec, color: Colors.purple));
                   }
                 }
                 // Cap visible dots at 4
@@ -427,6 +439,13 @@ class _MonthCalendar extends ConsumerWidget {
                                                   Navigator.of(context).push(
                                                     MaterialPageRoute(builder: (_) => CarbohydrateEditorScreen(entryId: e.id)),
                                                   );
+                                                } else {
+                                                  final k = registry.byId(e.widgetKind);
+                                                  if (k != null) {
+                                                    Navigator.of(context).push(
+                                                      MaterialPageRoute(builder: (_) => GenericNutrientEditorScreen(kind: k, entryId: e.id)),
+                                                    );
+                                                  }
                                                 }
                                               },
                                               child: Container(
@@ -496,60 +515,125 @@ class _MonthCalendar extends ConsumerWidget {
   }
 }
 
-class CreateActionSheetContent extends StatelessWidget {
+class _AdHocKind extends WidgetKind {
+  const _AdHocKind({required this.id, required this.displayName, required this.icon, required this.accentColor, required this.unit, required this.minValue, required this.maxValue, required this.defaultShowInCalendar});
+  @override
+  final String id;
+  @override
+  final String displayName;
+  @override
+  final IconData icon;
+  @override
+  final Color accentColor;
+  @override
+  final String unit;
+  @override
+  final int minValue;
+  @override
+  final int maxValue;
+  @override
+  final bool defaultShowInCalendar;
+  @override
+  List<CreateAction> createActions(BuildContext context, DateTime targetDate) => const [];
+}
+
+class CreateActionSheetContent extends ConsumerWidget {
   const CreateActionSheetContent({super.key, required this.items, required this.targetDate});
   final List<({WidgetKind kind, CreateAction action})> items;
   final DateTime targetDate;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final productsRepo = ref.watch(productsRepositoryProvider);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Add entry', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            LayoutBuilder(
-              builder: (ctx, cons) {
-                final width = cons.maxWidth;
-                final col = width >= 480 ? 4 : width >= 360 ? 3 : 2;
-                return GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: col,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1.9,
-                  ),
-                  itemCount: items.length,
-                  itemBuilder: (ctx, i) {
-                    final it = items[i];
-                    final color = it.action.color ?? it.kind.accentColor;
-                    return OutlinedButton(
-                      onPressed: () async {
-                        Navigator.of(ctx).pop();
-                        await it.action.run(context, targetDate);
-                      },
-                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                      child: Row(
-                        children: [
-                          CircleAvatar(backgroundColor: color, foregroundColor: Colors.white, child: Icon(it.action.icon, size: 18)),
-                          const SizedBox(width: 12),
-                          Expanded(child: Text('${it.kind.displayName}: ${it.action.label}', overflow: TextOverflow.ellipsis)),
-                        ],
-                      ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Add entry', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              if (productsRepo != null) ...[
+                Text('Products', style: Theme.of(context).textTheme.labelLarge),
+                const SizedBox(height: 8),
+                StreamBuilder(
+                  stream: productsRepo.watchProducts(),
+                  builder: (context, snapshot) {
+                    final list = snapshot.data ?? const [];
+                    if (list.isEmpty) {
+                      return Text('No products yet', style: Theme.of(context).textTheme.bodySmall);
+                    }
+                    return Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final p in list)
+                          _productChip(context, p.id, p.name, targetDate),
+                      ],
                     );
                   },
-                );
-              },
-            ),
-          ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(height: 16),
+                const SizedBox(height: 8),
+              ],
+              Text('Nutrients', style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(height: 8),
+              LayoutBuilder(
+                builder: (ctx, cons) {
+                  final width = cons.maxWidth;
+                  final col = width >= 480 ? 4 : width >= 360 ? 3 : 2;
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: col,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 1.9,
+                    ),
+                    itemCount: items.length,
+                    itemBuilder: (ctx, i) {
+                      final it = items[i];
+                      final color = it.action.color ?? it.kind.accentColor;
+                      return OutlinedButton(
+                        onPressed: () async {
+                          Navigator.of(ctx).pop();
+                          await it.action.run(context, targetDate);
+                        },
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                        child: Row(
+                          children: [
+                            CircleAvatar(backgroundColor: color, foregroundColor: Colors.white, child: Icon(it.action.icon, size: 18)),
+                            const SizedBox(width: 12),
+                            Expanded(child: Text('${it.kind.displayName}: ${it.action.label}', overflow: TextOverflow.ellipsis)),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _productChip(BuildContext context, String id, String name, DateTime targetDate) {
+    return ActionChip(
+      label: Text(name),
+      avatar: const CircleAvatar(backgroundColor: Colors.purple, foregroundColor: Colors.white, child: Icon(Icons.shopping_basket, size: 16)),
+      onPressed: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ProductEditorScreen(productId: id, productName: name, defaultGrams: 100, initialTargetAt: targetDate),
+          ),
+        );
+      },
     );
   }
 }
@@ -646,6 +730,20 @@ Future<void> showCreateActionSheet(BuildContext context, WidgetRef ref, DateTime
 class _DayDetailsPanel extends ConsumerWidget {
   const _DayDetailsPanel();
 
+  String _productTitleFromPayload(EntryRecord e) {
+    try {
+      final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
+      final name = (map['name'] as String?) ?? 'Product';
+      final grams = (map['grams'] as num?)?.toInt();
+      if (grams != null) {
+        return '$name • $grams g';
+      }
+      return name;
+    } catch (_) {
+      return 'Product';
+    }
+  }
+
   String _fmtTime(DateTime dt) {
     final h = dt.hour.toString().padLeft(2, '0');
     final m = dt.minute.toString().padLeft(2, '0');
@@ -676,7 +774,15 @@ class _DayDetailsPanel extends ConsumerWidget {
     return StreamBuilder<List<EntryRecord>>(
       stream: repo.watchByDay(selected),
       builder: (context, snapshot) {
-        final entries = snapshot.data ?? const <EntryRecord>[];
+        final all = snapshot.data ?? const <EntryRecord>[];
+        // Partition into parents/standalone and product-children
+        final entries = all.where((e) => e.sourceWidgetKind != 'product').toList();
+        final childrenByParent = <String, List<EntryRecord>>{};
+        for (final c in all) {
+          if (c.sourceWidgetKind == 'product' && c.sourceEntryId != null) {
+            (childrenByParent[c.sourceEntryId!] ??= []).add(c);
+          }
+        }
         if (entries.isEmpty) {
           // Empty state: show date and a single Add button that opens the Create Action Sheet
           return Padding(
@@ -762,27 +868,51 @@ class _DayDetailsPanel extends ConsumerWidget {
                     final grams = (map['grams'] as num?)?.toInt();
                     if (grams != null) summary = '$grams g';
                   } catch (_) {}
-                  return ListTile(
+                  final isProductParent = (e.widgetKind == 'product');
+                  final expandedSet = ref.watch(expandedProductsProvider);
+                  final isExpanded = isProductParent && expandedSet.contains(e.id);
+                  Widget parentRow = ListTile(
                     onTap: () {
-                      // Open editor in edit mode based on kind id
+                      if (isProductParent) {
+                        final set = {...expandedSet};
+                        if (isExpanded) {
+                          set.remove(e.id);
+                        } else {
+                          set.add(e.id);
+                        }
+                        ref.read(expandedProductsProvider.notifier).state = set;
+                        return;
+                      }
+                      // Open editor in edit mode based on kind id (non-product)
                       if (e.widgetKind == 'protein') {
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProteinEditorScreen(entryId: e.id)));
                       } else if (e.widgetKind == 'fat') {
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => FatEditorScreen(entryId: e.id)));
                       } else if (e.widgetKind == 'carbohydrate') {
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => CarbohydrateEditorScreen(entryId: e.id)));
+                      } else {
+                        final k = registry.byId(e.widgetKind);
+                        if (k != null) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => GenericNutrientEditorScreen(kind: k, entryId: e.id)),
+                          );
+                        }
                       }
                     },
                     leading: CircleAvatar(
-                      backgroundColor: color,
+                      backgroundColor: isProductParent ? Colors.purple : color,
                       foregroundColor: Colors.white,
-                      child: Icon(icon, size: 18),
+                      child: Icon(isProductParent ? Icons.shopping_basket : icon, size: 18),
                     ),
-                    title: Text('${kind?.displayName ?? e.widgetKind} • ${summary.isEmpty ? '—' : summary}'),
+                    title: Text(
+                      isProductParent
+                          ? _productTitleFromPayload(e)
+                          : '${kind?.displayName ?? e.widgetKind} • ${summary.isEmpty ? '—' : summary}',
+                    ),
                     subtitle: Row(
                       children: [
                         Text(_fmtTime(localTime)),
-                        if (!e.showInCalendar) ...[
+                        if (!isProductParent && !e.showInCalendar) ...[
                           const SizedBox(width: 8),
                           Icon(Icons.event_busy, size: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                           const SizedBox(width: 4),
@@ -793,6 +923,18 @@ class _DayDetailsPanel extends ConsumerWidget {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (isProductParent)
+                          IconButton(
+                            tooltip: 'Edit',
+                            icon: const Icon(Icons.edit_outlined),
+                            onPressed: () async {
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => ProductEditorScreen(entryId: e.id),
+                                ),
+                              );
+                            },
+                          ),
                         IconButton(
                           tooltip: 'Delete',
                           icon: const Icon(Icons.delete_outline),
@@ -801,7 +943,9 @@ class _DayDetailsPanel extends ConsumerWidget {
                               context: context,
                               builder: (ctx) => AlertDialog(
                                 title: const Text('Delete entry?'),
-                                content: const Text('This will remove the entry. You can undo from the snackbar.'),
+                                content: Text(isProductParent
+                                    ? 'This will remove the product entry and its components. You can undo from the snackbar.'
+                                    : 'This will remove the entry. You can undo from the snackbar.'),
                                 actions: [
                                   TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
                                   FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
@@ -809,36 +953,125 @@ class _DayDetailsPanel extends ConsumerWidget {
                               ),
                             );
                             if (confirm != true) return;
-                            // Capture data for undo before deleting
-                            final original = e;
-                            await repo.delete(e.id);
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('Entry deleted'),
-                                action: SnackBarAction(
-                                  label: 'UNDO',
-                                  onPressed: () async {
-                                    final local = DateTime.fromMillisecondsSinceEpoch(original.targetAt, isUtc: true).toLocal();
-                                    try {
-                                      final payload = jsonDecode(original.payloadJson) as Map<String, Object?>;
-                                      await repo.create(
-                                        widgetKind: original.widgetKind,
-                                        targetAtLocal: local,
-                                        payload: payload,
-                                        showInCalendar: original.showInCalendar,
-                                        schemaVersion: original.schemaVersion,
-                                      );
-                                    } catch (_) {}
-                                  },
+                            if (isProductParent) {
+                              // Capture data for undo before deleting
+                              final original = e;
+                              Map<String, Object?> parentPayload = const {};
+                              String? productId;
+                              int grams = 0;
+                              bool staticFlag = false;
+                              try {
+                                final map = jsonDecode(original.payloadJson) as Map<String, dynamic>;
+                                parentPayload = map;
+                                productId = map['product_id'] as String?;
+                                grams = (map['grams'] as num?)?.toInt() ?? 0;
+                              } catch (_) {}
+                              staticFlag = original.isStatic;
+                              final targetLocal = DateTime.fromMillisecondsSinceEpoch(original.targetAt, isUtc: true).toLocal();
+                              final service = ref.read(productServiceProvider);
+                              await ref.read(entriesRepositoryProvider)!.deleteChildrenOfParent(original.id);
+                              await repo.delete(original.id);
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Product deleted'),
+                                  action: SnackBarAction(
+                                    label: 'UNDO',
+                                    onPressed: () async {
+                                      try {
+                                        if (service != null && productId != null && grams > 0) {
+                                          await service.createProductEntry(
+                                            productId: productId!,
+                                            productGrams: grams,
+                                            targetAtLocal: targetLocal,
+                                            isStatic: staticFlag,
+                                          );
+                                        } else {
+                                          // Fallback: recreate only the parent row
+                                          await repo.create(
+                                            widgetKind: original.widgetKind,
+                                            targetAtLocal: targetLocal,
+                                            payload: parentPayload,
+                                            showInCalendar: original.showInCalendar,
+                                            schemaVersion: original.schemaVersion,
+                                          );
+                                        }
+                                      } catch (_) {}
+                                    },
+                                  ),
                                 ),
-                              ),
-                            );
+                              );
+                            } else {
+                              // Single entry delete with simple Undo
+                              final original = e;
+                              await repo.delete(e.id);
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Entry deleted'),
+                                  action: SnackBarAction(
+                                    label: 'UNDO',
+                                    onPressed: () async {
+                                      final local = DateTime.fromMillisecondsSinceEpoch(original.targetAt, isUtc: true).toLocal();
+                                      try {
+                                        final payload = jsonDecode(original.payloadJson) as Map<String, Object?>;
+                                        await repo.create(
+                                          widgetKind: original.widgetKind,
+                                          targetAtLocal: local,
+                                          payload: payload,
+                                          showInCalendar: original.showInCalendar,
+                                          schemaVersion: original.schemaVersion,
+                                        );
+                                      } catch (_) {}
+                                    },
+                                  ),
+                                ),
+                              );
+                            }
                           },
                         ),
-                        const Icon(Icons.chevron_right),
+                        if (isProductParent) ...[
+                          IconButton(
+                            tooltip: 'Edit components (make static)'.toString(),
+                            icon: const Icon(Icons.tune),
+                            onPressed: () async {
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => InstanceComponentsEditorPage(parentEntryId: e.id),
+                                ),
+                              );
+                            },
+                          ),
+                          AnimatedRotation(
+                            turns: isExpanded ? 0.5 : 0.0,
+                            duration: const Duration(milliseconds: 120),
+                            child: const Icon(Icons.expand_more),
+                          )
+                        ] else
+                          const Icon(Icons.chevron_right),
                       ],
                     ),
+                  );
+
+                  if (!isProductParent || !isExpanded) {
+                    return parentRow;
+                  }
+                  // Render expanded children under the product parent
+                  final children = childrenByParent[e.id] ?? const <EntryRecord>[];
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      parentRow,
+                      Padding(
+                        padding: const EdgeInsets.only(left: 52, right: 8, bottom: 8),
+                        child: Column(
+                          children: [
+                            for (final c in children)
+                              _ProductChildRow(entry: c, registry: registry),
+                          ],
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),
@@ -913,6 +1146,41 @@ class _CalendarSheet extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ProductChildRow extends ConsumerWidget {
+  const _ProductChildRow({required this.entry, required this.registry});
+  final EntryRecord entry;
+  final WidgetRegistry registry;
+  String _formatAmount(Map<String, dynamic> map) {
+    final amount = (map['amount'] as num?)?.toInt();
+    final unit = map['unit'] as String?; // optional; we can derive if missing
+    if (amount == null) return '—';
+    if (unit != null) return '$amount $unit';
+    // derive a unit from kind registry when absent
+    final kind = registry.byId(entry.widgetKind);
+    final derived = (kind != null) ? kind.unit : '';
+    return derived.isEmpty ? '$amount' : '$amount $derived';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final kind = registry.byId(entry.widgetKind);
+    final color = kind?.accentColor ?? Theme.of(context).colorScheme.onSurfaceVariant;
+    final icon = kind?.icon ?? Icons.circle;
+    String value = '—';
+    try {
+      final map = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
+      value = _formatAmount(map);
+    } catch (_) {}
+    return ListTile(
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+      leading: CircleAvatar(backgroundColor: color, foregroundColor: Colors.white, child: Icon(icon, size: 16)),
+      title: Text(kind?.displayName ?? entry.widgetKind),
+      trailing: Text(value, style: Theme.of(context).textTheme.bodyMedium),
     );
   }
 }
@@ -1055,6 +1323,15 @@ class BottomControls extends ConsumerWidget {
                   handedness == Handedness.left ? Handedness.right : Handedness.left;
             },
             icon: const Icon(Icons.swap_horiz),
+          ),
+          IconButton(
+            tooltip: 'Products',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ProductTemplatesPage()),
+              );
+            },
+            icon: const Icon(Icons.shopping_basket_outlined),
           ),
           const SizedBox(width: 8),
           Expanded(

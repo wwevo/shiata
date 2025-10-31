@@ -20,6 +20,18 @@ class FatKind extends WidgetKind {
   Color get accentColor => Colors.amber; // yellow accent
 
   @override
+  String get unit => 'g';
+
+  @override
+  int get minValue => 0;
+
+  @override
+  int get maxValue => 300;
+
+  @override
+  bool get defaultShowInCalendar => false;
+
+  @override
   List<CreateAction> createActions(BuildContext context, DateTime targetDate) {
     return [
       CreateAction(

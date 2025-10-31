@@ -1,4 +1,23 @@
 # CHANGELOG.md
+## [0.3.0] - 2025-10-29
+### Added
+- Product templates page (basket icon) with CRUD for products and per‑100g integer components.
+- Dynamic Products section in CAS (side sheet) sourced from repository; newly created products appear instantly.
+- Product instantiation flow: parent (visible, purple) + denormalized child nutrients (hidden in calendar by default) using integer math `amount = (per100g × grams) / 100`.
+- Day Details composition view: expandable product parents list composed nutrients with icons, colors, units.
+- Product parent editing (grams, Static) recalculates children immediately.
+- Template‑change propagation (non‑static instances only) with confirmation and Undo (restores prior component set and re‑propagates).
+- Per‑instance component overrides from Day Details (“Edit components (Static)”) that mark the instance Static and update only that instance’s child amounts.
+- Product template delete → converts existing instances: removes parent rows, keeps nutrient children as standalone entries and sets them visible in the calendar.
+
+### Changed
+- CAS: Products shown first and populated dynamically; Nutrients retain the generic editor flow. Side‑sheet behaviors (width, handedness) preserved.
+- Product editor titles corrected (no more “null — Add”).
+
+### Fixed
+- Product Template Editor list padded so the Add FAB no longer covers the last row.
+- Undo for product parent delete now restores all children correctly.
+
 ## [0.2.0] - 2025-10-29
 ### Added
 - Third basic kind: Carbohydrate (red). Full create/edit flow mirroring Protein/Fat.

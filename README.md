@@ -48,6 +48,12 @@ This app’s layout/interaction is driven by a centralized configuration in `lib
 - Middle modes: `MainList`, `WidgetDetail(widgetId)`, `SearchResults(query)`.
 - Keep the top sheet mounted; switch/push the Middle content. If multiple widgets on a day, show a small chooser.
 
+## What’s new in 0.3.0
+- Product templates (CRUD) with per‑100g integer components; Products page (basket icon).
+- Dynamic Products section in CAS; create instances from templates; day‑details expansion shows composed nutrients.
+- Edit product instances (grams, Static), delete with Undo; template‑change propagation for non‑static instances with Undo; per‑instance overrides (make Static).
+- Template deletion converts instances: removes parents, keeps child nutrients visible.
+
 ## What’s new in 0.2.0
 - Three macronutrient kinds are available: Protein (indigo), Fat (amber), Carbohydrate (red).
 - Create/Edit editors for each kind with grams, date/time picker, and "Show in calendar" toggle.

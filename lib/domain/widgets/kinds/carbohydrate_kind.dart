@@ -20,6 +20,18 @@ class CarbohydrateKind extends WidgetKind {
   Color get accentColor => Colors.red; // red accent as requested
 
   @override
+  String get unit => 'g';
+
+  @override
+  int get minValue => 0;
+
+  @override
+  int get maxValue => 400;
+
+  @override
+  bool get defaultShowInCalendar => false;
+
+  @override
   List<CreateAction> createActions(BuildContext context, DateTime targetDate) {
     return [
       CreateAction(

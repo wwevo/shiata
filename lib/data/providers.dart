@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'db/db_handle.dart';
 import 'db/raw_db.dart';
 import 'repo/entries_repository.dart';
+import 'repo/products_repository.dart';
 
 /// Provides an [AppDb] instance when the low-level [QueryExecutor] is available.
 final appDbProvider = Provider<AppDb?>((ref) {
@@ -35,4 +36,10 @@ final entriesRepositoryProvider = Provider<EntriesRepository?>((ref) {
   if (db == null) return null;
   final repo = EntriesRepository(db: db);
   return repo;
+});
+
+final productsRepositoryProvider = Provider<ProductsRepository?>((ref) {
+  final db = ref.watch(appDbProvider);
+  if (db == null) return null;
+  return ProductsRepository(db: db);
 });
