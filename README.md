@@ -2,6 +2,31 @@
 
 Superior health insights and tracking app
 
+## What’s new in 0.4.0
+- Database-backed Kinds; dynamic `WidgetRegistry` sourced from DB (no hardcoded seeds at runtime).
+- Kinds Manager (list/create/edit/delete) with unit picker, min/max, icon/color, default calendar visibility.
+- Safe Kind deletion with usage-aware dialog and Undo (removes from templates and/or deletes direct instances).
+- Import/Export v1 bundle now includes `entries` in addition to `kinds` and `products`.
+- One‑tap Backup/Restore (single slot): writes/reads `backup.json` in the app documents folder.
+- Temporary “Wipe DB” action in the bottom bar More (⋮) menu (for testing).
+
+### Managing kinds and products
+- Kinds: Bottom bar → Kinds → “+” to create. Fields: id, name, unit (`g`,`mg`,`ug`,`mL`), min/max (integers), optional icon name and ARGB color, default Show in calendar.
+- Products: Bottom bar → Products → “+” to create → add components (per‑100g integer coefficients) using existing kinds.
+- CAS/Create: Once at least one kind exists, use the Add button to create direct nutrient entries or instantiate a product.
+
+### Backup and Restore (single slot)
+- Bottom bar → More (⋮) → Backup (single slot): saves a full JSON bundle (kinds, products, components, entries) to `backup.json` in the app’s documents directory.
+- Bottom bar → More (⋮) → Restore (single slot): wipes current data and restores from `backup.json`.
+
+### Import and Export (JSON)
+- Kinds/Products pages have an AppBar menu with Export/Import.
+- Export shows a pretty‑printed JSON bundle (version 1) that you can copy to clipboard.
+- Import is destructive by design: it wipes existing data, then imports `kinds` → `products`+`components` → `entries`.
+
+### Wipe DB (temporary)
+- Bottom bar → More (⋮) → Wipe DB (temporary). Deletes the local DB file and reboots with demo bootstrap if tables are empty. Intended for testing only.
+
 ## UX Configuration Outline
 
 This app’s layout/interaction is driven by a centralized configuration in `lib/ui/ux_config.dart`. All knobs are grouped and documented for fast tuning without touching UI code. The `uxConfigProvider` (Riverpod) exposes the active config, so you can override it or A/B test presets.

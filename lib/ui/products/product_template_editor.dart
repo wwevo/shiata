@@ -72,18 +72,20 @@ class _ProductTemplateEditorPageState extends ConsumerState<ProductTemplateEdito
           action: SnackBarAction(
             label: 'UNDO',
             onPressed: () async {
+              // Capture messenger before any awaits to avoid using context across async gaps
+              final messenger = ScaffoldMessenger.of(context);
               // Restore old components and re-propagate
               await repo.setComponents(widget.productId, old);
               await svc.updateAllEntriesForProductToCurrentFormula(widget.productId);
-              if (mounted) {
-                await _load();
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reverted template changes')));
-              }
+              if (!mounted) return;
+              await _load();
+              messenger.showSnackBar(const SnackBar(content: Text('Reverted template changes')));
             },
           ),
         ),
       );
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved template')));
     }
   }
@@ -134,7 +136,7 @@ class _ProductTemplateEditorPageState extends ConsumerState<ProductTemplateEdito
               : ListView.separated(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: _components.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (ctx, i) {
                     final c = _components[i];
                     final kind = ref.read(widgetRegistryProvider).byId(c.kindId);
@@ -224,7 +226,7 @@ class _AddComponentDialogState extends State<_AddComponentDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           DropdownButtonFormField<WidgetKind>(
-            value: _selected,
+            initialValue: _selected,
             items: [
               for (final k in widget.kinds)
                 DropdownMenuItem(value: k, child: Text(k.displayName)),

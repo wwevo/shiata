@@ -1,4 +1,31 @@
 # CHANGELOG.md
+## [0.4.0] - 2025-10-31
+### Added
+- Database-backed Kinds with live `WidgetRegistry` (no hardcoded seeds at runtime).
+- Kinds Manager UI (list/create/edit/delete) with unit picker, min/max, icon/color fields.
+- Safe Kind deletion with usage-aware dialog and Undo:
+  - Remove from product templates and update existing entries.
+  - Delete direct calendar instances of the kind.
+- Import/Export v1 (JSON) now includes `entries` alongside `kinds` and `products`.
+- One‑tap backup/restore (single slot) stored as `backup.json` in the app documents folder.
+- Temporary "Wipe DB" action (debug/dev) to reset local database.
+
+### Changed
+- App now boots with DB-driven kinds/products only. Demo bootstrap runs once on fresh, empty tables; existing data is never overwritten.
+- `widgetRegistryProvider` builds from DB kinds via `DbBackedKind` adapter.
+- Import is intentionally destructive by design (per request): it wipes current data before applying the bundle.
+
+### Implementation
+- New services/repo helpers:
+  - `KindsRepository`, `ProductsRepository`, `EntriesRepository` expanded for dump/import and usage checks.
+  - `KindService` orchestrates deletion + Undo and re-propagation of affected products.
+  - `ImportExportService` exports/imports bundles and provides single-slot backup/restore.
+- DB lifecycle handled by `DbLifecycleObserver` + `DbHandle`; added helper to resolve DB path for wipe/backup.
+
+### Notes
+- Icon name resolution has safe fallbacks; unknown names fall back to a generic icon.
+- All nutrient values are integers; units are canonical (`g`, `mg`, `ug`, `mL`).
+
 ## [0.3.0] - 2025-10-29
 ### Added
 - Product templates page (basket icon) with CRUD for products and per‑100g integer components.

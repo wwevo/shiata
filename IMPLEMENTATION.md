@@ -240,3 +240,98 @@ If this step order looks good, say “go” and we’ll begin implementing Step 
 ### UXConfig additions
 - `ActionSheetPresentation` and `SideSheetConfig` added to `UXConfig` with sensible defaults (`side` by default).
 - See README for quick-tuning examples.
+
+
+---
+
+## 0.4.0 Implementation Notes (since 0.3.0)
+
+### Schema and bootstrap
+- New `kinds` table: `id TEXT PK`, `name TEXT`, `unit TEXT`, `color INTEGER?`, `icon TEXT?`, `min INTEGER`, `max INTEGER`, `default_show_in_calendar INTEGER(0/1)`.
+- Existing tables retained: `entries`, `products`, `product_components`.
+- Bootstrap policy (fresh installs only): demo rows are inserted only when each table is empty. Existing databases are never overwritten.
+- Indexes: retained from previous versions (entries by `target_at`, `widget_kind+target_at`, `show_in_calendar+target_at`, `product_id`).
+
+### Repositories and services
+- `KindsRepository`
+  - CRUD for kinds; `watchKinds()` stream.
+  - `dumpKinds()` for export.
+- `ProductsRepository`
+  - Product CRUD; components CRUD (`setComponents`, `getComponents`).
+  - Helpers to query usage: `listProductsUsingKind(kindId)`, `listProductComponentsByKind(kindId)`.
+  - `dumpProductsWithComponents()` for export (components emitted as `{ kindId, per100 }`).
+- `EntriesRepository`
+  - Core CRUD/streams unchanged; added helpers for import/undo and usage:
+    - `dumpEntries()`; `insertRawEntries(list)`; `deleteEntriesByIds(ids)`; `listDirectEntriesByKind(kindId)`.
+- `ProductService`
+  - Parent+children creation; recomputation for template changes; non‑static propagation.
+- NEW `KindService`
+  - `getUsage(kindId) → KindUsage` (products using + count of direct entries).
+  - `deleteKindWithSideEffects(kindId, removeFromProducts, deleteDirectEntries)`:
+    - Snapshots Kind + related `product_components` + direct `entries`.
+    - Deletes selected dependents and the kind inside a transaction.
+    - Re‑propagates affected products (sequentially) to update existing entries when templates changed.
+    - Returns a snapshot for Undo.
+  - `undoKindDeletion(snapshot)` restores kind, components, and direct entries; re‑propagates products.
+
+### Runtime adaptation and registry
+- `DbBackedKind` adapts a `KindDef` row to the `WidgetKind` contract (icon/color/unit/min/max/default‑calendar).
+- `widgetRegistryProvider` now builds a `WidgetRegistry` from `kindsListProvider` (stream). Unknown icon names fall back to a safe Material icon.
+- Middle actions (CAS list) and editors read exclusively from the registry; newly added kinds become available instantly.
+
+### Import/Export + Backup/Restore
+- Bundle schema (version 1):
+  ```json
+  {
+    "version": 1,
+    "kinds": [
+      {"id":"protein","name":"Protein","unit":"g","color":4283215695,"icon":"fitness_center","min":0,"max":300,"defaultShowInCalendar":false}
+    ],
+    "products": [
+      {"id":"egg","name":"Egg","components":[{"kindId":"protein","per100":13}]}
+    ],
+    "entries": [
+      {
+        "id":"...",
+        "widget_kind":"protein",
+        "created_at":0,
+        "target_at":0,
+        "show_in_calendar":1,
+        "payload_json":"{\"amount\":30,\"unit\":\"g\"}",
+        "schema_version":1,
+        "updated_at":0,
+        "source_event_id":null,
+        "source_entry_id":null,
+        "source_widget_kind":null,
+        "product_id":null,
+        "product_grams":null,
+        "is_static":0
+      }
+    ]
+  }
+  ```
+- `ImportExportService.exportBundle()` dumps all three sections.
+- `ImportExportService.importBundle(json)` is destructive by design: wipes `entries` → `product_components` → `products` → `kinds`, then imports kinds → products+components → entries. No validations or partials (per product decision for 0.4.0).
+- Single‑slot Backup/Restore:
+  - `backupToFile()` writes the bundle to `backup.json` in the app’s documents directory.
+  - `restoreFromFile()` reads `backup.json` and calls `importBundle(...)` (destructive).
+
+### UI wiring
+- Kinds Manager page: list with Edit/Delete; Add opens a dialog (id/name/unit/min/max/default/icon/color).
+- Delete flow is usage‑aware with two options (remove from product templates; delete direct calendar instances) and offers Undo via `SnackBar`.
+- Products page and editor unchanged functionally; use DB kinds for components.
+- Import/Export actions are available on both Kinds and Products pages. Backup/Restore and temporary Wipe DB are in the bottom bar (More ⋮ menu).
+
+### DB lifecycle
+- `DbLifecycleObserver` opens DB on `resumed` and closes on `paused/detached`.
+- `DbHandle` manages `QueryExecutor`, exposes `wipeDb()` (testing only) and uses `appDbPath()` helper for path resolution.
+
+### Constraints and policies
+- Integers only for nutrient values; canonical units: `g`, `mg`, `ug`, `mL`.
+- Import is destructive and assumes correct data; no sanity checks in 0.4.0.
+- Seeds exist only for first‑run bootstrap on empty tables.
+
+### Files of interest
+- Data layer: `lib/data/db/raw_db.dart`, `lib/data/db/db_handle.dart`, `lib/data/db/db_open.dart`.
+- Repos/Services: `lib/data/repo/kinds_repository.dart`, `products_repository.dart`, `entries_repository.dart`, `product_service.dart`, `kind_service.dart`, `import_export_service.dart`.
+- UI: `lib/ui/kinds/kinds_page.dart`, `lib/ui/products/product_templates_page.dart`, `lib/ui/main_screen.dart`, `lib/ui/main_actions_list.dart`, editors under `lib/ui/editors/*`.

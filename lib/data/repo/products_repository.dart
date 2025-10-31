@@ -41,6 +41,67 @@ class ProductsRepository {
     if (!_changes.isClosed) _changes.add(null);
   }
 
+  /// Dump products with embedded components for export.
+  Future<List<Map<String, Object?>>> dumpProductsWithComponents() async {
+    final list = await listProducts(onlyActive: false);
+    final out = <Map<String, Object?>>[];
+    for (final p in list) {
+      final comps = await getComponents(p.id);
+      out.add({
+        'id': p.id,
+        'name': p.name,
+        'components': [
+          for (final c in comps)
+            {
+              'kindId': c.kindId,
+              'per100': c.amountPerGram,
+            }
+        ]
+      });
+    }
+    return out;
+  }
+
+  /// List products that reference a given kind via product_components.
+  Future<List<ProductDef>> listProductsUsingKind(String kindId) async {
+    await _ready;
+    final rows = await db.customSelect(
+      'SELECT p.* FROM products p INNER JOIN product_components pc ON pc.product_id = p.id WHERE pc.kind_id = ? GROUP BY p.id ORDER BY p.name ASC;',
+      variables: [Variable.withString(kindId)],
+      readsFrom: const {},
+    ).get();
+    return rows.map((r) {
+      final d = r.data;
+      return ProductDef(
+        id: d['id'] as String,
+        name: d['name'] as String,
+        createdAt: d['created_at'] as int,
+        updatedAt: d['updated_at'] as int,
+        isActive: (d['is_active'] as int) != 0,
+        icon: d['icon'] as String?,
+        color: d['color'] as int?,
+      );
+    }).toList();
+  }
+
+  /// List all product_components rows that reference a given kind.
+  Future<List<ProductComponent>> listProductComponentsByKind(String kindId) async {
+    await _ready;
+    final rows = await db.customSelect(
+      'SELECT * FROM product_components WHERE kind_id = ?;',
+      variables: [Variable.withString(kindId)],
+      readsFrom: const {},
+    ).get();
+    return rows.map((r) {
+      final d = r.data;
+      return ProductComponent(
+        productId: d['product_id'] as String,
+        kindId: d['kind_id'] as String,
+        amountPerGram: d['amount_per_gram'] as int,
+      );
+    }).toList();
+  }
+
   Future<void> upsertProduct(ProductDef p) async {
     await _ready;
     await db.customStatement(

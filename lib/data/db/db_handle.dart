@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'dart:io';
+
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,6 +53,26 @@ class DbHandle extends AsyncNotifier<QueryExecutor?> {
       state = const AsyncData(null);
       debugPrint('[DB] Closed encrypted database');
     }
+  }
+
+  /// Danger: Wipes the local DB file. Use for testing only.
+  Future<void> wipeDb({String dbFileName = 'app.db'}) async {
+    debugPrint('[DB][WIPE] Requested wipe');
+    await closeDb();
+    try {
+      final path = await appDbPath(dbFileName: dbFileName);
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+        debugPrint('[DB][WIPE] Deleted DB file at $path');
+      } else {
+        debugPrint('[DB][WIPE] DB file not found at $path');
+      }
+    } catch (e) {
+      debugPrint('[DB][WIPE][ERROR] $e');
+      rethrow;
+    }
+    await openDb();
   }
 }
 

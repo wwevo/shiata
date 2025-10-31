@@ -1,11 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/repo/product_service.dart';
 import '../../data/providers.dart';
-import '../../data/repo/entries_repository.dart';
-import '../../data/repo/products_repository.dart';
-import 'dart:convert';
+import '../../data/repo/product_service.dart';
 
 class ProductEditorScreen extends ConsumerStatefulWidget {
   const ProductEditorScreen({super.key, this.entryId, this.productId, this.productName, this.defaultGrams = 100, this.initialTargetAt});

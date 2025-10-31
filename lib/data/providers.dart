@@ -7,6 +7,7 @@ import 'db/db_handle.dart';
 import 'db/raw_db.dart';
 import 'repo/entries_repository.dart';
 import 'repo/products_repository.dart';
+import 'repo/kinds_repository.dart';
 
 /// Provides an [AppDb] instance when the low-level [QueryExecutor] is available.
 final appDbProvider = Provider<AppDb?>((ref) {
@@ -42,4 +43,21 @@ final productsRepositoryProvider = Provider<ProductsRepository?>((ref) {
   final db = ref.watch(appDbProvider);
   if (db == null) return null;
   return ProductsRepository(db: db);
+});
+
+final kindsRepositoryProvider = Provider<KindsRepository?>((ref) {
+  final db = ref.watch(appDbProvider);
+  if (db == null) return null;
+  return KindsRepository(db: db);
+});
+
+final kindsListProvider = StreamProvider<List<KindDef>>((ref) async* {
+  final repo = ref.watch(kindsRepositoryProvider);
+  if (repo == null) {
+    yield const <KindDef>[];
+    return;
+  }
+  await for (final list in repo.watchKinds()) {
+    yield list;
+  }
 });

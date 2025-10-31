@@ -1,10 +1,99 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../data/repo/products_repository.dart';
 import '../../data/repo/product_service.dart';
+import '../../data/repo/import_export_service.dart';
 import 'product_template_editor.dart';
+
+Future<void> _exportJsonProducts(BuildContext context, WidgetRef ref) async {
+  final svc = ref.read(importExportServiceProvider);
+  if (svc == null) return;
+  try {
+    final bundle = await svc.exportBundle();
+    final encoder = const JsonEncoder.withIndent('  ');
+    final text = encoder.convert(bundle);
+    if (!context.mounted) return;
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Export (JSON)'),
+        content: SizedBox(
+          width: 600,
+          child: SingleChildScrollView(child: SelectableText(text)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: text));
+              if (ctx.mounted) Navigator.of(ctx).pop();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied to clipboard')));
+              }
+            },
+            child: const Text('Copy'),
+          ),
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close')),
+        ],
+      ),
+    );
+  } catch (e) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+  }
+}
+
+Future<void> _importJsonProducts(BuildContext context, WidgetRef ref) async {
+  final svc = ref.read(importExportServiceProvider);
+  if (svc == null) return;
+  final controller = TextEditingController();
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Import (JSON)'),
+      content: SizedBox(
+        width: 600,
+        child: TextField(
+          controller: controller,
+          maxLines: 16,
+          decoration: const InputDecoration(hintText: '{"version":1, ...}'),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Continue')),
+      ],
+    ),
+  );
+  if (confirmed != true) return;
+  try {
+    final result = await svc.importBundle(controller.text);
+    if (!context.mounted) return;
+    final msg = 'Imported: ${result.kindsUpserted} kinds, ${result.productsUpserted} products, ${result.componentsWritten} components${result.warnings.isEmpty ? '' : '\nWarnings: ${result.warnings.length}'}';
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Import result'),
+        content: SizedBox(
+          width: 600,
+          child: SingleChildScrollView(
+            child: Text(result.warnings.isEmpty ? msg : ('$msg\n\n${result.warnings.join('\n')}')),
+          ),
+        ),
+        actions: [
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('OK')),
+        ],
+      ),
+    );
+  } catch (e) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Import failed: $e')));
+  }
+}
 
 class ProductTemplatesPage extends ConsumerWidget {
   const ProductTemplatesPage({super.key});
@@ -22,6 +111,7 @@ class ProductTemplatesPage extends ConsumerWidget {
               if (repo == null) return;
               final id = await _askForId(context);
               if (id == null || id.trim().isEmpty) return;
+              if (!context.mounted) return;
               final name = await _askForName(context, suggestion: _titleCase(id.replaceAll('_', ' ')));
               if (name == null || name.trim().isEmpty) return;
               final now = DateTime.now().toUtc().millisecondsSinceEpoch;
@@ -33,6 +123,22 @@ class ProductTemplatesPage extends ConsumerWidget {
               }
             },
             icon: const Icon(Icons.add),
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) async {
+              switch (value) {
+                case 'export':
+                  await _exportJsonProducts(context, ref);
+                  break;
+                case 'import':
+                  await _importJsonProducts(context, ref);
+                  break;
+              }
+            },
+            itemBuilder: (ctx) => const [
+              PopupMenuItem(value: 'export', child: Text('Export (JSON)')),
+              PopupMenuItem(value: 'import', child: Text('Import (JSON)')),
+            ],
           )
         ],
       ),
@@ -47,7 +153,7 @@ class ProductTemplatesPage extends ConsumerWidget {
                 }
                 return ListView.separated(
                   itemCount: list.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (ctx, i) {
                     final p = list[i];
                     return ListTile(

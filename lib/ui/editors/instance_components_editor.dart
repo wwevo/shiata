@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
-import '../../domain/widgets/widget_kind.dart';
 
 class InstanceComponentsEditorPage extends ConsumerStatefulWidget {
   const InstanceComponentsEditorPage({super.key, required this.parentEntryId});
@@ -100,7 +99,7 @@ class _InstanceComponentsEditorPageState extends ConsumerState<InstanceComponent
           : ListView.separated(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               itemCount: _children.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (ctx, i) {
                 final e = _children[i];
                 final kind = registry.byId(e.widgetKind);

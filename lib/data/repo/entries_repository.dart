@@ -87,6 +87,51 @@ class EntriesRepository {
     if (!_changes.isClosed) _changes.add(null);
   }
 
+  /// Dump all entries as raw DB rows for backup/export.
+  Future<List<Map<String, Object?>>> dumpEntries() async {
+    await _ready;
+    final rows = await db.customSelect('SELECT * FROM entries ORDER BY created_at ASC;').get();
+    return rows.map((r) => r.data).toList(growable: false);
+  }
+
+  /// List entries that directly represent a kind (not children of a product and not product parents).
+  Future<List<EntryRecord>> listDirectEntriesByKind(String kindId) async {
+    await _ready;
+    final rows = await db.customSelect(
+      "SELECT * FROM entries WHERE widget_kind = ? AND source_entry_id IS NULL AND product_id IS NULL;",
+      variables: [Variable.withString(kindId)],
+      readsFrom: const {},
+    ).get();
+    return rows.map((r) => EntryRecord.fromDb(r.data)).toList();
+  }
+
+  /// Delete entries by ids in a transaction.
+  Future<void> deleteEntriesByIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    await _ready;
+    await db.transaction(() async {
+      for (final id in ids) {
+        await db.customStatement('DELETE FROM entries WHERE id = ?;', [id]);
+      }
+    });
+    _notify();
+  }
+
+  /// Insert raw entry records (used for undo). Assumes ids are unique.
+  Future<void> insertRawEntries(List<EntryRecord> entriesToInsert) async {
+    if (entriesToInsert.isEmpty) return;
+    await _ready;
+    await db.transaction(() async {
+      for (final rec in entriesToInsert) {
+        final map = rec.toDb();
+        final cols = map.keys.join(', ');
+        final placeholders = List.filled(map.length, '?').join(', ');
+        await db.customStatement('INSERT OR REPLACE INTO entries ($cols) VALUES ($placeholders);', map.values.toList());
+      }
+    });
+    _notify();
+  }
+
   Future<EntryRecord> create({
     required String widgetKind,
     required DateTime targetAtLocal,

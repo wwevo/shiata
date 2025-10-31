@@ -3,6 +3,7 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import '../data/repo/import_export_service.dart';
 import 'ux_config.dart';
 import 'editors/protein_editor.dart';
 import 'editors/fat_editor.dart';
@@ -11,8 +12,10 @@ import 'editors/generic_nutrient_editor.dart';
 import 'main_actions_list.dart';
 import 'editors/product_editor.dart';
 import 'products/product_templates_page.dart';
+import 'kinds/kinds_page.dart';
 import 'editors/instance_components_editor.dart';
 import '../data/providers.dart';
+import '../data/db/db_handle.dart';
 import '../domain/widgets/registry.dart';
 import '../domain/widgets/widget_kind.dart';
 import '../domain/widgets/create_action.dart';
@@ -981,7 +984,7 @@ class _DayDetailsPanel extends ConsumerWidget {
                                       try {
                                         if (service != null && productId != null && grams > 0) {
                                           await service.createProductEntry(
-                                            productId: productId!,
+                                            productId: productId,
                                             productGrams: grams,
                                             targetAtLocal: targetLocal,
                                             isStatic: staticFlag,
@@ -1333,6 +1336,15 @@ class BottomControls extends ConsumerWidget {
             },
             icon: const Icon(Icons.shopping_basket_outlined),
           ),
+          IconButton(
+            tooltip: 'Kinds',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const KindsPage()),
+              );
+            },
+            icon: const Icon(Icons.category_outlined),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: TextField(
@@ -1353,6 +1365,99 @@ class BottomControls extends ConsumerWidget {
               ref.read(middleModeProvider.notifier).state = q.trim().isEmpty ? MiddleMode.main : MiddleMode.search;
             },
             icon: const Icon(Icons.search),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'More',
+            onSelected: (value) async {
+              switch (value) {
+                case 'backup_single':
+                  try {
+                    final svc = ref.read(importExportServiceProvider);
+                    if (svc == null) break;
+                    final path = await svc.backupToFile();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup saved to ${path.split('/').last}')));
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup failed: $e')));
+                    }
+                  }
+                  break;
+                case 'restore_single':
+                  final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Restore backup?'),
+                          content: const Text('This will wipe current data and restore from the single-slot backup.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                            FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Restore')),
+                          ],
+                        ),
+                      ) ??
+                      false;
+                  if (confirm != true) return;
+                  if (!context.mounted) return;
+                  try {
+                    final svc = ref.read(importExportServiceProvider);
+                    if (svc == null) break;
+                    final path = await svc.restoreFromFile();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Restored from ${path.split('/').last}')));
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Restore failed: $e')));
+                    }
+                  }
+                  break;
+                case 'wipe_db':
+                  final first = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Wipe database?'),
+                          content: const Text('This will delete all local data and restart with bootstrap demo data.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                            FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Continue')),
+                          ],
+                        ),
+                      ) ??
+                      false;
+                  if (first != true) return;
+                  if (!context.mounted) return;
+                  final second = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Are you absolutely sure?'),
+                          content: const Text('Wiping the DB cannot be undone. Proceed?'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('No')),
+                            FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Yes, wipe')),
+                          ],
+                        ),
+                      ) ??
+                      false;
+                  if (second != true) return;
+                  try {
+                    await ref.read(dbHandleProvider.notifier).wipeDb();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Database wiped')));
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to wipe DB: $e')));
+                    }
+                  }
+                  break;
+              }
+            },
+            itemBuilder: (ctx) => const [
+              PopupMenuItem(value: 'backup_single', child: Text('Backup (single slot)')),
+              PopupMenuItem(value: 'restore_single', child: Text('Restore (single slot)')),
+              PopupMenuItem(value: 'wipe_db', child: Text('Wipe DB (temporary)')),
+            ],
           ),
         ],
       ),
