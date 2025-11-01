@@ -31,6 +31,9 @@ class DbBackedKind extends WidgetKind {
   String get unit => def.unit;
 
   @override
+  int get precision => def.precision;
+
+  @override
   int get minValue => def.min;
 
   @override

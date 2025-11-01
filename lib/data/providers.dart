@@ -8,6 +8,8 @@ import 'db/raw_db.dart';
 import 'repo/entries_repository.dart';
 import 'repo/products_repository.dart';
 import 'repo/kinds_repository.dart';
+import 'repo/recipes_repository.dart';
+import 'repo/recipe_service.dart';
 
 /// Provides an [AppDb] instance when the low-level [QueryExecutor] is available.
 final appDbProvider = Provider<AppDb?>((ref) {
@@ -60,4 +62,10 @@ final kindsListProvider = StreamProvider<List<KindDef>>((ref) async* {
   await for (final list in repo.watchKinds()) {
     yield list;
   }
+});
+
+final recipesRepositoryProvider = Provider<RecipesRepository?>((ref) {
+  final db = ref.watch(appDbProvider);
+  if (db == null) return null;
+  return RecipesRepository(db: db);
 });

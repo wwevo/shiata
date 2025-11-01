@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import '../data/repo/import_export_service.dart';
+import '../data/repo/recipe_service.dart';
 import 'ux_config.dart';
 import 'editors/protein_editor.dart';
 import 'editors/fat_editor.dart';
@@ -13,6 +14,7 @@ import 'main_actions_list.dart';
 import 'editors/product_editor.dart';
 import 'products/product_templates_page.dart';
 import 'kinds/kinds_page.dart';
+import 'recipes/recipes_page.dart';
 import 'editors/instance_components_editor.dart';
 import '../data/providers.dart';
 import '../data/db/db_handle.dart';
@@ -519,7 +521,7 @@ class _MonthCalendar extends ConsumerWidget {
 }
 
 class _AdHocKind extends WidgetKind {
-  const _AdHocKind({required this.id, required this.displayName, required this.icon, required this.accentColor, required this.unit, required this.minValue, required this.maxValue, required this.defaultShowInCalendar});
+  const _AdHocKind({required this.id, required this.displayName, required this.icon, required this.accentColor, required this.unit, this.precision = 0, required this.minValue, required this.maxValue, required this.defaultShowInCalendar});
   @override
   final String id;
   @override
@@ -530,6 +532,8 @@ class _AdHocKind extends WidgetKind {
   final Color accentColor;
   @override
   final String unit;
+  @override
+  final int precision;
   @override
   final int minValue;
   @override
@@ -582,6 +586,48 @@ class CreateActionSheetContent extends ConsumerWidget {
                 const Divider(height: 16),
                 const SizedBox(height: 8),
               ],
+              // Recipes section
+              Builder(builder: (ctx) {
+                final recipesRepo = ref.watch(recipesRepositoryProvider);
+                final recipeSvc = ref.watch(recipeServiceProvider);
+                if (recipesRepo == null || recipeSvc == null) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Recipes', style: Theme.of(context).textTheme.labelLarge),
+                    const SizedBox(height: 8),
+                    StreamBuilder(
+                      stream: recipesRepo.watchRecipes(),
+                      builder: (context, snapshot) {
+                        final list = snapshot.data ?? const [];
+                        if (list.isEmpty) {
+                          return Text('No recipes yet', style: Theme.of(context).textTheme.bodySmall);
+                        }
+                        return Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final r in list)
+                              ActionChip(
+                                label: Text(r.name),
+                                avatar: const CircleAvatar(backgroundColor: Colors.brown, foregroundColor: Colors.white, child: Icon(Icons.restaurant_menu, size: 16)),
+                                onPressed: () async {
+                                  await showDialog(
+                                    context: context,
+                                    builder: (ctx) => RecipeInstantiateDialog(recipeId: r.id, initialTarget: targetDate),
+                                  );
+                                },
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(height: 16),
+                    const SizedBox(height: 8),
+                  ],
+                );
+              }),
               Text('Nutrients', style: Theme.of(context).textTheme.labelLarge),
               const SizedBox(height: 8),
               LayoutBuilder(
@@ -747,6 +793,16 @@ class _DayDetailsPanel extends ConsumerWidget {
     }
   }
 
+  String _recipeTitleFromPayload(EntryRecord e) {
+    try {
+      final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
+      final name = (map['name'] as String?) ?? 'Recipe';
+      return name;
+    } catch (_) {
+      return 'Recipe';
+    }
+  }
+
   String _fmtTime(DateTime dt) {
     final h = dt.hour.toString().padLeft(2, '0');
     final m = dt.minute.toString().padLeft(2, '0');
@@ -778,11 +834,11 @@ class _DayDetailsPanel extends ConsumerWidget {
       stream: repo.watchByDay(selected),
       builder: (context, snapshot) {
         final all = snapshot.data ?? const <EntryRecord>[];
-        // Partition into parents/standalone and product-children
-        final entries = all.where((e) => e.sourceWidgetKind != 'product').toList();
+        // Parents/standalone are entries without a source; children have a source_entry_id
+        final entries = all.where((e) => e.sourceEntryId == null).toList();
         final childrenByParent = <String, List<EntryRecord>>{};
         for (final c in all) {
-          if (c.sourceWidgetKind == 'product' && c.sourceEntryId != null) {
+          if (c.sourceEntryId != null) {
             (childrenByParent[c.sourceEntryId!] ??= []).add(c);
           }
         }
@@ -863,7 +919,21 @@ class _DayDetailsPanel extends ConsumerWidget {
                   final localTime = DateTime.fromMillisecondsSinceEpoch(e.targetAt, isUtc: true).toLocal();
                   final kind = registry.byId(e.widgetKind);
                   final color = kind?.accentColor ?? Theme.of(context).colorScheme.primary;
-                  final icon = kind?.icon ?? Icons.circle;
+                  IconData icon;
+                  Color bg;
+                  if (e.widgetKind == 'product') {
+                    icon = Icons.shopping_basket;
+                    bg = Colors.purple;
+                  } else if (e.widgetKind == 'recipe') {
+                    icon = Icons.restaurant_menu;
+                    bg = Colors.brown;
+                  } else {
+                    icon = kind?.icon ?? Icons.circle;
+                    bg = kind?.accentColor ?? Theme.of(context).colorScheme.primary;
+                  }
+                  final isRecipeParent = (e.widgetKind == 'recipe');
+                  final isProductParent = (e.widgetKind == 'product');
+                  final isParent = isRecipeParent || isProductParent;
                   // Derive short summary from payload
                   String summary = '';
                   try {
@@ -871,12 +941,12 @@ class _DayDetailsPanel extends ConsumerWidget {
                     final grams = (map['grams'] as num?)?.toInt();
                     if (grams != null) summary = '$grams g';
                   } catch (_) {}
-                  final isProductParent = (e.widgetKind == 'product');
+
                   final expandedSet = ref.watch(expandedProductsProvider);
-                  final isExpanded = isProductParent && expandedSet.contains(e.id);
+                  final isExpanded = isParent && expandedSet.contains(e.id);
                   Widget parentRow = ListTile(
                     onTap: () {
-                      if (isProductParent) {
+                      if (isParent) {
                         final set = {...expandedSet};
                         if (isExpanded) {
                           set.remove(e.id);
@@ -886,7 +956,7 @@ class _DayDetailsPanel extends ConsumerWidget {
                         ref.read(expandedProductsProvider.notifier).state = set;
                         return;
                       }
-                      // Open editor in edit mode based on kind id (non-product)
+                      // Open editor in edit mode based on kind id (non-parent)
                       if (e.widgetKind == 'protein') {
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProteinEditorScreen(entryId: e.id)));
                       } else if (e.widgetKind == 'fat') {
@@ -903,14 +973,16 @@ class _DayDetailsPanel extends ConsumerWidget {
                       }
                     },
                     leading: CircleAvatar(
-                      backgroundColor: isProductParent ? Colors.purple : color,
+                      backgroundColor: bg,
                       foregroundColor: Colors.white,
-                      child: Icon(isProductParent ? Icons.shopping_basket : icon, size: 18),
+                      child: Icon(icon, size: 18),
                     ),
                     title: Text(
                       isProductParent
                           ? _productTitleFromPayload(e)
-                          : '${kind?.displayName ?? e.widgetKind} • ${summary.isEmpty ? '—' : summary}',
+                          : isRecipeParent
+                              ? _recipeTitleFromPayload(e)
+                              : '${kind?.displayName ?? e.widgetKind} • ${summary.isEmpty ? '—' : summary}',
                     ),
                     subtitle: Row(
                       children: [
@@ -1004,6 +1076,60 @@ class _DayDetailsPanel extends ConsumerWidget {
                                   ),
                                 ),
                               );
+                            } else if (isRecipeParent) {
+                              // Snapshot overrides for Undo
+                              String recipeId = '';
+                              try {
+                                final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
+                                recipeId = (map['recipe_id'] as String?) ?? '';
+                              } catch (_) {}
+                              final kindOverrides = <String, double>{};
+                              final productOverrides = <String, int>{};
+                              final directChildren = childrenByParent[e.id] ?? const <EntryRecord>[];
+                              for (final c in directChildren) {
+                                if (c.widgetKind == 'product') {
+                                  try {
+                                    final pm = jsonDecode(c.payloadJson) as Map<String, dynamic>;
+                                    final grams = (pm['grams'] as num?)?.toInt();
+                                    if (grams != null) productOverrides[(pm['product_id'] as String?) ?? c.id] = grams;
+                                  } catch (_) {}
+                                  // Also delete grandchildren (nutrients under this product)
+                                  await repo.deleteChildrenOfParent(c.id);
+                                  await repo.delete(c.id);
+                                } else {
+                                  try {
+                                    final km = jsonDecode(c.payloadJson) as Map<String, dynamic>;
+                                    final amt = (km['amount'] as num?)?.toDouble();
+                                    if (amt != null) kindOverrides[c.widgetKind] = amt;
+                                  } catch (_) {}
+                                  await repo.delete(c.id);
+                                }
+                              }
+                              final targetLocal = DateTime.fromMillisecondsSinceEpoch(e.targetAt, isUtc: true).toLocal();
+                              await repo.delete(e.id);
+                              if (!context.mounted) return;
+                              final recipeSvc = ref.read(recipeServiceProvider);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Recipe deleted'),
+                                  action: SnackBarAction(
+                                    label: 'UNDO',
+                                    onPressed: () async {
+                                      try {
+                                        if (recipeSvc != null && recipeId.isNotEmpty) {
+                                          await recipeSvc.createRecipeEntry(
+                                            recipeId: recipeId,
+                                            targetAtLocal: targetLocal,
+                                            kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
+                                            productGramOverrides: productOverrides.isEmpty ? null : productOverrides,
+                                            showParentInCalendar: true,
+                                          );
+                                        }
+                                      } catch (_) {}
+                                    },
+                                  ),
+                                ),
+                              );
                             } else {
                               // Single entry delete with simple Undo
                               final original = e;
@@ -1033,7 +1159,7 @@ class _DayDetailsPanel extends ConsumerWidget {
                             }
                           },
                         ),
-                        if (isProductParent) ...[
+                        if (isProductParent)
                           IconButton(
                             tooltip: 'Edit components (make static)'.toString(),
                             icon: const Icon(Icons.tune),
@@ -1045,21 +1171,22 @@ class _DayDetailsPanel extends ConsumerWidget {
                               );
                             },
                           ),
+                        if (isParent)
                           AnimatedRotation(
                             turns: isExpanded ? 0.5 : 0.0,
                             duration: const Duration(milliseconds: 120),
                             child: const Icon(Icons.expand_more),
                           )
-                        ] else
+                        else
                           const Icon(Icons.chevron_right),
                       ],
                     ),
                   );
 
-                  if (!isProductParent || !isExpanded) {
+                  if (!isParent || !isExpanded) {
                     return parentRow;
                   }
-                  // Render expanded children under the product parent
+                  // Render expanded children under the parent
                   final children = childrenByParent[e.id] ?? const <EntryRecord>[];
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1070,7 +1197,10 @@ class _DayDetailsPanel extends ConsumerWidget {
                         child: Column(
                           children: [
                             for (final c in children)
-                              _ProductChildRow(entry: c, registry: registry),
+                              if (c.widgetKind == 'product')
+                                _NestedProductParentRow(entry: c, registry: registry, children: childrenByParent[c.id] ?? const <EntryRecord>[], expandedSet: ref.watch(expandedProductsProvider))
+                              else
+                                _ProductChildRow(entry: c, registry: registry),
                           ],
                         ),
                       ),
@@ -1153,19 +1283,90 @@ class _CalendarSheet extends StatelessWidget {
   }
 }
 
+class _NestedProductParentRow extends ConsumerWidget {
+  const _NestedProductParentRow({required this.entry, required this.registry, required this.children, required this.expandedSet});
+  final EntryRecord entry;
+  final WidgetRegistry registry;
+  final List<EntryRecord> children;
+  final Set<String> expandedSet;
+  String _productTitleFromPayload(EntryRecord e) {
+    try {
+      final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
+      final name = (map['name'] as String?) ?? 'Product';
+      final grams = (map['grams'] as num?)?.toInt();
+      if (grams != null) {
+        return '$name • $grams g';
+      }
+      return name;
+    } catch (_) {
+      return 'Product';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isExpanded = expandedSet.contains(entry.id);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.only(left: 0, right: 0),
+          onTap: () {
+            final set = {...expandedSet};
+            if (isExpanded) {
+              set.remove(entry.id);
+            } else {
+              set.add(entry.id);
+            }
+            ref.read(expandedProductsProvider.notifier).state = set;
+          },
+          leading: const CircleAvatar(backgroundColor: Colors.purple, foregroundColor: Colors.white, child: Icon(Icons.shopping_basket, size: 16)),
+          title: Text(_productTitleFromPayload(entry)),
+          trailing: AnimatedRotation(
+            turns: isExpanded ? 0.5 : 0.0,
+            duration: const Duration(milliseconds: 120),
+            child: const Icon(Icons.expand_more),
+          ),
+        ),
+        if (isExpanded)
+          Padding(
+            padding: const EdgeInsets.only(left: 52, right: 8, bottom: 8),
+            child: Column(
+              children: [
+                for (final c in children) _ProductChildRow(entry: c, registry: registry),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _ProductChildRow extends ConsumerWidget {
   const _ProductChildRow({required this.entry, required this.registry});
   final EntryRecord entry;
   final WidgetRegistry registry;
   String _formatAmount(Map<String, dynamic> map) {
-    final amount = (map['amount'] as num?)?.toInt();
-    final unit = map['unit'] as String?; // optional; we can derive if missing
+    int? amount = (map['amount'] as num?)?.toInt();
+    final unitFromPayload = map['unit'] as String?; // optional
     if (amount == null) return '—';
-    if (unit != null) return '$amount $unit';
+    // Prefer payload precision if present; fall back to plain integer display
+    final payloadPrecision = (map['precision'] as int?) ?? 0;
+    int p = payloadPrecision;
+    String fmt(int v) {
+      if (p <= 0) return v.toString();
+      final s = v.abs().toString().padLeft(p + 1, '0');
+      final head = s.substring(0, s.length - p);
+      final tail = s.substring(s.length - p);
+      final sign = v < 0 ? '-' : '';
+      return '$sign$head.$tail';
+    }
     // derive a unit from kind registry when absent
     final kind = registry.byId(entry.widgetKind);
-    final derived = (kind != null) ? kind.unit : '';
-    return derived.isEmpty ? '$amount' : '$amount $derived';
+    final unit = unitFromPayload ?? kind?.unit ?? '';
+    final text = fmt(amount);
+    return unit.isEmpty ? text : '$text $unit';
   }
 
   @override
@@ -1178,6 +1379,9 @@ class _ProductChildRow extends ConsumerWidget {
       final map = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
       value = _formatAmount(map);
     } catch (_) {}
+    // Trim trailing zeros for doubles
+    String _trimD(String s) => s.replaceFirst(RegExp(r'\.?0+\$'), '');
+    value = _trimD(value);
     return ListTile(
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 0),
@@ -1344,6 +1548,15 @@ class BottomControls extends ConsumerWidget {
               );
             },
             icon: const Icon(Icons.category_outlined),
+          ),
+          IconButton(
+            tooltip: 'Recipes',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const RecipesPage()),
+              );
+            },
+            icon: const Icon(Icons.restaurant_menu_outlined),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -1534,6 +1747,180 @@ class _SearchResults extends ConsumerWidget {
           },
         );
       },
+    );
+  }
+}
+
+
+class RecipeInstantiateDialog extends ConsumerStatefulWidget {
+  const RecipeInstantiateDialog({super.key, required this.recipeId, required this.initialTarget});
+  final String recipeId;
+  final DateTime initialTarget;
+  @override
+  ConsumerState<RecipeInstantiateDialog> createState() => RecipeInstantiateDialogState();
+}
+
+class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog> {
+  String _recipeName = '';
+  DateTime _targetAt = DateTime.now();
+  bool _loading = true;
+  List<dynamic> _components = const [];
+  final Map<String, TextEditingController> _kindCtrls = {};
+  final Map<String, TextEditingController> _productCtrls = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _targetAt = widget.initialTarget;
+    _load();
+  }
+
+  Future<void> _load() async {
+    final repo = ref.read(recipesRepositoryProvider);
+    if (repo != null) {
+      final def = await repo.getRecipe(widget.recipeId);
+      final comps = await repo.getComponents(widget.recipeId);
+      setState(() {
+        _recipeName = def?.name ?? '';
+        _components = comps;
+        _loading = false;
+      });
+      for (final c in comps) {
+        // type check via toString on enum field
+        final typeStr = c.type.toString();
+        if (typeStr.endsWith('kind')) {
+          _kindCtrls[c.compId] = TextEditingController(text: _fmtD(c.amount ?? 0.0));
+        } else {
+          _productCtrls[c.compId] = TextEditingController(text: (c.grams ?? 0).toString());
+        }
+      }
+    } else {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final c in _kindCtrls.values) {
+      c.dispose();
+    }
+    for (final c in _productCtrls.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  String _fmtD(double v) {
+    final s = v.toStringAsFixed(6);
+    return s.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+
+  Future<void> _pickDateTime(BuildContext context) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _targetAt,
+      firstDate: DateTime.now().subtract(const Duration(days: 3650)),
+      lastDate: DateTime.now().add(const Duration(days: 3650)),
+    );
+    if (date == null) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_targetAt),
+      builder: (ctx, child) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true),
+        child: child ?? const SizedBox.shrink(),
+      ),
+    );
+    if (time == null) return;
+    setState(() {
+      _targetAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final registry = ref.watch(widgetRegistryProvider);
+    return AlertDialog(
+      title: Text('Instantiate: ${_recipeName.isEmpty ? widget.recipeId : _recipeName}'),
+      content: _loading
+          ? const SizedBox(width: 480, height: 120, child: Center(child: CircularProgressIndicator()))
+          : SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => _pickDateTime(context),
+                      icon: const Icon(Icons.schedule),
+                      label: Text(_targetAt.toLocal().toString()),
+                    ),
+                    const SizedBox(height: 12),
+                    if (_components.isEmpty)
+                      const Text('No components in this recipe yet')
+                    else ...[
+                      for (final c in _components)
+                        Builder(builder: (ctx) {
+                          final typeStr = c.type.toString();
+                          if (typeStr.endsWith('kind')) {
+                            final k = registry.byId(c.compId);
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: TextField(
+                                controller: _kindCtrls[c.compId],
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                                decoration: InputDecoration(
+                                  labelText: '${k?.displayName ?? c.compId} (${k?.unit ?? ''})',
+                                ),
+                              ),
+                            );
+                          } else {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: TextField(
+                                controller: _productCtrls[c.compId],
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: 'Product: ${c.compId} (grams)',
+                                ),
+                              ),
+                            );
+                          }
+                        }),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () async {
+            final svc = ref.read(recipeServiceProvider);
+            if (svc == null) return;
+            final kindOverrides = <String, double>{};
+            final productOverrides = <String, int>{};
+            _kindCtrls.forEach((k, v) {
+              final d = double.tryParse(v.text.trim());
+              if (d != null) kindOverrides[k] = d;
+            });
+            _productCtrls.forEach((k, v) {
+              final g = int.tryParse(v.text.trim());
+              if (g != null) productOverrides[k] = g;
+            });
+            await svc.createRecipeEntry(
+              recipeId: widget.recipeId,
+              targetAtLocal: _targetAt,
+              kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
+              productGramOverrides: productOverrides.isEmpty ? null : productOverrides,
+              showParentInCalendar: true,
+            );
+            if (mounted) Navigator.of(context).pop();
+          },
+          child: const Text('Create'),
+        ),
+      ],
     );
   }
 }

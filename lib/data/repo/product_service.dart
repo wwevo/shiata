@@ -42,7 +42,7 @@ class ProductService {
     // Children: one per component; hidden in calendar; link to parent via source_entry_id.
     for (final c in comps) {
       // Treat amountPerGram as per-100g coefficient. Scale by grams and divide by 100 (integer math).
-      final amount = (c.amountPerGram * productGrams) ~/ 100;
+      final amount = (c.amountPerGram * productGrams) / 100.0;
       await entries.create(
         widgetKind: c.kindId,
         targetAtLocal: targetAtLocal,
@@ -85,7 +85,7 @@ class ProductService {
     // Recreate children: delete old, insert new with scaled amounts
     await entries.deleteChildrenOfParent(parentEntryId);
     for (final c in comps) {
-      final amount = (c.amountPerGram * productGrams) ~/ 100;
+      final amount = (c.amountPerGram * productGrams) / 100.0;
       await entries.create(
         widgetKind: c.kindId,
         targetAtLocal: DateTime.fromMillisecondsSinceEpoch(parent.targetAt, isUtc: true).toLocal(),

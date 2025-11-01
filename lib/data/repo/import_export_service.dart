@@ -89,6 +89,7 @@ class ImportExportService {
       final min = _asInt(item['min']) ?? 0;
       final max = _asInt(item['max']) ?? 0;
       final defaultShow = item['defaultShowInCalendar'] == true || item['defaultShowInCalendar'] == 1;
+      final precision = _asInt(item['precision']) ?? 0;
       await kinds.upsertKind(KindDef(
         id: id,
         name: name,
@@ -98,6 +99,7 @@ class ImportExportService {
         min: min,
         max: max,
         defaultShowInCalendar: defaultShow,
+        precision: precision,
       ));
       kindsUpserted++;
     }
@@ -122,7 +124,8 @@ class ImportExportService {
       for (final c in compsArr) {
         if (c is! Map) continue;
         final kindId = (c['kindId'] ?? '').toString().trim();
-        final per100 = _asInt(c['per100']) ?? 0;
+        final per100Raw = c['per100'];
+        final per100 = (per100Raw is num) ? per100Raw.toDouble() : double.tryParse(per100Raw?.toString() ?? '0') ?? 0.0;
         comps.add(ProductComponent(productId: id, kindId: kindId, amountPerGram: per100));
       }
       await products.setComponents(id, comps);

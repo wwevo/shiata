@@ -1,4 +1,48 @@
 # CHANGELOG.md
+
+#### [0.5.0] – Unreleased
+##### Added
+- Doubles-based amounts everywhere (no fixed-point scaling):
+    - Direct entries and product children store `amount` as double.
+    - Product components `amount_per_gram` now REAL (double); math uses `amount = per100 × grams / 100`.
+- Recipes (templates) with mixed components:
+    - `recipes` + `recipe_components` tables.
+    - Recipes can include Kinds (double amounts) and Products (grams int).
+    - CAS integration: Recipe section.
+    - Instantiation dialog: set date/time and per-component overrides; creates a static recipe parent.
+- Day Details nesting for any parent:
+    - Recipes display as parents; expanding reveals kind children and nested product parents (which expand to their nutrient children).
+- Delete + Undo (Recipes):
+    - Deleting a recipe instance removes the parent and children; UNDO restores the full instance (parent, kind children, nested product parents, and their children).
+
+##### Changed
+- Editors and displays accept and render decimal values; trimming of trailing zeros in UI.
+- Product instance recomputation uses doubles consistently.
+
+##### Fixed
+- Recipe component saving (SQL string literal quoting for `type`).
+- Recipe instantiation dialog build errors (constructor/state wiring).
+- Several `use_build_context_synchronously` lints guarded.
+
+##### Known gaps / not completed
+- Precision model not fully purged from code/schema:
+    - `kinds.precision` column and `WidgetKind.precision` remain; some UI still shows a precision selector—should be removed.
+    - Some older code paths still try to read/write `precision` in payloads (e.g., `payloadPrecision` reference appeared during migration). These should be deleted.
+- Decimal UX inconsistencies previously observed (values flipping 6 ↔ 0.06) were addressed by moving to doubles, but all editors should be retested end-to-end; any lingering scaler logic must be removed.
+- Automated tests not delivered:
+    - Missing repo tests for Kinds/Products/Entries/Recipes.
+    - Missing service tests (ProductService, KindService, RecipeService) including propagate/update/undo scenarios.
+    - No import/export/backup round‑trip test.
+- Import/Export bundle remains at version 1 conceptually; no explicit v2 schema for recipes documented. JSON includes entries but recipes export/import scaffolding may be incomplete depending on the path you used.
+- Documentation not updated for 0.5.0 (README/IMPLEMENTATION/CHANGELOG still reflect 0.4.0 as latest release).
+- Analyzer hygiene: a full `flutter analyze` pass and cleanup wasn’t completed after all recipe and doubles changes.
+- Instantiation polish: no servings field; only per-component overrides; advanced "flairs" feature not implemented.
+
+##### Migration/compat
+- Existing integer data remains valid; SQLite treats ints as numeric. New writes use doubles for amounts and product component coefficients.
+
+---
+
 ## [0.4.0] - 2025-10-31
 ### Added
 - Database-backed Kinds with live `WidgetRegistry` (no hardcoded seeds at runtime).
@@ -26,6 +70,8 @@
 - Icon name resolution has safe fallbacks; unknown names fall back to a generic icon.
 - All nutrient values are integers; units are canonical (`g`, `mg`, `ug`, `mL`).
 
+---
+
 ## [0.3.0] - 2025-10-29
 ### Added
 - Product templates page (basket icon) with CRUD for products and per‑100g integer components.
@@ -44,6 +90,8 @@
 ### Fixed
 - Product Template Editor list padded so the Add FAB no longer covers the last row.
 - Undo for product parent delete now restores all children correctly.
+
+---
 
 ## [0.2.0] - 2025-10-29
 ### Added
@@ -69,6 +117,8 @@
 ### Dev / Tooling / Docs
 - Extracted the dynamic middle list to `lib/ui/main_actions_list.dart` for better modularity.
 - Updated README and IMPLEMENTATION notes to reflect new UX options and flows.
+
+---
 
 ## [0.1.9] - 2025-10-28
 ### Added
@@ -104,6 +154,8 @@
 ### Dev / Tooling / Docs
 - Lifecycle: DB open on resume, close on pause/detached; reduced noisy open/close logs on desktop.
 - `IMPLEMENTATION.md` created; will expand alongside the Create Action Sheet and (later) SQLCipher re-introduction.
+
+---
 
 ## [0.1.0] - 2025-10-25
 ### Added

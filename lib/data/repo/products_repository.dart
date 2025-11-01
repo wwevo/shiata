@@ -27,7 +27,7 @@ class ProductComponent {
   ProductComponent({required this.productId, required this.kindId, required this.amountPerGram});
   final String productId;
   final String kindId;
-  final int amountPerGram; // integer amount per 1 g of product, using the kind's canonical unit
+  final double amountPerGram; // amount per 1 g of product (double), using the kind's canonical unit
 }
 
 class ProductsRepository {
@@ -97,7 +97,7 @@ class ProductsRepository {
       return ProductComponent(
         productId: d['product_id'] as String,
         kindId: d['kind_id'] as String,
-        amountPerGram: d['amount_per_gram'] as int,
+        amountPerGram: (d['amount_per_gram'] as num).toDouble(),
       );
     }).toList();
   }
@@ -190,7 +190,7 @@ class ProductsRepository {
       return ProductComponent(
         productId: d['product_id'] as String,
         kindId: d['kind_id'] as String,
-        amountPerGram: d['amount_per_gram'] as int,
+        amountPerGram: (d['amount_per_gram'] as num).toDouble(),
       );
     }).toList();
   }

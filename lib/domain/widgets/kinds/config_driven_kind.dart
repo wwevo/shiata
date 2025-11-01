@@ -15,6 +15,7 @@ class ConfigDrivenKind extends WidgetKind {
     required this.minValue,
     required this.maxValue,
     this.defaultShowInCalendar = false,
+    this.precision = 0,
   });
 
   @override
@@ -31,6 +32,9 @@ class ConfigDrivenKind extends WidgetKind {
 
   @override
   final String unit;
+
+  @override
+  final int precision;
 
   @override
   final int minValue;

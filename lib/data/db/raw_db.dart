@@ -76,7 +76,8 @@ class AppDb extends GeneratedDatabase {
         icon TEXT NULL,
         min INTEGER NOT NULL,
         max INTEGER NOT NULL,
-        default_show_in_calendar INTEGER NOT NULL DEFAULT 0
+        default_show_in_calendar INTEGER NOT NULL DEFAULT 0,
+        precision INTEGER NOT NULL DEFAULT 0
       );
     ''');
 
@@ -98,10 +99,42 @@ class AppDb extends GeneratedDatabase {
       CREATE TABLE IF NOT EXISTS product_components (
         product_id TEXT NOT NULL,
         kind_id TEXT NOT NULL,
-        amount_per_gram INTEGER NOT NULL,
+        amount_per_gram REAL NOT NULL,
         PRIMARY KEY (product_id, kind_id)
       );
     ''');
+
+    // recipes table
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS recipes (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        icon TEXT NULL,
+        color INTEGER NULL
+      );
+    ''');
+
+    // recipe_components table
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS recipe_components (
+        recipe_id TEXT NOT NULL,
+        type TEXT NOT NULL CHECK(type IN ('kind','product')),
+        comp_id TEXT NOT NULL,
+        amount REAL NULL, -- for kind components
+        grams INTEGER NULL, -- for product components
+        PRIMARY KEY (recipe_id, type, comp_id)
+      );
+    ''');
+
+    // Lightweight column additions for kinds.precision — check and add if missing (0.5.0)
+    final kindsCols = await customSelect('PRAGMA table_info(kinds);').get();
+    final kindsColNames = kindsCols.map((r) => (r.data['name'] as String).toLowerCase()).toSet();
+    if (!kindsColNames.contains('precision')) {
+      await customStatement('ALTER TABLE kinds ADD COLUMN precision INTEGER NOT NULL DEFAULT 0;');
+    }
 
     // Bootstrap demo data only when tables are empty (fresh installs). Do not overwrite existing data.
     // Kinds bootstrap

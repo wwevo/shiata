@@ -21,10 +21,13 @@ abstract class WidgetKind {
   /// Canonical unit for this kind's amount (e.g., 'g', 'mg', 'ug').
   String get unit;
 
-  /// Inclusive min allowed integer value for the amount field.
+  /// Fixed-point precision (number of decimal places). 0 = integer, 2 = two decimals.
+  int get precision;
+
+  /// Inclusive min allowed integer value for the amount field (stored scale).
   int get minValue;
 
-  /// Inclusive max allowed integer value for the amount field.
+  /// Inclusive max allowed integer value for the amount field (stored scale).
   int get maxValue;
 
   /// Whether newly created entries for this kind should default to show in calendar.

@@ -23,6 +23,9 @@ class FatKind extends WidgetKind {
   String get unit => 'g';
 
   @override
+  int get precision => 0;
+
+  @override
   int get minValue => 0;
 
   @override

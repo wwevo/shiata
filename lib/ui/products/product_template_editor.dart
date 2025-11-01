@@ -18,6 +18,16 @@ class ProductTemplateEditorPage extends ConsumerStatefulWidget {
 }
 
 class _ProductTemplateEditorPageState extends ConsumerState<ProductTemplateEditorPage> {
+  String _fmtDouble(double v) {
+    final s = v.toStringAsFixed(6);
+    return s.replaceFirst(RegExp(r'\.?0+\$'), '');
+  }
+
+  double? _parseDouble(String? text) {
+    final t = (text ?? '').trim();
+    if (t.isEmpty) return null;
+    return double.tryParse(t);
+  }
   List<ProductComponent> _components = const [];
   bool _loading = true;
   String _productName = '';
@@ -93,7 +103,7 @@ class _ProductTemplateEditorPageState extends ConsumerState<ProductTemplateEdito
   Future<void> _addComponent() async {
     final registry = ref.read(widgetRegistryProvider);
     final kinds = registry.all.where((k) => k.id != 'product').toList();
-    final picked = await showDialog<(WidgetKind, int)?>(
+    final picked = await showDialog<(WidgetKind, double)?>(
       context: context,
       builder: (ctx) => _AddComponentDialog(kinds: kinds),
     );
@@ -147,7 +157,7 @@ class _ProductTemplateEditorPageState extends ConsumerState<ProductTemplateEdito
                         child: Icon(kind?.icon ?? Icons.circle, size: 18),
                       ),
                       title: Text(kind?.displayName ?? c.kindId),
-                      subtitle: Text('Per 100 g: ${c.amountPerGram} ${kind?.unit ?? ''}'),
+                      subtitle: Text('Per 100 g: ${_fmtDouble(c.amountPerGram)} ${kind?.unit ?? ''}'),
                       trailing: IconButton(
                         tooltip: 'Remove',
                         icon: const Icon(Icons.delete_outline),
@@ -173,22 +183,22 @@ class _ProductTemplateEditorPageState extends ConsumerState<ProductTemplateEdito
     );
   }
 
-  Future<int?> _askForAmount(BuildContext context, WidgetKind? kind, int current) async {
-    final c = TextEditingController(text: current.toString());
-    return showDialog<int>(
+  Future<double?> _askForAmount(BuildContext context, WidgetKind? kind, double current) async {
+    final c = TextEditingController(text: _fmtDouble(current));
+    return showDialog<double>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Per 100 g (${kind?.unit ?? ''})'),
         content: TextField(
           controller: c,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(hintText: 'integer'),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+          decoration: const InputDecoration(hintText: 'number'),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
           FilledButton(
             onPressed: () {
-              final v = int.tryParse(c.text.trim());
+              final v = _parseDouble(c.text.trim());
               if (v == null || v < 0) return;
               Navigator.of(ctx).pop(v);
             },
@@ -211,6 +221,12 @@ class _AddComponentDialog extends StatefulWidget {
 class _AddComponentDialogState extends State<_AddComponentDialog> {
   WidgetKind? _selected;
   final _amountController = TextEditingController(text: '0');
+
+  double? _parse(String? text) {
+    final t = (text ?? '').trim();
+    if (t.isEmpty) return null;
+    return double.tryParse(t);
+  }
 
   @override
   void dispose() {
@@ -237,8 +253,8 @@ class _AddComponentDialogState extends State<_AddComponentDialog> {
           const SizedBox(height: 12),
           TextField(
             controller: _amountController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Per 100 g (integer)'),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+            decoration: const InputDecoration(labelText: 'Per 100 g (number)'),
           ),
         ],
       ),
@@ -247,7 +263,7 @@ class _AddComponentDialogState extends State<_AddComponentDialog> {
         FilledButton(
           onPressed: () {
             final k = _selected;
-            final v = int.tryParse(_amountController.text.trim());
+            final v = double.tryParse(_amountController.text.trim());
             if (k == null || v == null || v < 0) return;
             Navigator.of(context).pop((k, v));
           },
