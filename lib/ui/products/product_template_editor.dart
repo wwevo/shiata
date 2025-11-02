@@ -102,7 +102,7 @@ class _ProductTemplateEditorPageState extends ConsumerState<ProductTemplateEdito
 
   Future<void> _addComponent() async {
     final registry = ref.read(widgetRegistryProvider);
-    final kinds = registry.all.where((k) => k.id != 'product').toList();
+    final kinds = registry.kinds.toList();
     final picked = await showDialog<(WidgetKind, double)?>(
       context: context,
       builder: (ctx) => _AddComponentDialog(kinds: kinds),

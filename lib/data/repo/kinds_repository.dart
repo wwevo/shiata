@@ -14,7 +14,6 @@ class KindDef {
     required this.min,
     required this.max,
     this.defaultShowInCalendar = false,
-    this.precision = 0,
   });
 
   final String id;
@@ -25,7 +24,6 @@ class KindDef {
   final int min; // inclusive min
   final int max; // inclusive max
   final bool defaultShowInCalendar;
-  final int precision; // fixed-point scale: number of decimal places (0..2)
 }
 
 class KindsRepository {
@@ -53,7 +51,6 @@ class KindsRepository {
               'min': k.min,
               'max': k.max,
               'defaultShowInCalendar': k.defaultShowInCalendar,
-              'precision': k.precision,
             })
         .toList();
   }
@@ -61,8 +58,8 @@ class KindsRepository {
   Future<void> upsertKind(KindDef k) async {
     await _ready;
     await db.customStatement(
-      'INSERT INTO kinds (id, name, unit, color, icon, min, max, default_show_in_calendar, precision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) '
-      'ON CONFLICT(id) DO UPDATE SET name=excluded.name, unit=excluded.unit, color=excluded.color, icon=excluded.icon, min=excluded.min, max=excluded.max, default_show_in_calendar=excluded.default_show_in_calendar, precision=excluded.precision;',
+      'INSERT INTO kinds (id, name, unit, color, icon, min, max, default_show_in_calendar) VALUES (?, ?, ?, ?, ?, ?, ?, ?) '
+      'ON CONFLICT(id) DO UPDATE SET name=excluded.name, unit=excluded.unit, color=excluded.color, icon=excluded.icon, min=excluded.min, max=excluded.max, default_show_in_calendar=excluded.default_show_in_calendar;',
       [
         k.id,
         k.name,
@@ -72,7 +69,6 @@ class KindsRepository {
         k.min,
         k.max,
         k.defaultShowInCalendar ? 1 : 0,
-        k.precision,
       ],
     );
     _notify();
@@ -106,7 +102,6 @@ class KindsRepository {
       min: d['min'] as int,
       max: d['max'] as int,
       defaultShowInCalendar: (d['default_show_in_calendar'] as int) != 0,
-      precision: (d['precision'] as int?) ?? 0,
     );
   }
 
@@ -127,7 +122,6 @@ class KindsRepository {
         min: d['min'] as int,
         max: d['max'] as int,
         defaultShowInCalendar: (d['default_show_in_calendar'] as int) != 0,
-        precision: (d['precision'] as int?) ?? 0,
       );
     }).toList();
   }

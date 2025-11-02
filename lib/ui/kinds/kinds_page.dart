@@ -304,7 +304,6 @@ class _KindEditorDialogState extends ConsumerState<KindEditorDialog> {
   late final TextEditingController _id;
   late final TextEditingController _name;
   late String _unit;
-  late int _precision;
   late final TextEditingController _min;
   late final TextEditingController _max;
   late bool _defaultShow;
@@ -320,7 +319,6 @@ class _KindEditorDialogState extends ConsumerState<KindEditorDialog> {
     _id = TextEditingController(text: e?.id ?? '');
     _name = TextEditingController(text: e?.name ?? '');
     _unit = e?.unit ?? 'g';
-    _precision = e?.precision ?? 0;
     _min = TextEditingController(text: (e?.min ?? 0).toString());
     _max = TextEditingController(text: (e?.max ?? 100).toString());
     _defaultShow = e?.defaultShowInCalendar ?? false;
@@ -368,16 +366,6 @@ class _KindEditorDialogState extends ConsumerState<KindEditorDialog> {
                 items: _units.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
                 onChanged: (v) => setState(() => _unit = v ?? _unit),
                 decoration: const InputDecoration(labelText: 'Unit'),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<int>(
-                initialValue: _precision,
-                items: const [
-                  DropdownMenuItem(value: 0, child: Text('Precision: 0 (integer)')),
-                  DropdownMenuItem(value: 2, child: Text('Precision: 2 (0.01)')),
-                ],
-                onChanged: (v) => setState(() => _precision = v ?? _precision),
-                decoration: const InputDecoration(labelText: 'Precision (decimal places)'),
               ),
               const SizedBox(height: 8),
               TextFormField(
@@ -444,7 +432,6 @@ class _KindEditorDialogState extends ConsumerState<KindEditorDialog> {
               min: min,
               max: max,
               defaultShowInCalendar: _defaultShow,
-              precision: _precision,
             );
             await repo.upsertKind(def);
             if (context.mounted) {

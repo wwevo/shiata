@@ -89,7 +89,6 @@ class ImportExportService {
       final min = _asInt(item['min']) ?? 0;
       final max = _asInt(item['max']) ?? 0;
       final defaultShow = item['defaultShowInCalendar'] == true || item['defaultShowInCalendar'] == 1;
-      final precision = _asInt(item['precision']) ?? 0;
       await kinds.upsertKind(KindDef(
         id: id,
         name: name,
@@ -99,7 +98,6 @@ class ImportExportService {
         min: min,
         max: max,
         defaultShowInCalendar: defaultShow,
-        precision: precision,
       ));
       kindsUpserted++;
     }

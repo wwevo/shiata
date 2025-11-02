@@ -21,9 +21,6 @@ abstract class WidgetKind {
   /// Canonical unit for this kind's amount (e.g., 'g', 'mg', 'ug').
   String get unit;
 
-  /// Fixed-point precision (number of decimal places). 0 = integer, 2 = two decimals.
-  int get precision;
-
   /// Inclusive min allowed integer value for the amount field (stored scale).
   int get minValue;
 

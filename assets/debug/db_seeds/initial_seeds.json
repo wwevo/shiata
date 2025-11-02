@@ -1,0 +1,377 @@
+{
+  "version": 1,
+  "products": [
+    {
+      "id": "beef",
+      "name": "Beef",
+      "components": [
+        {
+          "kindId": "carbohydrate",
+          "per100": 0.0
+        },
+        {
+          "kindId": "fat",
+          "per100": 15.0
+        },
+        {
+          "kindId": "iron",
+          "per100": 2.0
+        },
+        {
+          "kindId": "phosphorus",
+          "per100": 180.0
+        },
+        {
+          "kindId": "potassium",
+          "per100": 318.0
+        },
+        {
+          "kindId": "protein",
+          "per100": 26.0
+        },
+        {
+          "kindId": "sodium",
+          "per100": 72.0
+        },
+        {
+          "kindId": "vitamin_b12",
+          "per100": 2.0
+        },
+        {
+          "kindId": "zinc",
+          "per100": 4.0
+        }
+      ]
+    },
+    {
+      "id": "egg",
+      "name": "Egg",
+      "components": [
+        {
+          "kindId": "calcium",
+          "per100": 50.0
+        },
+        {
+          "kindId": "carbohydrate",
+          "per100": 1.0
+        },
+        {
+          "kindId": "fat",
+          "per100": 10.0
+        },
+        {
+          "kindId": "iron",
+          "per100": 1.0
+        },
+        {
+          "kindId": "phosphorus",
+          "per100": 198.0
+        },
+        {
+          "kindId": "potassium",
+          "per100": 126.0
+        },
+        {
+          "kindId": "protein",
+          "per100": 13.0
+        },
+        {
+          "kindId": "sodium",
+          "per100": 142.0
+        },
+        {
+          "kindId": "vitamin_a",
+          "per100": 160.0
+        },
+        {
+          "kindId": "vitamin_b12",
+          "per100": 1.0
+        },
+        {
+          "kindId": "vitamin_d",
+          "per100": 2.0
+        }
+      ]
+    },
+    {
+      "id": "greek_yogurt",
+      "name": "Greek Yogurt",
+      "components": [
+        {
+          "kindId": "calcium",
+          "per100": 110.0
+        },
+        {
+          "kindId": "carbohydrate",
+          "per100": 4.0
+        },
+        {
+          "kindId": "fat",
+          "per100": 0.0
+        },
+        {
+          "kindId": "phosphorus",
+          "per100": 135.0
+        },
+        {
+          "kindId": "potassium",
+          "per100": 141.0
+        },
+        {
+          "kindId": "protein",
+          "per100": 10.0
+        },
+        {
+          "kindId": "sodium",
+          "per100": 36.0
+        }
+      ]
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "components": [
+        {
+          "kindId": "calcium",
+          "per100": 120.0
+        },
+        {
+          "kindId": "carbohydrate",
+          "per100": 5.0
+        },
+        {
+          "kindId": "fat",
+          "per100": 3.0
+        },
+        {
+          "kindId": "phosphorus",
+          "per100": 95.0
+        },
+        {
+          "kindId": "potassium",
+          "per100": 150.0
+        },
+        {
+          "kindId": "protein",
+          "per100": 3.0
+        },
+        {
+          "kindId": "sodium",
+          "per100": 44.0
+        },
+        {
+          "kindId": "vitamin_a",
+          "per100": 47.0
+        },
+        {
+          "kindId": "vitamin_d",
+          "per100": 1.0
+        }
+      ]
+    },
+    {
+      "id": "oatmeal",
+      "name": "Oatmeal",
+      "components": [
+        {
+          "kindId": "carbohydrate",
+          "per100": 66.0
+        },
+        {
+          "kindId": "fat",
+          "per100": 7.0
+        },
+        {
+          "kindId": "iron",
+          "per100": 4.0
+        },
+        {
+          "kindId": "magnesium",
+          "per100": 177.0
+        },
+        {
+          "kindId": "phosphorus",
+          "per100": 410.0
+        },
+        {
+          "kindId": "potassium",
+          "per100": 429.0
+        },
+        {
+          "kindId": "protein",
+          "per100": 16.0
+        },
+        {
+          "kindId": "sodium",
+          "per100": 2.0
+        },
+        {
+          "kindId": "zinc",
+          "per100": 4.0
+        }
+      ]
+    }
+  ],
+  "kinds": [
+    {
+      "id": "calcium",
+      "name": "Calcium",
+      "unit": "mg",
+      "color": 4288585374,
+      "icon": "blur_on",
+      "min": 0,
+      "max": 5000,
+      "defaultShowInCalendar": false
+    },
+    {
+      "id": "carbohydrate",
+      "name": "Carbohydrate",
+      "unit": "g",
+      "color": 4294198070,
+      "icon": "rice_bowl",
+      "min": 0,
+      "max": 400,
+      "defaultShowInCalendar": false
+    },
+    {
+      "id": "fat",
+      "name": "Fat",
+      "unit": "g",
+      "color": 4294951175,
+      "icon": "opacity",
+      "min": 0,
+      "max": 300,
+      "defaultShowInCalendar": false
+    },
+    {
+      "id": "iron",
+      "name": "Iron",
+      "unit": "mg",
+      "color": 4288585374,
+      "icon": "circle",
+      "min": 0,
+      "max": 200,
+      "defaultShowInCalendar": false
+    },
+    {
+      "id": "magnesium",
+      "name": "Magnesium",
+      "unit": "mg",
+      "color": 4288585374,
+      "icon": "bolt",
+      "min": 0,
+      "max": 2000,
+      "defaultShowInCalendar": false
+    },
+    {
+      "id": "phosphorus",
+      "name": "Phosphorus",
+      "unit": "mg",
+      "color": 4288585374,
+      "icon": "science",
+      "min": 0,
+      "max": 2000,
+      "defaultShowInCalendar": false
+    },
+    {
+      "id": "potassium",
+      "name": "Potassium",
+      "unit": "mg",
+      "color": 4288585374,
+      "icon": "battery_charging_full",
+      "min": 0,
+      "max": 10000,
+      "defaultShowInCalendar": false
+    },
+    {
+      "id": "protein",
+      "name": "Protein",
+      "unit": "g",
+      "color": 4282339765,
+      "icon": "fitness_center",
+      "min": 0,
+      "max": 300,
+      "defaultShowInCalendar": false
+    },
+    {
+      "id": "sodium",
+      "name": "Sodium",
+      "unit": "mg",
+      "color": 4288585374,
+      "icon": "opacity",
+      "min": 0,
+      "max": 10000,
+      "defaultShowInCalendar": false
+    },
+    {
+      "id": "vitamin_a",
+      "name": "Vitamin A",
+      "unit": "ug",
+      "color": 4283215696,
+      "icon": "visibility",
+      "min": 0,
+      "max": 10000,
+      "defaultShowInCalendar": false
+    },
+    {
+      "id": "vitamin_b12",
+      "name": "Vitamin B12",
+      "unit": "ug",
+      "color": 4283215696,
+      "icon": "medical_information",
+      "min": 0,
+      "max": 10000,
+      "defaultShowInCalendar": false
+    },
+    {
+      "id": "vitamin_c",
+      "name": "Vitamin C",
+      "unit": "mg",
+      "color": 4283215696,
+      "icon": "local_florist",
+      "min": 0,
+      "max": 5000,
+      "defaultShowInCalendar": false
+    },
+    {
+      "id": "vitamin_d",
+      "name": "Vitamin D",
+      "unit": "ug",
+      "color": 4283215696,
+      "icon": "wb_sunny",
+      "min": 0,
+      "max": 1000,
+      "defaultShowInCalendar": false
+    },
+    {
+      "id": "vitamin_e",
+      "name": "Vitamin E",
+      "unit": "mg",
+      "color": 4283215696,
+      "icon": "eco",
+      "min": 0,
+      "max": 1000,
+      "defaultShowInCalendar": false
+    },
+    {
+      "id": "vitamin_k",
+      "name": "Vitamin K",
+      "unit": "ug",
+      "color": 4283215696,
+      "icon": "grass",
+      "min": 0,
+      "max": 5000,
+      "defaultShowInCalendar": false
+    },
+    {
+      "id": "zinc",
+      "name": "Zinc",
+      "unit": "mg",
+      "color": 4288585374,
+      "icon": "hexagon",
+      "min": 0,
+      "max": 200,
+      "defaultShowInCalendar": false
+    }
+  ]
+}

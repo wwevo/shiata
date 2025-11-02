@@ -9,7 +9,6 @@ import 'repo/entries_repository.dart';
 import 'repo/products_repository.dart';
 import 'repo/kinds_repository.dart';
 import 'repo/recipes_repository.dart';
-import 'repo/recipe_service.dart';
 
 /// Provides an [AppDb] instance when the low-level [QueryExecutor] is available.
 final appDbProvider = Provider<AppDb?>((ref) {
@@ -53,19 +52,27 @@ final kindsRepositoryProvider = Provider<KindsRepository?>((ref) {
   return KindsRepository(db: db);
 });
 
-final kindsListProvider = StreamProvider<List<KindDef>>((ref) async* {
-  final repo = ref.watch(kindsRepositoryProvider);
-  if (repo == null) {
-    yield const <KindDef>[];
-    return;
-  }
-  await for (final list in repo.watchKinds()) {
-    yield list;
-  }
-});
-
 final recipesRepositoryProvider = Provider<RecipesRepository?>((ref) {
   final db = ref.watch(appDbProvider);
   if (db == null) return null;
   return RecipesRepository(db: db);
+});
+
+// FIXED: Use consistent pattern for all three stream providers
+final kindsListProvider = StreamProvider<List<KindDef>>((ref) {
+  final repo = ref.watch(kindsRepositoryProvider);
+  if (repo == null) return Stream.value(<KindDef>[]);
+  return repo.watchKinds();
+});
+
+final productsListProvider = StreamProvider<List<ProductDef>>((ref) {
+  final repo = ref.watch(productsRepositoryProvider);
+  if (repo == null) return Stream.value(<ProductDef>[]);
+  return repo.watchProducts(onlyActive: true);
+});
+
+final recipesListProvider = StreamProvider<List<RecipeDef>>((ref) {
+  final repo = ref.watch(recipesRepositoryProvider);
+  if (repo == null) return Stream.value(<RecipeDef>[]);
+  return repo.watchRecipes(onlyActive: true);
 });

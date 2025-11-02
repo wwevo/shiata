@@ -16,6 +16,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// - handle: handle visuals (touch area and the bar size changes past threshold)
 /// - calendarGrid: layout padding/spacing/rows/columns and paint safety guards
 /// - visuals: elevation and opacity ranges tied to expansion
+/// - actionSheet: default layout mode (wrap/grid) and user preference persistence
+/// - sideSheet: sizing constraints for side presentation
 ///
 /// Notes
 /// - Increasing [Thresholds.openKeepFraction] makes opening require a longer drag
@@ -35,6 +37,7 @@ class UXConfig {
     this.visuals = const VisualsConfig(),
     this.actionSheetPresentation = ActionSheetPresentation.side,
     this.sideSheet = const SideSheetConfig(),
+    this.actionSheet = const ActionSheetConfig(),
   });
 
   final TopSheetConfig topSheet;
@@ -46,6 +49,7 @@ class UXConfig {
   final VisualsConfig visuals;
   final ActionSheetPresentation actionSheetPresentation;
   final SideSheetConfig sideSheet;
+  final ActionSheetConfig actionSheet;
 
   UXConfig copyWith({
     TopSheetConfig? topSheet,
@@ -57,6 +61,7 @@ class UXConfig {
     VisualsConfig? visuals,
     ActionSheetPresentation? actionSheetPresentation,
     SideSheetConfig? sideSheet,
+    ActionSheetConfig? actionSheet,
   }) {
     return UXConfig(
       topSheet: topSheet ?? this.topSheet,
@@ -68,6 +73,7 @@ class UXConfig {
       visuals: visuals ?? this.visuals,
       actionSheetPresentation: actionSheetPresentation ?? this.actionSheetPresentation,
       sideSheet: sideSheet ?? this.sideSheet,
+      actionSheet: actionSheet ?? this.actionSheet,
     );
   }
 }
@@ -190,6 +196,29 @@ class SideSheetConfig {
 
   /// Minimal margin to keep between the panel and the opposite edge.
   final double horizontalMargin;
+}
+
+/// Configuration for the action sheet content layout and behavior.
+class ActionSheetConfig {
+  const ActionSheetConfig({
+    this.defaultLayout = SectionLayout.wrap,
+    this.rememberUserChoice = true,
+  });
+
+  /// Default layout mode for sections (wrap or grid).
+  final SectionLayout defaultLayout;
+
+  /// Whether to remember the user's layout choice across sessions.
+  /// If false, always starts with [defaultLayout].
+  final bool rememberUserChoice;
+}
+
+/// Layout modes for action sheet sections.
+enum SectionLayout {
+  /// Flexible wrap layout that adapts to content (default).
+  wrap,
+  /// Fixed grid layout with responsive columns.
+  grid,
 }
 
 /// Provider for the UX configuration. Override this at a scope if you want to

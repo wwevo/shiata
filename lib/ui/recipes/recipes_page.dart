@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,7 +45,7 @@ class RecipesPage extends ConsumerWidget {
                 if (list.isEmpty) return const Center(child: Text('No recipes yet'));
                 return ListView.separated(
                   itemCount: list.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (ctx, i) {
                     final r = list[i];
                     return ListTile(
@@ -233,7 +232,7 @@ class _RecipeEditorPageState extends ConsumerState<RecipeEditorPage> {
               ? const Center(child: Text('No components yet'))
               : ListView.separated(
                   itemCount: _components.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (ctx, i) {
                     final c = _components[i];
                     if (c.type == RecipeComponentType.kind) {
@@ -363,7 +362,7 @@ class _AddKindToRecipeDialog extends StatelessWidget {
   final WidgetRegistry registry;
   @override
   Widget build(BuildContext context) {
-    final kinds = registry.all;
+    final kinds = registry.kinds;
     WidgetKind? selected;
     final amountCtrl = TextEditingController(text: '0');
     return StatefulBuilder(builder: (ctx, setState) {

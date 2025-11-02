@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/widgets/registry.dart';
-import 'main_screen.dart' show selectedDayProvider; // reuse provider
+import 'main_screen_providers.dart'; // reuse provider
 
 /// Dynamically generated middle list from WidgetRegistry
 class MainActionsList extends ConsumerWidget {
