@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
+import '../../domain/widgets/registry.dart';
 import '../editors/kind_instance_editor_dialog.dart';
 import '../editors/product_instance_editor_dialog.dart';
 import '../main_screen_providers.dart';
@@ -40,11 +41,12 @@ class WeeklyOverviewPanel extends ConsumerWidget {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final sevenDaysAgo = today.subtract(const Duration(days: 6)); // 7 days total including today
+    final tomorrow = today.add(const Duration(days: 1)); // End date is exclusive, so we need tomorrow to include today
 
     final selectedKinds = ref.watch(selectedKindsForChartProvider);
 
     return StreamBuilder<Map<DateTime, List<EntryRecord>>>(
-      stream: repo.watchByDayRange(sevenDaysAgo, today, onlyShowInCalendar: false),
+      stream: repo.watchByDayRange(sevenDaysAgo, tomorrow, onlyShowInCalendar: false),
       builder: (context, snapshot) {
         final entriesMap = snapshot.data ?? const <DateTime, List<EntryRecord>>{};
 
@@ -79,6 +81,7 @@ class WeeklyOverviewPanel extends ConsumerWidget {
         final chartData = aggregated;
 
         return Column(
+          key: ValueKey(selectedKinds.hashCode), // Force rebuild when filter changes
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Filter chips for kind selection
