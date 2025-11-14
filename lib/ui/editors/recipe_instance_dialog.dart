@@ -14,6 +14,13 @@ class RecipeInstantiateDialog extends ConsumerStatefulWidget {
 }
 
 class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog> {
+  // Helper methods
+  String _fmtDouble(double v) {
+    final s = v.toStringAsFixed(6);
+    return s.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+
+  // State variables
   String _recipeName = '';
   DateTime _targetAt = DateTime.now();
   bool _loading = true;
@@ -28,30 +35,6 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
     _load();
   }
 
-  Future<void> _load() async {
-    final repo = ref.read(recipesRepositoryProvider);
-    if (repo != null) {
-      final def = await repo.getRecipe(widget.recipeId);
-      final comps = await repo.getComponents(widget.recipeId);
-      setState(() {
-        _recipeName = def?.name ?? '';
-        _components = comps;
-        _loading = false;
-      });
-      for (final c in comps) {
-        // type check via toString on enum field
-        final typeStr = c.type.toString();
-        if (typeStr.endsWith('kind')) {
-          _kindCtrls[c.compId] = TextEditingController(text: _fmtD(c.amount ?? 0.0));
-        } else {
-          _productCtrls[c.compId] = TextEditingController(text: (c.grams ?? 0).toString());
-        }
-      }
-    } else {
-      setState(() => _loading = false);
-    }
-  }
-
   @override
   void dispose() {
     for (final c in _kindCtrls.values) {
@@ -63,9 +46,30 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
     super.dispose();
   }
 
-  String _fmtD(double v) {
-    final s = v.toStringAsFixed(6);
-    return s.replaceFirst(RegExp(r'\.?0+$'), '');
+  Future<void> _load() async {
+    final repo = ref.read(recipesRepositoryProvider);
+    if (repo != null) {
+      final def = await repo.getRecipe(widget.recipeId);
+      final comps = await repo.getComponents(widget.recipeId);
+      if (mounted) {
+        setState(() {
+          _recipeName = def?.name ?? '';
+          _components = comps;
+          _loading = false;
+        });
+      }
+      // Initialize controllers
+      for (final c in comps) {
+        final typeStr = c.type.toString();
+        if (typeStr.endsWith('kind')) {
+          _kindCtrls[c.compId] = TextEditingController(text: _fmtDouble(c.amount ?? 0.0));
+        } else {
+          _productCtrls[c.compId] = TextEditingController(text: (c.grams ?? 0).toString());
+        }
+      }
+    } else {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _pickDateTime(BuildContext context) async {
@@ -107,7 +111,7 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
                     OutlinedButton.icon(
                       onPressed: () => _pickDateTime(context),
                       icon: const Icon(Icons.schedule),
-                      label: Text(_targetAt.toLocal().toString()),
+                      label: Text('${_targetAt.toLocal()}'),
                     ),
                     const SizedBox(height: 12),
                     if (_components.isEmpty)

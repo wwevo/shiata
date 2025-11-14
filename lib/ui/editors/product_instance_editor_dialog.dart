@@ -21,13 +21,14 @@ class ProductEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
+  // State variables
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _gramsController;
   bool _isStatic = false;
   DateTime _targetAt = DateTime.now();
   bool _saving = false;
   bool _loading = false;
-  String? _productId; // for edit/create paths
+  String? _productId;
   String? _productName;
 
   @override
@@ -222,7 +223,7 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
                 OutlinedButton.icon(
                   onPressed: () => _pickDateTime(context),
                   icon: const Icon(Icons.schedule),
-                  label: Text('$_targetAt'),
+                  label: Text('${_targetAt.toLocal()}'),
                 ),
                 const SizedBox(height: 16),
                 SwitchListTile(

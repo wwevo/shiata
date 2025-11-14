@@ -15,6 +15,13 @@ class RecipeEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
+  // Helper methods
+  String _fmtDouble(double v) {
+    final s = v.toStringAsFixed(6);
+    return s.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+
+  // State variables
   List<RecipeComponentDef> _components = const [];
   bool _loading = true;
   bool _saving = false;
@@ -54,11 +61,6 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved recipe')));
     if (mounted) setState(() => _saving = false);
-  }
-
-  String _fmtDouble(double v) {
-    final s = v.toStringAsFixed(6);
-    return s.replaceFirst(RegExp(r'\.?0+$'), '');
   }
 
   Future<void> _showAddMenu() async {

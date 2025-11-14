@@ -14,6 +14,7 @@ class KindTemplateEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _KindTemplateEditorDialogState extends ConsumerState<KindTemplateEditorDialog> {
+  // State variables
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _id;
   late final TextEditingController _name;

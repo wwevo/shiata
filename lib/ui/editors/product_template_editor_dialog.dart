@@ -19,6 +19,7 @@ class ProductTemplateEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEditorDialog> {
+  // Helper methods
   String _fmtDouble(double v) {
     final s = v.toStringAsFixed(6);
     return s.replaceFirst(RegExp(r'\.?0+$'), '');
@@ -30,6 +31,7 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
     return double.tryParse(t);
   }
 
+  // State variables
   List<ProductComponent> _components = const [];
   bool _loading = true;
   bool _saving = false;

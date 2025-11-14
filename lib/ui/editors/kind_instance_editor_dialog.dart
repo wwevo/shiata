@@ -24,6 +24,7 @@ class KindInstanceEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDialog> {
+  // Helper methods
   String _fmtDouble(num v) {
     final s = (v.toDouble()).toStringAsFixed(6);
     return s.replaceFirst(RegExp(r'\.?0+$'), '');
@@ -35,6 +36,7 @@ class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDia
     return double.tryParse(t);
   }
 
+  // State variables
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _amountController;
   late DateTime _targetAt;

@@ -16,6 +16,13 @@ class InstanceComponentsEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceComponentsEditorDialog> {
+  // Helper methods
+  String _fmtDouble(double v) {
+    final s = v.toStringAsFixed(6);
+    return s.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+
+  // State variables
   bool _loading = true;
   bool _saving = false;
   List<EntryRecord> _children = const [];
@@ -34,20 +41,18 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
       return;
     }
     final list = await repo.listChildrenOfParent(widget.parentEntryId);
-    setState(() {
-      _children = list;
-      _loading = false;
-    });
-    // initialize controllers
-    String fmt(double v) {
-      final s = v.toStringAsFixed(6);
-      return s.replaceFirst(RegExp(r'\.?0+$'), '');
+    if (mounted) {
+      setState(() {
+        _children = list;
+        _loading = false;
+      });
     }
+    // Initialize controllers
     for (final c in list) {
       try {
         final map = jsonDecode(c.payloadJson) as Map<String, dynamic>;
         final amount = (map['amount'] as num?)?.toDouble() ?? 0.0;
-        _controllers[c.id] = TextEditingController(text: fmt(amount));
+        _controllers[c.id] = TextEditingController(text: _fmtDouble(amount));
       } catch (_) {
         _controllers[c.id] = TextEditingController(text: '0');
       }
