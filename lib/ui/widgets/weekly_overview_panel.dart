@@ -36,13 +36,19 @@ class WeeklyOverviewPanel extends ConsumerWidget {
     final today = DateTime(now.year, now.month, now.day);
     final sevenDaysAgo = today.subtract(const Duration(days: 6));
 
-    return StreamBuilder<List<EntryRecord>>(
-      stream: repo.watchByDayRange(sevenDaysAgo, today),
+    return StreamBuilder<Map<DateTime, List<EntryRecord>>>(
+      stream: repo.watchByDayRange(sevenDaysAgo, today, onlyShowInCalendar: false),
       builder: (context, snapshot) {
-        final entries = snapshot.data ?? const <EntryRecord>[];
+        final entriesMap = snapshot.data ?? const <DateTime, List<EntryRecord>>{};
+
+        // Flatten map to list
+        final allEntries = <EntryRecord>[];
+        for (final dayEntries in entriesMap.values) {
+          allEntries.addAll(dayEntries);
+        }
 
         // Filter only parent entries (no children)
-        final parentEntries = entries.where((e) => e.sourceEntryId == null).toList()
+        final parentEntries = allEntries.where((e) => e.sourceEntryId == null).toList()
           ..sort((a, b) => b.targetAt.compareTo(a.targetAt)); // Most recent first
 
         // Aggregate amounts for pie chart (Protein, Fat, Carbohydrate)
