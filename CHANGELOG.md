@@ -1,5 +1,52 @@
 # CHANGELOG.md
 
+## [0.6.7] - 2025-11-14
+### Added
+- **Weekly Overview Panel**: New 7-day summary view with pie chart and entry list
+  - Filter chips to select which nutrient kinds appear in pie chart
+  - Pie chart shows aggregated values for selected nutrients over last 7 days (including today)
+  - Scrollable list of all entries from last 7 days with proper product/recipe names
+  - Smart date range handling (includes entries from today)
+- **Section-based navigation**: Complete redesign of app navigation architecture
+  - Calendar, Products, Kinds, and Recipes are now sections instead of stacked pages
+  - Instant section switching with no navigation stack buildup
+  - Bottom toolbar always visible across all sections
+- **Smart Calendar/Overview toggle**: First button in bottom bar now context-aware
+  - When in calendar section: toggles between overview and calendar views
+  - When in other sections: returns to calendar section (remembers last view mode)
+- **Save & Close buttons**: Edit dialogs now offer two save options
+  - "Save": saves changes but keeps dialog open for multiple edits
+  - "Save & Close": saves changes and closes the dialog
+  - Applied to both kind and product instance editors
+
+### Changed
+- **List styles standardized**: Products and Recipes pages now match Kinds page design
+  - Card wrapper with consistent spacing
+  - Leading CircleAvatar icons (purple basket for products, brown menu for recipes)
+  - Non-clickable list items with explicit Edit/Delete buttons
+  - ListView.builder instead of ListView.separated
+- **Search functionality restored**: Works in both overview and calendar modes
+  - Proper product/recipe name extraction from JSON payload
+  - Shows in calendar view when user types in search field
+- **Pie chart units**: Now displays correct units (mg, ug, g) instead of hardcoded 'g'
+  - Extracts unit from kind metadata
+
+### Fixed
+- Products and recipes now show actual names in all lists (weekly overview, search results, day details)
+- Filter chips in weekly overview now properly update pie chart when toggled
+- Date range calculation includes today's entries (previously only showed yesterday and before)
+- Bottom navigation bar visible on all pages instead of just main screen
+
+### Technical
+- Added `AppSection` enum (calendar, products, kinds, recipes) for section-based navigation
+- Added `currentSectionProvider` for tracking active section
+- Removed duplicate Scaffold wrappers that caused navigation stack buildup
+- BottomControls now uses section state instead of Navigator.push
+- Added `fl_chart` dependency (^0.69.0) for pie chart visualization
+- ViewMode provider persists between section switches
+
+---
+
 ## [0.5.5] - 2025-11-14
 ### Changed
 - Harmonized all 7 dialog editors to consistent code style:
