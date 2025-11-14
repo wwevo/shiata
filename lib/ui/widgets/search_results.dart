@@ -53,15 +53,43 @@ class SearchResults extends ConsumerWidget {
           itemBuilder: (ctx, i) {
             final e = results[i];
             final kind = registry.byId(e.widgetKind);
-            final color = kind?.accentColor ?? Theme.of(context).colorScheme.primary;
-            final icon = kind?.icon ?? Icons.circle;
-            // Basic summary from payload
+
+            // Determine icon and color based on widget kind
+            IconData icon;
+            Color color;
+            if (e.widgetKind == 'product') {
+              icon = Icons.shopping_basket;
+              color = Colors.purple;
+            } else if (e.widgetKind == 'recipe') {
+              icon = Icons.restaurant_menu;
+              color = Colors.brown;
+            } else {
+              icon = kind?.icon ?? Icons.circle;
+              color = kind?.accentColor ?? Theme.of(context).colorScheme.primary;
+            }
+
+            // Extract title and summary from payload
+            String title = kind?.displayName ?? e.widgetKind;
             String summary = '';
             try {
               final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
-              final grams = (map['grams'] as num?)?.toInt();
-              if (grams != null) summary = '$grams g';
+
+              // Extract name for products and recipes
+              if (e.widgetKind == 'product') {
+                title = (map['name'] as String?) ?? 'Product';
+                final grams = (map['grams'] as num?)?.toInt();
+                if (grams != null) summary = '$grams g';
+              } else if (e.widgetKind == 'recipe') {
+                title = (map['name'] as String?) ?? 'Recipe';
+              } else {
+                // For kinds, show amount
+                final amount = (map['amount'] as num?)?.toDouble();
+                if (amount != null) {
+                  summary = '${amount.toStringAsFixed(1)} ${kind?.unit ?? ''}';
+                }
+              }
             } catch (_) {}
+
             final localTime = DateTime.fromMillisecondsSinceEpoch(e.targetAt, isUtc: true).toLocal();
             return ListTile(
               onTap: () {
@@ -88,7 +116,7 @@ class SearchResults extends ConsumerWidget {
 
               },
               leading: CircleAvatar(backgroundColor: color, foregroundColor: Colors.white, child: Icon(icon, size: 18)),
-              title: Text('${kind?.displayName ?? e.widgetKind} • ${summary.isEmpty ? '—' : summary}'),
+              title: Text('$title${summary.isEmpty ? '' : ' • $summary'}'),
               subtitle: Text('${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')}  ${_fmtTime(localTime)}'),
               trailing: const Icon(Icons.chevron_right),
             );
