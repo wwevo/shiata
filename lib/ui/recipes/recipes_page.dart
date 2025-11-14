@@ -45,55 +45,61 @@ class RecipesPage extends ConsumerWidget {
               builder: (context, snapshot) {
                 final list = snapshot.data ?? const <RecipeDef>[];
                 if (list.isEmpty) return const Center(child: Text('No recipes yet'));
-                return ListView.separated(
+                return ListView.builder(
                   itemCount: list.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (ctx, i) {
                     final r = list[i];
-                    return ListTile(
-                      title: Text(r.name),
-                      subtitle: Text(r.id),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            tooltip: 'Edit',
-                            icon: const Icon(Icons.edit_outlined),
-                            onPressed: () {
-//                              Navigator.of(context).push(MaterialPageRoute(builder: (_) => RecipeEditorPage(recipeId: r.id)));
-                              showDialog(
-                                context: context,
-                                builder: (_) => RecipeEditorDialog(recipeId: r.id),
-                              );
-                            },
-                          ),
-                          IconButton(
-                            tooltip: 'Delete',
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () async {
-                              final confirm = await showDialog<bool>(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      title: const Text('Delete recipe?'),
-                                      content: const Text('Instances will convert: children become standalone entries; parents removed.'),
-                                      actions: [
-                                        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-                                        FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
-                                      ],
-                                    ),
-                                  ) ??
-                                  false;
-                              if (!confirm) return;
-                              final svc = ref.read(recipeServiceProvider);
-                              if (svc == null) return;
-                              await svc.deleteRecipeTemplate(r.id);
-                              await repo.deleteRecipe(r.id);
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recipe deleted')));
-                              }
-                            },
-                          ),
-                        ],
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: ListTile(
+                        leading: const CircleAvatar(
+                          backgroundColor: Colors.brown,
+                          foregroundColor: Colors.white,
+                          child: Icon(Icons.restaurant_menu, color: Colors.white),
+                        ),
+                        title: Text(r.name),
+                        subtitle: Text(r.id),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: 'Edit',
+                              icon: const Icon(Icons.edit),
+                              onPressed: () async {
+                                await showDialog(
+                                  context: context,
+                                  builder: (_) => RecipeEditorDialog(recipeId: r.id),
+                                );
+                              },
+                            ),
+                            IconButton(
+                              tooltip: 'Delete',
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () async {
+                                final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('Delete recipe?'),
+                                        content: const Text('Instances will convert: children become standalone entries; parents removed.'),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                                          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
+                                        ],
+                                      ),
+                                    ) ??
+                                    false;
+                                if (!confirm) return;
+                                final svc = ref.read(recipeServiceProvider);
+                                if (svc == null) return;
+                                await svc.deleteRecipeTemplate(r.id);
+                                await repo.deleteRecipe(r.id);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recipe deleted')));
+                                }
+                              },
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },

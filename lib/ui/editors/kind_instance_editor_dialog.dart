@@ -102,7 +102,7 @@ class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDia
     });
   }
 
-  Future<void> _save(BuildContext context) async {
+  Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
     if (!_formKey.currentState!.validate()) return;
     final repo = ref.read(entriesRepositoryProvider);
     if (repo == null) {
@@ -124,7 +124,7 @@ class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDia
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Updated ${widget.kind.displayName}')),
           );
-          Navigator.of(context).pop();
+          if (closeAfter) Navigator.of(context).pop();
         }
       } else {
         await repo.create(
@@ -138,7 +138,7 @@ class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDia
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Saved ${widget.kind.displayName}')),
           );
-          Navigator.of(context).pop();
+          if (closeAfter) Navigator.of(context).pop();
         }
       }
     } catch (e) {
@@ -254,9 +254,13 @@ class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDia
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        FilledButton(
-          onPressed: () => _save(context),
+        OutlinedButton(
+          onPressed: () => _save(context, closeAfter: false),
           child: const Text('Save'),
+        ),
+        FilledButton(
+          onPressed: () => _save(context, closeAfter: true),
+          child: const Text('Save & Close'),
         ),
       ],
     );

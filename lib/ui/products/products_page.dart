@@ -157,57 +157,62 @@ class ProductTemplatesPage extends ConsumerWidget {
                 if (list.isEmpty) {
                   return const Center(child: Text('No products yet'));
                 }
-                return ListView.separated(
+                return ListView.builder(
                   itemCount: list.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (ctx, i) {
                     final p = list[i];
-                    return ListTile(
-                      title: Text(p.name),
-                      subtitle: Text(p.id),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            tooltip: 'Delete',
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () async {
-                              final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('Delete product?'),
-                                  content: const Text('Instances will be converted: parent rows removed, nutrient entries kept.'),
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-                                    FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
-                                  ],
-                                ),
-                              );
-                              if (confirm == true) {
-                                final svc = ref.read(productServiceProvider);
-                                await svc?.deleteProductTemplate(p.id);
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Deleted ${p.name}; instances converted')),
-                                  );
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: ListTile(
+                        leading: const CircleAvatar(
+                          backgroundColor: Colors.purple,
+                          foregroundColor: Colors.white,
+                          child: Icon(Icons.shopping_basket, color: Colors.white),
+                        ),
+                        title: Text(p.name),
+                        subtitle: Text(p.id),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: 'Edit',
+                              icon: const Icon(Icons.edit),
+                              onPressed: () async {
+                                await showDialog(
+                                  context: context,
+                                  builder: (_) => ProductTemplateEditorDialog(productId: p.id),
+                                );
+                              },
+                            ),
+                            IconButton(
+                              tooltip: 'Delete',
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Delete product?'),
+                                    content: const Text('Instances will be converted: parent rows removed, nutrient entries kept.'),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                                      FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true) {
+                                  final svc = ref.read(productServiceProvider);
+                                  await svc?.deleteProductTemplate(p.id);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Deleted ${p.name}; instances converted')),
+                                    );
+                                  }
                                 }
-                              }
-                            },
-                          ),
-                          const Icon(Icons.chevron_right),
-                        ],
+                              },
+                            ),
+                          ],
+                        ),
                       ),
-                      onTap: () {
-/*
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => ProductTemplateEditorPage(productId: p.id)),
-                        );
-*/
-                        showDialog(
-                          context: context,
-                          builder: (_) => ProductTemplateEditorDialog(productId: p.id),
-                        );
-                      },
                     );
                   },
                 );

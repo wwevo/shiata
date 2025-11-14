@@ -134,9 +134,10 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                               sections: chartData.entries.map((entry) {
                                 final kind = registry.byId(entry.key);
                                 final color = kind?.accentColor ?? theme.colorScheme.primary;
+                                final unit = kind?.unit ?? '';
                                 return PieChartSectionData(
                                   value: entry.value,
-                                  title: '${entry.value.toStringAsFixed(0)}g',
+                                  title: '${entry.value.toStringAsFixed(0)}$unit',
                                   color: color,
                                   radius: 100,
                                   titleStyle: const TextStyle(

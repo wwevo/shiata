@@ -98,7 +98,7 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
     });
   }
 
-  Future<void> _save(BuildContext context) async {
+  Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
     if (!_formKey.currentState!.validate()) return;
     final grams = int.tryParse(_gramsController.text) ?? widget.defaultGrams;
     final service = ref.read(productServiceProvider);
@@ -119,7 +119,7 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Updated ${_productName ?? 'Product'} • $grams g')),
         );
-        Navigator.of(context).pop();
+        if (closeAfter) Navigator.of(context).pop();
       } else {
         // Create new parent+children
         if (_productId == null) {
@@ -139,7 +139,7 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Added ${_productName ?? 'Product'} • $grams g')),
           );
-          Navigator.of(context).pop();
+          if (closeAfter) Navigator.of(context).pop();
         }
       }
     } catch (e) {
@@ -242,9 +242,13 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        FilledButton(
-          onPressed: _saving ? null : () => _save(context),
+        OutlinedButton(
+          onPressed: _saving ? null : () => _save(context, closeAfter: false),
           child: const Text('Save'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : () => _save(context, closeAfter: true),
+          child: const Text('Save & Close'),
         ),
       ],
     );
