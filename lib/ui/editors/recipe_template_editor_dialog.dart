@@ -6,6 +6,7 @@ import '../../data/repo/products_repository.dart';
 import '../../data/repo/recipes_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
+import '../widgets/editor_dialog_actions.dart';
 
 class RecipeEditorDialog extends ConsumerStatefulWidget {
   const RecipeEditorDialog({super.key, required this.recipeId});
@@ -50,7 +51,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
     }
   }
 
-  Future<void> _save() async {
+  Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
     setState(() => _saving = true);
     final repo = ref.read(recipesRepositoryProvider);
     if (repo == null) {
@@ -61,6 +62,9 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved recipe')));
     if (mounted) setState(() => _saving = false);
+    if (closeAfter && mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _showAddMenu() async {
@@ -229,16 +233,11 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: (_loading || _saving) ? null : _save,
-          child: const Text('Save'),
-        ),
-      ],
+      actions: editorDialogActions(
+        context: context,
+        onSave: ({required closeAfter}) => _save(context, closeAfter: closeAfter),
+        isSaving: _saving,
+      ),
     );
   }
 

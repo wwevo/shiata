@@ -9,6 +9,7 @@ import '../../data/repo/product_service.dart';
 import '../../data/repo/products_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
+import '../widgets/editor_dialog_actions.dart';
 
 class ProductTemplateEditorDialog extends ConsumerStatefulWidget {
   const ProductTemplateEditorDialog({super.key, required this.productId});
@@ -60,7 +61,7 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
     }
   }
 
-  Future<void> _save() async {
+  Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
     setState(() => _saving = true);
     final repo = ref.read(productsRepositoryProvider);
     final svc = ref.read(productServiceProvider);
@@ -110,6 +111,9 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved template')));
     }
     if (mounted) setState(() => _saving = false);
+    if (closeAfter && mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _addComponent() async {
@@ -205,16 +209,11 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: (_loading || _saving) ? null : _save,
-          child: const Text('Save'),
-        ),
-      ],
+      actions: editorDialogActions(
+        context: context,
+        onSave: ({required closeAfter}) => _save(context, closeAfter: closeAfter),
+        isSaving: _saving,
+      ),
     );
   }
 

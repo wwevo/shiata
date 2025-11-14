@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/recipe_service.dart';
 import '../../domain/widgets/registry.dart';
+import '../widgets/editor_dialog_actions.dart';
 
 class RecipeInstantiateDialog extends ConsumerStatefulWidget {
   const RecipeInstantiateDialog({super.key, required this.recipeId, required this.initialTarget});
@@ -94,6 +95,31 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
     });
   }
 
+  Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
+    final svc = ref.read(recipeServiceProvider);
+    if (svc == null) return;
+    final kindOverrides = <String, double>{};
+    final productOverrides = <String, int>{};
+    _kindCtrls.forEach((k, v) {
+      final d = double.tryParse(v.text.trim());
+      if (d != null) kindOverrides[k] = d;
+    });
+    _productCtrls.forEach((k, v) {
+      final g = int.tryParse(v.text.trim());
+      if (g != null) productOverrides[k] = g;
+    });
+    await svc.createRecipeEntry(
+      recipeId: widget.recipeId,
+      targetAtLocal: _targetAt,
+      kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
+      productGramOverrides: productOverrides.isEmpty ? null : productOverrides,
+      showParentInCalendar: true,
+    );
+    if (closeAfter && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final registry = ref.watch(widgetRegistryProvider);
@@ -150,34 +176,10 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
                 ),
               ),
             ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: () async {
-            final svc = ref.read(recipeServiceProvider);
-            if (svc == null) return;
-            final kindOverrides = <String, double>{};
-            final productOverrides = <String, int>{};
-            _kindCtrls.forEach((k, v) {
-              final d = double.tryParse(v.text.trim());
-              if (d != null) kindOverrides[k] = d;
-            });
-            _productCtrls.forEach((k, v) {
-              final g = int.tryParse(v.text.trim());
-              if (g != null) productOverrides[k] = g;
-            });
-            await svc.createRecipeEntry(
-              recipeId: widget.recipeId,
-              targetAtLocal: _targetAt,
-              kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
-              productGramOverrides: productOverrides.isEmpty ? null : productOverrides,
-              showParentInCalendar: true,
-            );
-            if (mounted) Navigator.of(context).pop();
-          },
-          child: const Text('Create'),
-        ),
-      ],
+      actions: editorDialogActions(
+        context: context,
+        onSave: ({required closeAfter}) => _save(context, closeAfter: closeAfter),
+      ),
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../domain/widgets/widget_kind.dart';
+import '../widgets/editor_dialog_actions.dart';
 
 /// Generic integer-only nutrient editor driven by WidgetKind metadata.
 class KindInstanceEditorDialog extends ConsumerStatefulWidget {
@@ -249,20 +250,10 @@ class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDia
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        OutlinedButton(
-          onPressed: () => _save(context, closeAfter: false),
-          child: const Text('Save'),
-        ),
-        FilledButton(
-          onPressed: () => _save(context, closeAfter: true),
-          child: const Text('Save & Close'),
-        ),
-      ],
+      actions: editorDialogActions(
+        context: context,
+        onSave: ({required closeAfter}) => _save(context, closeAfter: closeAfter),
+      ),
     );
   }
 }

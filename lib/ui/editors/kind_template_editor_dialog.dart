@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../data/repo/kinds_repository.dart';
+import '../widgets/editor_dialog_actions.dart';
 
 class KindTemplateEditorDialog extends ConsumerStatefulWidget {
   const KindTemplateEditorDialog({super.key, this.existing});
@@ -50,6 +51,39 @@ class _KindTemplateEditorDialogState extends ConsumerState<KindTemplateEditorDia
     _icon.dispose();
     _color.dispose();
     super.dispose();
+  }
+
+  Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
+    if (!_formKey.currentState!.validate()) return;
+    final repo = ref.read(kindsRepositoryProvider);
+    if (repo == null) return;
+    final min = int.tryParse(_min.text.trim()) ?? 0;
+    final max = int.tryParse(_max.text.trim()) ?? 0;
+    if (min > max) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Min cannot be greater than max')),
+      );
+      return;
+    }
+    final color = int.tryParse(_color.text.trim());
+    final def = KindDef(
+      id: _id.text.trim(),
+      name: _name.text.trim(),
+      unit: _unit,
+      color: color,
+      icon: _icon.text.trim().isEmpty ? null : _icon.text.trim(),
+      min: min,
+      max: max,
+      defaultShowInCalendar: _defaultShow,
+    );
+    await repo.upsertKind(def);
+    if (context.mounted) {
+      final isEdit = widget.existing != null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isEdit ? 'Updated kind' : 'Created kind')),
+      );
+      if (closeAfter) Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -122,43 +156,10 @@ class _KindTemplateEditorDialogState extends ConsumerState<KindTemplateEditorDia
           ),
         ),
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: () async {
-            if (!_formKey.currentState!.validate()) return;
-            final repo = ref.read(kindsRepositoryProvider);
-            if (repo == null) return;
-            final min = int.tryParse(_min.text.trim()) ?? 0;
-            final max = int.tryParse(_max.text.trim()) ?? 0;
-            if (min > max) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Min cannot be greater than max')),
-              );
-              return;
-            }
-            final color = int.tryParse(_color.text.trim());
-            final def = KindDef(
-              id: _id.text.trim(),
-              name: _name.text.trim(),
-              unit: _unit,
-              color: color,
-              icon: _icon.text.trim().isEmpty ? null : _icon.text.trim(),
-              min: min,
-              max: max,
-              defaultShowInCalendar: _defaultShow,
-            );
-            await repo.upsertKind(def);
-            if (context.mounted) {
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(isEdit ? 'Updated kind' : 'Created kind')),
-              );
-            }
-          },
-          child: const Text('Save'),
-        ),
-      ],
+      actions: editorDialogActions(
+        context: context,
+        onSave: ({required closeAfter}) => _save(context, closeAfter: closeAfter),
+      ),
     );
   }
 

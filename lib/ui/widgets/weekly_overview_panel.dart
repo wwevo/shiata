@@ -60,23 +60,30 @@ class WeeklyOverviewPanel extends ConsumerWidget {
         final parentEntries = allEntries.where((e) => e.sourceEntryId == null).toList()
           ..sort((a, b) => b.targetAt.compareTo(a.targetAt)); // Most recent first
 
-        // Get all available kinds from registry
-        final allKinds = registry.all
-            .where((k) => k.id != 'product' && k.id != 'recipe')
-            .toList();
-
-        // Aggregate amounts for selected kinds only
-        // Use ALL entries (including children from products) for aggregation
-        final aggregated = <String, double>{};
+        // Aggregate ALL amounts (regardless of selection) to determine which kinds have data
+        final allAmounts = <String, double>{};
         for (final e in allEntries) {
           if (e.widgetKind == 'product' || e.widgetKind == 'recipe') continue;
-          if (!selectedKinds.contains(e.widgetKind)) continue;
 
           try {
             final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
             final amount = (map['amount'] as num?)?.toDouble() ?? 0.0;
-            aggregated[e.widgetKind] = (aggregated[e.widgetKind] ?? 0.0) + amount;
+            allAmounts[e.widgetKind] = (allAmounts[e.widgetKind] ?? 0.0) + amount;
           } catch (_) {}
+        }
+
+        // Only show filter chips for kinds that actually have data in the last 7 days
+        final availableKindIds = allAmounts.keys.toSet();
+        final allKinds = registry.all
+            .where((k) => availableKindIds.contains(k.id))
+            .toList();
+
+        // Aggregate amounts for SELECTED kinds only (for the chart)
+        final aggregated = <String, double>{};
+        for (final kindId in selectedKinds) {
+          if (allAmounts.containsKey(kindId)) {
+            aggregated[kindId] = allAmounts[kindId]!;
+          }
         }
 
         final chartData = aggregated;

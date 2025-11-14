@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
+import '../widgets/editor_dialog_actions.dart';
 
 class InstanceComponentsEditorDialog extends ConsumerStatefulWidget {
   const InstanceComponentsEditorDialog({super.key, required this.parentEntryId});
@@ -67,7 +68,7 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
     super.dispose();
   }
 
-  Future<void> _save() async {
+  Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
     setState(() => _saving = true);
     final repo = ref.read(entriesRepositoryProvider);
     final registry = ref.read(widgetRegistryProvider);
@@ -98,7 +99,10 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Updated components (instance is now Static)')));
-    Navigator.of(context).pop();
+    if (mounted) setState(() => _saving = false);
+    if (closeAfter && mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -152,16 +156,11 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
           },
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: (_loading || _saving) ? null : _save,
-          child: const Text('Save'),
-        ),
-      ],
+      actions: editorDialogActions(
+        context: context,
+        onSave: ({required closeAfter}) => _save(context, closeAfter: closeAfter),
+        isSaving: _saving,
+      ),
     );
   }
 }

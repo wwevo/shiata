@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../data/repo/product_service.dart';
+import '../widgets/editor_dialog_actions.dart';
 
 class ProductEditorDialog extends ConsumerStatefulWidget {
   const ProductEditorDialog({super.key, this.entryId, this.productId, this.productName, this.defaultGrams = 100, this.initialTargetAt});
@@ -237,20 +238,11 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        OutlinedButton(
-          onPressed: _saving ? null : () => _save(context, closeAfter: false),
-          child: const Text('Save'),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : () => _save(context, closeAfter: true),
-          child: const Text('Save & Close'),
-        ),
-      ],
+      actions: editorDialogActions(
+        context: context,
+        onSave: ({required closeAfter}) => _save(context, closeAfter: closeAfter),
+        isSaving: _saving,
+      ),
     );
   }
 }
