@@ -9,6 +9,7 @@ import '../../data/repo/import_export_service.dart';
 import '../../data/repo/product_service.dart';
 import '../../data/repo/products_repository.dart';
 import '../editors/product_template_editor_dialog.dart';
+import '../widgets/bottom_controls.dart';
 
 Future<void> _exportJsonProducts(BuildContext context, WidgetRef ref) async {
   final svc = ref.read(importExportServiceProvider);
@@ -213,6 +214,7 @@ class ProductTemplatesPage extends ConsumerWidget {
                 );
               },
             ),
+      bottomNavigationBar: const BottomControls(),
     );
   }
 

@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'day_details_panel.dart';
 import 'month_calendar.dart';
+import 'search_results.dart';
+import '../main_screen_providers.dart';
 import '../ux_config.dart';
 
-/// Full-screen calendar view with month grid and day details.
-/// No sliding mechanism - always visible in calendar mode.
+/// Full-screen calendar view with month grid and content below.
+/// Shows DayDetailsPanel normally, or SearchResults when searching.
 class CalendarFullScreen extends ConsumerWidget {
   const CalendarFullScreen({super.key});
 
@@ -14,6 +16,13 @@ class CalendarFullScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(uxConfigProvider);
     final theme = Theme.of(context);
+    final searchQuery = ref.watch(searchQueryProvider);
+    final scrollController = ScrollController();
+
+    // Show search results if there's a search query, otherwise show day details
+    final content = searchQuery.trim().isNotEmpty
+        ? SearchResults(controller: scrollController)
+        : const DayDetailsPanel();
 
     return Material(
       color: theme.colorScheme.surface,
@@ -26,8 +35,8 @@ class CalendarFullScreen extends ConsumerWidget {
             child: MonthCalendar(grid: config.calendarGrid),
           ),
           const Divider(height: 1),
-          // Day details panel (expands to fill remaining space)
-          const Expanded(child: DayDetailsPanel()),
+          // Content area (search results or day details)
+          Expanded(child: content),
         ],
       ),
     );

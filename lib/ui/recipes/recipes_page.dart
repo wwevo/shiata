@@ -6,6 +6,7 @@ import '../../data/providers.dart';
 import '../../data/repo/recipe_service.dart';
 import '../../data/repo/recipes_repository.dart';
 import '../editors/recipe_template_editor_dialog.dart';
+import '../widgets/bottom_controls.dart';
 
 class RecipesPage extends ConsumerWidget {
   const RecipesPage({super.key});
@@ -100,6 +101,7 @@ class RecipesPage extends ConsumerWidget {
                 );
               },
             ),
+      bottomNavigationBar: const BottomControls(),
     );
   }
 
