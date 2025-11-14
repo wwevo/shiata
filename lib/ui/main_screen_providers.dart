@@ -19,7 +19,11 @@ final selectedDayProvider = StateProvider<DateTime?>((ref) {
   return DateTime(now.year, now.month, now.day);
 });
 
-// View mode: toggles between overview and calendar
+// App section navigation (main sections of the app)
+enum AppSection { calendar, products, kinds, recipes }
+final currentSectionProvider = StateProvider<AppSection>((_) => AppSection.calendar);
+
+// View mode: toggles between overview and calendar within the calendar section
 enum ViewMode { overview, calendar }
 final viewModeProvider = StateProvider<ViewMode>((_) => ViewMode.overview);
 

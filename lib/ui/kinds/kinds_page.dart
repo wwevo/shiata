@@ -8,7 +8,6 @@ import '../../data/providers.dart';
 import '../../data/repo/import_export_service.dart';
 import '../../data/repo/kind_service.dart';
 import '../editors/kind_template_editor_dialog.dart';
-import '../widgets/bottom_controls.dart';
 
 Future<void> _exportJson(BuildContext context, WidgetRef ref) async {
   final svc = ref.read(importExportServiceProvider);
@@ -288,7 +287,6 @@ class KindsPage extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, st) => Center(child: Text('Error loading kinds')),
       ),
-      bottomNavigationBar: const BottomControls(),
     );
   }
 }

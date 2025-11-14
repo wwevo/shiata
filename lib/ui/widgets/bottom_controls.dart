@@ -3,10 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/db/db_handle.dart';
 import '../../data/repo/import_export_service.dart';
-import '../kinds/kinds_page.dart';
 import '../main_screen_providers.dart';
-import '../products/products_page.dart';
-import '../recipes/recipes_page.dart';
 
 class BottomControls extends ConsumerWidget {
   const BottomControls({super.key});
@@ -14,18 +11,29 @@ class BottomControls extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final handedness = ref.watch(handednessProvider);
     final viewMode = ref.watch(viewModeProvider);
+    final section = ref.watch(currentSectionProvider);
 
     return BottomAppBar(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          // View mode toggle (Overview <-> Calendar)
+          // Calendar/Overview toggle
+          // When in calendar section: toggle between overview and calendar views
+          // When in other sections: return to calendar section (remembers last view)
           IconButton(
-            tooltip: viewMode == ViewMode.overview ? 'Switch to Calendar' : 'Switch to Overview',
+            tooltip: section == AppSection.calendar
+                ? (viewMode == ViewMode.overview ? 'Switch to Calendar' : 'Switch to Overview')
+                : 'Go to Calendar',
             onPressed: () {
-              ref.read(viewModeProvider.notifier).state =
-                  viewMode == ViewMode.overview ? ViewMode.calendar : ViewMode.overview;
+              if (section == AppSection.calendar) {
+                // Toggle between overview and calendar within calendar section
+                ref.read(viewModeProvider.notifier).state =
+                    viewMode == ViewMode.overview ? ViewMode.calendar : ViewMode.overview;
+              } else {
+                // Return to calendar section (uses current viewMode)
+                ref.read(currentSectionProvider.notifier).state = AppSection.calendar;
+              }
             },
             icon: Icon(
               viewMode == ViewMode.overview ? Icons.calendar_month : Icons.bar_chart,
@@ -42,27 +50,21 @@ class BottomControls extends ConsumerWidget {
           IconButton(
             tooltip: 'Products',
             onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ProductTemplatesPage()),
-              );
+              ref.read(currentSectionProvider.notifier).state = AppSection.products;
             },
             icon: const Icon(Icons.shopping_basket_outlined),
           ),
           IconButton(
             tooltip: 'Kinds',
             onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const KindsPage()),
-              );
+              ref.read(currentSectionProvider.notifier).state = AppSection.kinds;
             },
             icon: const Icon(Icons.category_outlined),
           ),
           IconButton(
             tooltip: 'Recipes',
             onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const RecipesPage()),
-              );
+              ref.read(currentSectionProvider.notifier).state = AppSection.recipes;
             },
             icon: const Icon(Icons.restaurant_menu_outlined),
           ),
