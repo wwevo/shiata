@@ -1,7 +1,24 @@
 # CHANGELOG.md
 
-#### [0.5.0] – Unreleased
-##### Added
+## [0.5.5] - 2025-11-14
+### Changed
+- Harmonized all 7 dialog editors to consistent code style:
+  - Standardized helper method names: `_fmtDouble` (no abbreviations like `_fmtD` or inline `fmt`).
+  - Added structure comments (`// Helper methods`, `// State variables`) to all dialogs.
+  - Unified DateTime label format: `Text('${_targetAt.toLocal()}')`.
+  - Improved mounted checks after async operations.
+  - Consistent method ordering across all dialog editors.
+
+---
+
+## [0.5.1] - 2025-11-02
+### Added
+- `kinds.json` and `products.json` seed files to bootstrap DB with initial data on fresh installations.
+
+---
+
+## [0.5.0] - 2025-11-02
+### Added
 - Doubles-based amounts everywhere (no fixed-point scaling):
     - Direct entries and product children store `amount` as double.
     - Product components `amount_per_gram` now REAL (double); math uses `amount = per100 × grams / 100`.

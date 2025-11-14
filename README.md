@@ -2,7 +2,55 @@
 
 Superior health insights and tracking app
 
-## What’s new in 0.4.0
+## What's new in 0.5.5
+
+### Code Quality Improvements
+- **Harmonized Dialog Editors**: All 7 dialog editors now follow a consistent code style:
+  - Standardized method naming (`_fmtDouble`, `_parseDouble`)
+  - Clear code organization with structure comments
+  - Unified DateTime formatting
+  - Consistent state management patterns
+  - Same method ordering across all dialogs
+
+This makes the codebase easier to maintain and understand - all editors feel like they're "from the same developer."
+
+## What's new in 0.5.0
+
+### Doubles-Based Amounts
+- All nutrient amounts now use doubles (no fixed-point scaling)
+- Direct entries and product children store `amount` as double
+- Product components use `amount_per_gram` (REAL/double)
+- Math: `amount = (per100 × grams) / 100`
+
+### Recipes (Templates)
+- New `recipes` + `recipe_components` tables
+- Recipes can include:
+  - **Kinds** (with double amounts)
+  - **Products** (with gram amounts as integers)
+- CAS integration: new Recipe section
+- **Instantiation Dialog**: Set date/time and per-component overrides; creates a static recipe parent
+
+### Day Details Nesting
+- Recipes display as parents in Day Details
+- Expanding reveals:
+  - Kind children (direct nutrients)
+  - Nested product parents (which expand to their nutrient children)
+
+### Delete + Undo (Recipes)
+- Deleting a recipe instance removes the parent and all children
+- **UNDO** restores the full instance (parent, kind children, nested product parents, and their children)
+
+### Changed
+- Editors accept and render decimal values
+- Trailing zeros trimmed in UI
+- Product instance recomputation uses doubles consistently
+
+### Known Gaps
+- Precision model not fully purged (some `precision` fields/UI remain)
+- Automated tests not yet delivered
+- Documentation being updated
+
+## What's new in 0.4.0
 - Database-backed Kinds; dynamic `WidgetRegistry` sourced from DB (no hardcoded seeds at runtime).
 - Kinds Manager (list/create/edit/delete) with unit picker, min/max, icon/color, default calendar visibility.
 - Safe Kind deletion with usage-aware dialog and Undo (removes from templates and/or deletes direct instances).

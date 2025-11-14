@@ -244,6 +244,108 @@ If this step order looks good, say “go” and we’ll begin implementing Step 
 
 ---
 
+## 0.5.x Implementation Notes (since 0.4.0)
+
+### 0.5.5 - Code Quality & Dialog Editor Harmonization
+
+All dialog editors unified to consistent patterns:
+
+**File Structure Standard:**
+1. Helper methods (`_fmtDouble`, `_parseDouble`)
+2. State variables (with `// State variables` comment)
+3. Lifecycle methods (`initState`, `dispose`)
+4. Loading methods (`_load`, `_loadExisting`)
+5. Action methods (`_save`, `_pickDateTime`, etc.)
+6. Build method
+7. Dialog helper methods (at end)
+
+**Naming Conventions:**
+- Helper methods: `_fmtDouble` and `_parseDouble` (no abbreviations)
+- State flags: `_loading` for load operations, `_saving` for save operations
+- Controllers: Descriptive names like `_amountController`, `_gramsController`
+
+**UI Standards:**
+- Dialog sizes: `400×300` (simple), `500×400` (lists)
+- DateTime labels: `Text('${_targetAt.toLocal()}')`
+- SwitchListTile: Always `contentPadding: EdgeInsets.zero`
+- Spacing: Consistent 8/12/16px for SizedBox
+
+**Files harmonized:**
+- `kind_instance_editor_dialog.dart`
+- `kind_template_editor_dialog.dart`
+- `product_instance_components_editor_dialog.dart`
+- `product_instance_editor_dialog.dart`
+- `product_template_editor_dialog.dart`
+- `recipe_instance_dialog.dart`
+- `recipe_template_editor_dialog.dart`
+
+### 0.5.1 - Seed Files
+
+**Bootstrap Data:**
+- Added `kinds.json` and `products.json` seed files
+- Fresh installations populate DB with initial data
+- Bootstrap runs only on empty tables (existing data never overwritten)
+
+### 0.5.0 - Doubles, Recipes, and Nesting
+
+**Schema Changes:**
+- `entries.amount` → REAL (double, was scaled integer concept)
+- `product_components.amount_per_gram` → REAL (double)
+- New tables: `recipes`, `recipe_components`
+- Recipe components support two types:
+  - `kind`: stores `amount` (double)
+  - `product`: stores `grams` (integer)
+
+**Domain Model - Recipes:**
+- `RecipeDef` (id, name)
+- `RecipeComponentDef` (recipe_id, type enum, comp_id, amount?, grams?)
+- Recipes can mix Kinds (nutrients) and Products (sub-recipes)
+
+**Services:**
+- `RecipeService.createRecipeEntry(...)`:
+  - Creates static parent entry (widget_kind='recipe')
+  - Instantiates kind children (direct nutrients)
+  - Instantiates product children (nested parents with their nutrient children)
+  - Supports per-component overrides at instantiation time
+- `RecipeService.deleteRecipeEntry(...)` with Undo:
+  - Deletes parent + all kind children + all product parents + their children
+  - Undo restores the full tree
+
+**Repositories:**
+- `RecipesRepository`:
+  - `upsertRecipe(def)`, `getRecipe(id)`, `deleteRecipe(id)`
+  - `setComponents(recipeId, list)`, `getComponents(recipeId)`
+  - `watchRecipes()` stream for live list
+
+**UI Changes:**
+- CAS: New Recipes section (dynamic, sourced from DB)
+- `recipe_instance_dialog.dart`: Instantiation with date/time + per-component overrides
+- `recipe_template_editor_dialog.dart`: Edit recipe template (add/remove/tune components)
+- Day Details: Recipes appear as expandable parents
+  - Expanding shows kind children + nested product parents
+  - Product parents expand to show their nutrient children (3-level nesting)
+- `NestedProductParentRow`, `ProductChildRow` widgets for nested display
+
+**Doubles Migration:**
+- All amount calculations now use `double` (no scaling)
+- UI helpers: `_fmtDouble(v)` trims trailing zeros for display
+- Product formula: `amount = (amount_per_gram × grams) / 100`
+- Existing integer data remains valid (SQLite treats ints as numeric)
+
+**Files Added/Changed:**
+- Data: `lib/data/repo/recipes_repository.dart`, `recipe_service.dart`
+- Domain: `lib/domain/widgets/recipes/db_backed_recipe.dart`
+- UI: `lib/ui/editors/recipe_template_editor_dialog.dart`, `recipe_instance_dialog.dart`, `lib/ui/recipes/recipes_page.dart`
+- Widgets: `lib/ui/widgets/nested_product_parent_row.dart`, `product_child_row.dart`
+
+**Known Gaps (as of 0.5.0):**
+- Precision fields/UI not fully removed (schema cleanup pending)
+- No automated tests for new recipe flows
+- Import/Export v2 for recipes not documented
+- Analyzer hygiene pass pending
+
+---
+
 ## 0.4.0 Implementation Notes (since 0.3.0)
 
 ### Schema and bootstrap
