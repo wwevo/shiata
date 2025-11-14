@@ -56,7 +56,7 @@ class WeeklyOverviewPanel extends ConsumerWidget {
           allEntries.addAll(dayEntries);
         }
 
-        // Filter only parent entries (no children)
+        // Filter only parent entries (no children) for display list
         final parentEntries = allEntries.where((e) => e.sourceEntryId == null).toList()
           ..sort((a, b) => b.targetAt.compareTo(a.targetAt)); // Most recent first
 
@@ -66,8 +66,9 @@ class WeeklyOverviewPanel extends ConsumerWidget {
             .toList();
 
         // Aggregate amounts for selected kinds only
+        // Use ALL entries (including children from products) for aggregation
         final aggregated = <String, double>{};
-        for (final e in parentEntries) {
+        for (final e in allEntries) {
           if (e.widgetKind == 'product' || e.widgetKind == 'recipe') continue;
           if (!selectedKinds.contains(e.widgetKind)) continue;
 
