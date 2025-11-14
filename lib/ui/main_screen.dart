@@ -1,23 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'ux_config.dart';
-import 'widgets/middle_panel.dart';
-import 'widgets/top_sheet_host.dart';
+import 'main_screen_providers.dart';
+import 'widgets/bottom_controls.dart';
+import 'widgets/calendar_full_screen.dart';
+import 'widgets/weekly_overview_panel.dart';
 
+/// Main screen with two view modes:
+/// - Overview: Weekly summary with pie chart and entry list
+/// - Calendar: Full-screen calendar with day details
 class MainScreen extends ConsumerWidget {
   const MainScreen({super.key});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(uxConfigProvider);
-    return TopSheetHost(
-      config: config,
-      childBelow: const Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(child: MiddlePanel()),
-        ],
-      ),
+    final viewMode = ref.watch(viewModeProvider);
+
+    return Scaffold(
+      body: viewMode == ViewMode.overview
+          ? const WeeklyOverviewPanel()
+          : const CalendarFullScreen(),
+      bottomNavigationBar: const BottomControls(),
     );
   }
 }

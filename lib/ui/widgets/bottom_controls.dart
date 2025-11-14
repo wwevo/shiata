@@ -13,11 +13,24 @@ class BottomControls extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final handedness = ref.watch(handednessProvider);
+    final viewMode = ref.watch(viewModeProvider);
+
     return BottomAppBar(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
+          // View mode toggle (Overview <-> Calendar)
+          IconButton(
+            tooltip: viewMode == ViewMode.overview ? 'Switch to Calendar' : 'Switch to Overview',
+            onPressed: () {
+              ref.read(viewModeProvider.notifier).state =
+                  viewMode == ViewMode.overview ? ViewMode.calendar : ViewMode.overview;
+            },
+            icon: Icon(
+              viewMode == ViewMode.overview ? Icons.calendar_month : Icons.bar_chart,
+            ),
+          ),
           IconButton(
             tooltip: 'Swap handedness',
             onPressed: () {

@@ -19,6 +19,10 @@ final selectedDayProvider = StateProvider<DateTime?>((ref) {
   return DateTime(now.year, now.month, now.day);
 });
 
+// View mode: toggles between overview and calendar
+enum ViewMode { overview, calendar }
+final viewModeProvider = StateProvider<ViewMode>((_) => ViewMode.overview);
+
 // Middle content mode
 enum MiddleMode { main, search }
 final middleModeProvider = StateProvider<MiddleMode>((_) => MiddleMode.main);
