@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'main_screen_providers.dart';
-import 'widgets/bottom_controls.dart';
 import 'widgets/calendar_full_screen.dart';
 import 'widgets/weekly_overview_panel.dart';
 
@@ -16,11 +15,8 @@ class MainScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final viewMode = ref.watch(viewModeProvider);
 
-    return Scaffold(
-      body: viewMode == ViewMode.overview
-          ? const WeeklyOverviewPanel()
-          : const CalendarFullScreen(),
-      bottomNavigationBar: const BottomControls(),
-    );
+    return viewMode == ViewMode.overview
+        ? const WeeklyOverviewPanel()
+        : const CalendarFullScreen();
   }
 }

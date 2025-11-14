@@ -8,9 +8,14 @@ import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
 import '../editors/kind_instance_editor_dialog.dart';
 import '../editors/product_instance_editor_dialog.dart';
+import '../main_screen_providers.dart';
+
+// Provider for selected kinds filter (which kinds to show in pie chart)
+final selectedKindsForChartProvider = StateProvider<Set<String>>((_) => {'protein', 'fat', 'carbohydrate'});
 
 /// Weekly overview panel showing:
-/// - Pie chart of selected nutrients (Protein, Fat, Carbohydrate) for last 7 days
+/// - Filter chips to select which kinds to include in pie chart
+/// - Pie chart of selected nutrients for last 7 days
 /// - Scrollable list of all entries from last 7 days
 class WeeklyOverviewPanel extends ConsumerWidget {
   const WeeklyOverviewPanel({super.key});
@@ -31,10 +36,12 @@ class WeeklyOverviewPanel extends ConsumerWidget {
       return const Center(child: Text('Repository not available'));
     }
 
-    // Calculate date range: last 7 days
+    // Calculate date range: last 7 days (inclusive of today)
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final sevenDaysAgo = today.subtract(const Duration(days: 6));
+    final sevenDaysAgo = today.subtract(const Duration(days: 6)); // 7 days total including today
+
+    final selectedKinds = ref.watch(selectedKindsForChartProvider);
 
     return StreamBuilder<Map<DateTime, List<EntryRecord>>>(
       stream: repo.watchByDayRange(sevenDaysAgo, today, onlyShowInCalendar: false),
@@ -51,10 +58,16 @@ class WeeklyOverviewPanel extends ConsumerWidget {
         final parentEntries = allEntries.where((e) => e.sourceEntryId == null).toList()
           ..sort((a, b) => b.targetAt.compareTo(a.targetAt)); // Most recent first
 
-        // Aggregate amounts for pie chart (Protein, Fat, Carbohydrate)
+        // Get all available kinds from registry
+        final allKinds = registry.all
+            .where((k) => k.id != 'product' && k.id != 'recipe')
+            .toList();
+
+        // Aggregate amounts for selected kinds only
         final aggregated = <String, double>{};
         for (final e in parentEntries) {
           if (e.widgetKind == 'product' || e.widgetKind == 'recipe') continue;
+          if (!selectedKinds.contains(e.widgetKind)) continue;
 
           try {
             final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
@@ -63,20 +76,42 @@ class WeeklyOverviewPanel extends ConsumerWidget {
           } catch (_) {}
         }
 
-        // Filter for main macros only
-        final mainMacros = <String>['protein', 'fat', 'carbohydrate'];
-        final chartData = <String, double>{};
-        for (final macro in mainMacros) {
-          final val = aggregated[macro] ?? 0.0;
-          if (val > 0) chartData[macro] = val;
-        }
+        final chartData = aggregated;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Filter chips for kind selection
+            if (allKinds.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Wrap(
+                  spacing: 8,
+                  children: allKinds.map((kind) {
+                    final isSelected = selectedKinds.contains(kind.id);
+                    return FilterChip(
+                      label: Text(kind.displayName),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        final newSet = {...selectedKinds};
+                        if (selected) {
+                          newSet.add(kind.id);
+                        } else {
+                          newSet.remove(kind.id);
+                        }
+                        ref.read(selectedKindsForChartProvider.notifier).state = newSet;
+                      },
+                      avatar: CircleAvatar(
+                        backgroundColor: isSelected ? kind.accentColor : Colors.grey,
+                        radius: 8,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
             // Pie chart section
             Container(
-              height: 300,
+              height: 280,
               padding: const EdgeInsets.all(16),
               child: chartData.isEmpty
                   ? Center(
@@ -189,15 +224,25 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                           bg = kind?.accentColor ?? theme.colorScheme.primary;
                         }
 
+                        String title = kind?.displayName ?? e.widgetKind;
                         String summary = '';
+
                         try {
                           final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
-                          final amount = (map['amount'] as num?)?.toDouble();
-                          final grams = (map['grams'] as num?)?.toInt();
-                          if (amount != null) {
-                            summary = '${amount.toStringAsFixed(1)} ${kind?.unit ?? ''}';
-                          } else if (grams != null) {
-                            summary = '$grams g';
+
+                          // Extract name for products and recipes
+                          if (e.widgetKind == 'product') {
+                            title = (map['name'] as String?) ?? 'Product';
+                            final grams = (map['grams'] as num?)?.toInt();
+                            if (grams != null) summary = '$grams g';
+                          } else if (e.widgetKind == 'recipe') {
+                            title = (map['name'] as String?) ?? 'Recipe';
+                          } else {
+                            // For kinds, show amount
+                            final amount = (map['amount'] as num?)?.toDouble();
+                            if (amount != null) {
+                              summary = '${amount.toStringAsFixed(1)} ${kind?.unit ?? ''}';
+                            }
                           }
                         } catch (_) {}
 
@@ -224,7 +269,7 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                             child: Icon(icon, size: 18),
                           ),
                           title: Text(
-                            kind?.displayName ?? e.widgetKind,
+                            title,
                             style: theme.textTheme.bodyLarge,
                           ),
                           subtitle: Row(
