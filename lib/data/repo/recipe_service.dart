@@ -1,11 +1,11 @@
 
+import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers.dart';
 import 'entries_repository.dart';
-import 'recipes_repository.dart';
 import 'product_service.dart';
-import 'package:drift/drift.dart';
+import 'recipes_repository.dart';
 
 class RecipeService {
   RecipeService({required this.entries, required this.recipes, required this.productService});

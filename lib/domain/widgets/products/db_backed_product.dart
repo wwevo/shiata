@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../ui/editors/product_editor.dart';
+import '../../../data/repo/products_repository.dart';
+import '../../../ui/editors/product_instance_editor_dialog.dart';
 import '../../widgets/create_action.dart';
 import '../../widgets/widget_kind.dart';
-import '../../../data/repo/products_repository.dart';
 
 /// Adapter to expose a DB-stored product as a `WidgetKind`.
 class DbBackedProduct extends WidgetKind {
@@ -50,8 +50,14 @@ class DbBackedProduct extends WidgetKind {
         color: accentColor,
         run: (ctx, date) async {
           final now = DateTime.now();
-          final initial = DateTime(date.year, date.month, date.day, now.hour, now.minute);
-          await Navigator.of(ctx).push(
+          final initial = DateTime(
+            date.year,
+            date.month,
+            date.day,
+            now.hour,
+            now.minute,
+          );
+          /*          await Navigator.of(ctx).push(
             MaterialPageRoute(
               builder: (_) => ProductEditorScreen(
                 productId: def.id,
@@ -59,9 +65,17 @@ class DbBackedProduct extends WidgetKind {
                 defaultGrams: 100, // Default 100g
               ),
             ),
+          );*/
+          await showDialog(
+            context: ctx,
+            builder: (_) => ProductEditorDialog(
+              productId: def.id,
+              initialTargetAt: initial,
+              defaultGrams: 100, // Default 100g
+            ),
           );
         },
-      )
+      ),
     ];
   }
 }

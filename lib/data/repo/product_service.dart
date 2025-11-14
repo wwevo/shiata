@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../providers.dart';
 import 'entries_repository.dart';
 import 'products_repository.dart';
-import '../providers.dart';
 
 class ProductService {
   ProductService({required this.entries, required this.products});

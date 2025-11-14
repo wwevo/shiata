@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../ux_config.dart';
 
 class HandleBar extends StatelessWidget {

@@ -1,10 +1,11 @@
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
+
 import '../ux_config.dart';
-import 'month_calendar.dart';
 import 'day_details_panel.dart';
 import 'handle_bar.dart';
+import 'month_calendar.dart';
 
 class CalendarSheet extends StatelessWidget {
   const CalendarSheet({super.key, required this.t, required this.config, required this.isActive, required this.onHandleTap});

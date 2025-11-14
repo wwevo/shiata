@@ -1,26 +1,27 @@
+// add/edit product template
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
-import '../../data/repo/products_repository.dart';
 import '../../data/repo/product_service.dart';
+import '../../data/repo/products_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
 
-class ProductTemplateEditorPage extends ConsumerStatefulWidget {
-  const ProductTemplateEditorPage({super.key, required this.productId});
+class ProductTemplateEditorDialog extends ConsumerStatefulWidget {
+  const ProductTemplateEditorDialog({super.key, required this.productId});
   final String productId;
 
   @override
-  ConsumerState<ProductTemplateEditorPage> createState() => _ProductTemplateEditorPageState();
+  ConsumerState<ProductTemplateEditorDialog> createState() => _ProductTemplateEditorDialogState();
 }
 
-class _ProductTemplateEditorPageState extends ConsumerState<ProductTemplateEditorPage> {
+class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEditorDialog> {
   String _fmtDouble(double v) {
     final s = v.toStringAsFixed(6);
-    return s.replaceFirst(RegExp(r'\.?0+\$'), '');
+    return s.replaceFirst(RegExp(r'\.?0+$'), '');
   }
 
   double? _parseDouble(String? text) {
@@ -28,8 +29,10 @@ class _ProductTemplateEditorPageState extends ConsumerState<ProductTemplateEdito
     if (t.isEmpty) return null;
     return double.tryParse(t);
   }
+
   List<ProductComponent> _components = const [];
   bool _loading = true;
+  bool _saving = false;
   String _productName = '';
 
   @override
@@ -43,20 +46,26 @@ class _ProductTemplateEditorPageState extends ConsumerState<ProductTemplateEdito
     if (repo != null) {
       final def = await repo.getProduct(widget.productId);
       final comps = await repo.getComponents(widget.productId);
-      setState(() {
-        _productName = def?.name ?? widget.productId;
-        _components = comps;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _productName = def?.name ?? widget.productId;
+          _components = comps;
+          _loading = false;
+        });
+      }
     } else {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _save() async {
+    setState(() => _saving = true);
     final repo = ref.read(productsRepositoryProvider);
     final svc = ref.read(productServiceProvider);
-    if (repo == null) return;
+    if (repo == null) {
+      if (mounted) setState(() => _saving = false);
+      return;
+    }
     // Capture old components for Undo
     final old = await repo.getComponents(widget.productId);
     await repo.setComponents(widget.productId, _components);
@@ -98,6 +107,7 @@ class _ProductTemplateEditorPageState extends ConsumerState<ProductTemplateEdito
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved template')));
     }
+    if (mounted) setState(() => _saving = false);
   }
 
   Future<void> _addComponent() async {
@@ -127,59 +137,82 @@ class _ProductTemplateEditorPageState extends ConsumerState<ProductTemplateEdito
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Edit: ${_productName.isEmpty ? widget.productId : _productName}')
-      , actions: [
-          IconButton(onPressed: _loading ? null : _save, icon: const Icon(Icons.check), tooltip: 'Save'),
-        ],
+    return AlertDialog(
+      title: Text('Edit: ${_productName.isEmpty ? widget.productId : _productName}'),
+      content: _loading
+          ? const SizedBox(
+        width: 500,
+        height: 400,
+        child: Center(child: CircularProgressIndicator()),
+      )
+          : SizedBox(
+        width: 500,
+        height: 400,
+        child: Column(
+          children: [
+            Expanded(
+              child: _components.isEmpty
+                  ? const Center(child: Text('No components yet'))
+                  : ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: _components.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (ctx, i) {
+                  final c = _components[i];
+                  final kind = ref.read(widgetRegistryProvider).byId(c.kindId);
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: kind?.accentColor ?? Theme.of(context).colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      child: Icon(kind?.icon ?? Icons.circle, size: 18),
+                    ),
+                    title: Text(kind?.displayName ?? c.kindId),
+                    subtitle: Text('Per 100 g: ${_fmtDouble(c.amountPerGram)} ${kind?.unit ?? ''}'),
+                    trailing: IconButton(
+                      tooltip: 'Remove',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () => _removeAt(i),
+                    ),
+                    onTap: () async {
+                      final newVal = await _askForAmount(context, kind, c.amountPerGram);
+                      if (newVal != null) {
+                        setState(() {
+                          _components = [
+                            for (final x in _components)
+                              if (x.kindId == c.kindId)
+                                ProductComponent(productId: x.productId, kindId: x.kindId, amountPerGram: newVal)
+                              else
+                                x,
+                          ];
+                        });
+                      }
+                    },
+                  );
+                },
+              ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: OutlinedButton.icon(
+                onPressed: _loading ? null : _addComponent,
+                icon: const Icon(Icons.add),
+                label: const Text('Add nutrient'),
+              ),
+            ),
+          ],
+        ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _loading ? null : _addComponent,
-        icon: const Icon(Icons.add),
-        label: const Text('Add nutrient'),
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _components.isEmpty
-              ? const Center(child: Text('No components yet'))
-              : ListView.separated(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: _components.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (ctx, i) {
-                    final c = _components[i];
-                    final kind = ref.read(widgetRegistryProvider).byId(c.kindId);
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: kind?.accentColor ?? Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
-                        child: Icon(kind?.icon ?? Icons.circle, size: 18),
-                      ),
-                      title: Text(kind?.displayName ?? c.kindId),
-                      subtitle: Text('Per 100 g: ${_fmtDouble(c.amountPerGram)} ${kind?.unit ?? ''}'),
-                      trailing: IconButton(
-                        tooltip: 'Remove',
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => _removeAt(i),
-                      ),
-                      onTap: () async {
-                        final newVal = await _askForAmount(context, kind, c.amountPerGram);
-                        if (newVal != null) {
-                          setState(() {
-                            _components = [
-                              for (final x in _components)
-                                if (x.kindId == c.kindId)
-                                  ProductComponent(productId: x.productId, kindId: x.kindId, amountPerGram: newVal)
-                                else
-                                  x,
-                            ];
-                          });
-                        }
-                      },
-                    );
-                  },
-                ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: (_loading || _saving) ? null : _save,
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 

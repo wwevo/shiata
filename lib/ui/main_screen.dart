@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'ux_config.dart';
-import 'widgets/top_sheet_host.dart';
 import 'widgets/middle_panel.dart';
+import 'widgets/top_sheet_host.dart';
 
 class MainScreen extends ConsumerWidget {
   const MainScreen({super.key});

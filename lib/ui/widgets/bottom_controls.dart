@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../main_screen_providers.dart';
+
 import '../../data/db/db_handle.dart';
 import '../../data/repo/import_export_service.dart';
-import '../products/product_templates_page.dart';
 import '../kinds/kinds_page.dart';
+import '../main_screen_providers.dart';
+import '../products/products_page.dart';
 import '../recipes/recipes_page.dart';
 
 class BottomControls extends ConsumerWidget {

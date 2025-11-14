@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../main_screen_providers.dart';
+
 import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
 // import '../editors/protein_editor.dart';
 // import '../editors/fat_editor.dart';
 // import '../editors/carbohydrate_editor.dart';
-import '../editors/generic_nutrient_editor.dart';
+import '../editors/kind_instance_editor_dialog.dart';
+import '../main_screen_providers.dart';
 import '../ux_config.dart';
 
 class MonthCalendar extends ConsumerWidget {
   const MonthCalendar({super.key, required this.grid});
+
   final CalendarGridConfig grid;
 
   void _changeMonth(WidgetRef ref, DateTime current, int delta) {
@@ -22,9 +24,17 @@ class MonthCalendar extends ConsumerWidget {
     if (sel == null || sel.year != next.year || sel.month != next.month) {
       final today = DateTime.now();
       if (today.year == next.year && today.month == next.month) {
-        ref.read(selectedDayProvider.notifier).state = DateTime(today.year, today.month, today.day);
+        ref.read(selectedDayProvider.notifier).state = DateTime(
+          today.year,
+          today.month,
+          today.day,
+        );
       } else {
-        ref.read(selectedDayProvider.notifier).state = DateTime(next.year, next.month, 1);
+        ref.read(selectedDayProvider.notifier).state = DateTime(
+          next.year,
+          next.month,
+          1,
+        );
       }
     }
   }
@@ -35,12 +45,22 @@ class MonthCalendar extends ConsumerWidget {
     final selectedDay = ref.watch(selectedDayProvider);
     final visibleMonth = ref.watch(visibleMonthProvider);
     // Start of visible month in local time
-    final firstOfMonthLocal = DateTime(visibleMonth.year, visibleMonth.month, 1);
+    final firstOfMonthLocal = DateTime(
+      visibleMonth.year,
+      visibleMonth.month,
+      1,
+    );
     // Offset so that the first calendar cell is a Sunday
     final offsetToSunday = firstOfMonthLocal.weekday % 7; // Mon=1..Sun=7
-    final firstCellLocal = firstOfMonthLocal.subtract(Duration(days: offsetToSunday));
+    final firstCellLocal = firstOfMonthLocal.subtract(
+      Duration(days: offsetToSunday),
+    );
     // Use UTC for day iteration to avoid DST-related duplicate/missing local dates
-    final firstCellUtc = DateTime.utc(firstCellLocal.year, firstCellLocal.month, firstCellLocal.day);
+    final firstCellUtc = DateTime.utc(
+      firstCellLocal.year,
+      firstCellLocal.month,
+      firstCellLocal.day,
+    );
     final daysToShow = grid.columns * grid.rows; // 42
 
     final repo = ref.watch(entriesRepositoryProvider);
@@ -52,7 +72,18 @@ class MonthCalendar extends ConsumerWidget {
 
     String monthLabel(DateTime m) {
       final monthNames = const [
-        'January','February','March','April','May','June','July','August','September','October','November','December'
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December',
       ];
       return '${monthNames[m.month - 1]} ${m.year}';
     }
@@ -61,7 +92,10 @@ class MonthCalendar extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final gridWidth = constraints.maxWidth - grid.padding * 2;
-        final gridHeight = constraints.maxHeight - grid.padding * 2 - 36; // reserve header height
+        final gridHeight =
+            constraints.maxHeight -
+            grid.padding * 2 -
+            36; // reserve header height
         if (gridWidth <= 0 || gridHeight <= grid.paintMinHeightPx) {
           return const SizedBox.shrink();
         }
@@ -69,7 +103,8 @@ class MonthCalendar extends ConsumerWidget {
         final totalSpacingH = grid.mainAxisSpacing * (grid.rows - 1);
         final cellWidth = (gridWidth - totalSpacingW) / grid.columns;
         final cellHeight = (gridHeight - totalSpacingH) / grid.rows;
-        if (cellWidth <= grid.paintMinCellPx || cellHeight <= grid.paintMinCellPx) {
+        if (cellWidth <= grid.paintMinCellPx ||
+            cellHeight <= grid.paintMinCellPx) {
           return const SizedBox.shrink();
         }
         final aspect = cellWidth / cellHeight;
@@ -125,7 +160,9 @@ class MonthCalendar extends ConsumerWidget {
               itemCount: daysToShow,
               itemBuilder: (context, i) {
                 final date = firstCellUtc.add(Duration(days: i)).toLocal();
-                final isCurrentMonth = date.month == visibleMonth.month && date.year == visibleMonth.year;
+                final isCurrentMonth =
+                    date.month == visibleMonth.month &&
+                    date.year == visibleMonth.year;
                 final dayKey = DateTime(date.year, date.month, date.day);
                 final items = byDay[dayKey] ?? const [];
 
@@ -143,30 +180,49 @@ class MonthCalendar extends ConsumerWidget {
                 // Cap visible dots at 4
                 final maxDots = 4;
                 final visible = entriesWithColor.take(maxDots).toList();
-                final overflow = (entriesWithColor.length - maxDots).clamp(0, 999);
+                final overflow = (entriesWithColor.length - maxDots).clamp(
+                  0,
+                  999,
+                );
 
                 return LayoutBuilder(
                   builder: (cellCtx, cellConstraints) {
                     final cellH = cellConstraints.maxHeight;
                     final cellW = cellConstraints.maxWidth;
                     // Guard: when cells are very small during animation, avoid laying out text/rows
-                    const minContentH = 28.0; // safe minimum to render text + dots
-                    final canRenderContent = cellH >= minContentH && cellW >= minContentH;
+                    const minContentH =
+                        28.0; // safe minimum to render text + dots
+                    final canRenderContent =
+                        cellH >= minContentH && cellW >= minContentH;
 
                     final selected = ref.read(selectedDayProvider);
-                    final isSelected = selected != null &&
-                        selected.year == date.year && selected.month == date.month && selected.day == date.day;
+                    final isSelected =
+                        selected != null &&
+                        selected.year == date.year &&
+                        selected.month == date.month &&
+                        selected.day == date.day;
                     return GestureDetector(
                       onTap: () {
-                        ref.read(selectedDayProvider.notifier).state = DateTime(date.year, date.month, date.day);
-                        ref.read(visibleMonthProvider.notifier).state = DateTime(date.year, date.month, 1);
+                        ref.read(selectedDayProvider.notifier).state = DateTime(
+                          date.year,
+                          date.month,
+                          date.day,
+                        );
+                        ref.read(visibleMonthProvider.notifier).state =
+                            DateTime(date.year, date.month, 1);
                       },
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: isCurrentMonth ? 0.4 : 0.15),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest
+                              .withValues(alpha: isCurrentMonth ? 0.4 : 0.15),
                           borderRadius: BorderRadius.circular(8),
                           border: isSelected
-                              ? Border.all(color: Theme.of(context).colorScheme.primary, width: 2)
+                              ? Border.all(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  width: 2,
+                                )
                               : null,
                         ),
                         child: Padding(
@@ -180,10 +236,18 @@ class MonthCalendar extends ConsumerWidget {
                                       maxLines: 1,
                                       overflow: TextOverflow.fade,
                                       softWrap: false,
-                                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelMedium
+                                          ?.copyWith(
                                             color: isCurrentMonth
-                                                ? Theme.of(context).colorScheme.onSurface
-                                                : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                                                ? Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface
+                                                : Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurface
+                                                      .withValues(alpha: 0.5),
                                           ),
                                     ),
                                     const Spacer(),
@@ -197,7 +261,7 @@ class MonthCalendar extends ConsumerWidget {
                                               onTap: () {
                                                 final e = v.entry;
                                                 // Open editor directly for this entry
-/*
+                                                /*
                                                 if (e.widgetKind == 'protein') {
                                                   Navigator.of(context).push(
                                                     MaterialPageRoute(builder: (_) => ProteinEditorScreen(entryId: e.id)),
@@ -212,27 +276,54 @@ class MonthCalendar extends ConsumerWidget {
                                                   );
                                                 } else {
 */
-                                                final k = registry.byId(e.widgetKind);
+                                                final k = registry.byId(
+                                                  e.widgetKind,
+                                                );
                                                 if (k != null) {
-                                                  Navigator.of(context).push(
-                                                    MaterialPageRoute(builder: (_) => GenericNutrientEditorScreen(kind: k, entryId: e.id)),
+                                                  /*                                                  Navigator.of(context).push(
+                                                    MaterialPageRoute(builder: (_) => KindInstanceEditorScreen(kind: k, entryId: e.id)),
+                                                  );*/
+                                                  showDialog(
+                                                    context: context,
+                                                    builder: (_) =>
+                                                        KindInstanceEditorDialog(
+                                                          kind: k,
+                                                          entryId: e.id,
+                                                        ),
                                                   );
                                                 }
-//                                                }
+                                                //                                                }
                                               },
                                               child: Container(
                                                 width: 8,
                                                 height: 8,
-                                                decoration: BoxDecoration(color: v.color, shape: BoxShape.circle),
+                                                decoration: BoxDecoration(
+                                                  color: v.color,
+                                                  shape: BoxShape.circle,
+                                                ),
                                               ),
                                             ),
                                           if (overflow > 0)
                                             GestureDetector(
                                               onTap: () {
                                                 // Select day to open Day Details
-                                                ref.read(selectedDayProvider.notifier).state = DateTime(date.year, date.month, date.day);
+                                                ref
+                                                    .read(
+                                                      selectedDayProvider
+                                                          .notifier,
+                                                    )
+                                                    .state = DateTime(
+                                                  date.year,
+                                                  date.month,
+                                                  date.day,
+                                                );
                                               },
-                                              child: Text('+$overflow', style: Theme.of(context).textTheme.labelSmall),
+                                              child: Text(
+                                                '+$overflow',
+                                                style: Theme.of(
+                                                  context,
+                                                ).textTheme.labelSmall,
+                                              ),
                                             ),
                                         ],
                                       ),
@@ -254,8 +345,10 @@ class MonthCalendar extends ConsumerWidget {
                     child: Text(
                       'No entries this month yet',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                          ),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
                     ),
                   ),
                 ],
@@ -272,7 +365,11 @@ class MonthCalendar extends ConsumerWidget {
             if (v < 0) {
               _changeMonth(ref, visibleMonth, 1); // swipe left → next month
             } else if (v > 0) {
-              _changeMonth(ref, visibleMonth, -1); // swipe right → previous month
+              _changeMonth(
+                ref,
+                visibleMonth,
+                -1,
+              ); // swipe right → previous month
             }
           },
           child: Column(

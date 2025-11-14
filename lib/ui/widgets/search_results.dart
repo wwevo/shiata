@@ -1,10 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:convert';
+
 import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
-import '../editors/generic_nutrient_editor.dart';
+import '../editors/kind_instance_editor_dialog.dart';
 import '../main_screen_providers.dart';
 // import '../editors/protein_editor.dart';
 // import '../editors/fat_editor.dart';
@@ -74,8 +76,13 @@ class SearchResults extends ConsumerWidget {
 */
                 final k = registry.byId(e.widgetKind);
                 if (k != null) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => GenericNutrientEditorScreen(kind: k, entryId: e.id)),
+/*                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => KindInstanceEditorScreen(kind: k, entryId: e.id)),
+                  );*/
+                  showDialog(
+                    context: context,
+                    builder: (_) =>
+                        KindInstanceEditorDialog(kind: k, entryId: e.id),
                   );
                 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../domain/widgets/widget_kind.dart';
+
 import '../../domain/widgets/create_action.dart';
+import '../../domain/widgets/widget_kind.dart';
 
 class AdHocKind extends WidgetKind {
   const AdHocKind({required this.id, required this.displayName, required this.icon, required this.accentColor, required this.unit, required this.minValue, required this.maxValue, required this.defaultShowInCalendar});

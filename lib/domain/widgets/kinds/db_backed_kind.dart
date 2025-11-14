@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../data/repo/kinds_repository.dart';
+import '../../../ui/editors/kind_instance_editor_dialog.dart';
 import '../../widgets/create_action.dart';
 import '../../widgets/widget_kind.dart';
-import '../../../data/repo/kinds_repository.dart';
-import '../../../ui/editors/generic_nutrient_editor.dart';
 
 /// Adapter to expose a DB-stored kind as a `WidgetKind`.
 class DbBackedKind extends WidgetKind {
@@ -51,13 +51,23 @@ class DbBackedKind extends WidgetKind {
         run: (ctx, date) async {
           final now = DateTime.now();
           final initial = DateTime(date.year, date.month, date.day, now.hour, now.minute);
+/*
           await Navigator.of(ctx).push(
             MaterialPageRoute(
-              builder: (_) => GenericNutrientEditorScreen(
+              builder: (_) => KindInstanceEditorScreen(
                 kind: this,
                 initialTargetAt: initial,
               ),
             ),
+          );
+*/
+          await showDialog(
+            context: context,
+            builder: (_) =>
+                KindInstanceEditorDialog(
+                  kind: this,
+                  initialTargetAt: initial,
+                ),
           );
         },
       )

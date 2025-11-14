@@ -4,12 +4,12 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
-import '../db/raw_db.dart';
 import '../db/db_open.dart';
+import '../db/raw_db.dart';
 import '../providers.dart';
+import 'entries_repository.dart';
 import 'kinds_repository.dart';
 import 'products_repository.dart';
-import 'entries_repository.dart';
 
 class ImportResult {
   ImportResult({

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../data/repo/recipes_repository.dart';
+import '../../../ui/editors/recipe_instance_dialog.dart';
 import '../../widgets/create_action.dart';
 import '../../widgets/widget_kind.dart';
-import '../../../data/repo/recipes_repository.dart';
-import '../../../ui/dialogs/recipe_instantiate_dialog.dart';
 
 /// Adapter to expose a DB-stored recipe as a `WidgetKind`.
 class DbBackedRecipe extends WidgetKind {

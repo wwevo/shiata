@@ -5,10 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
-import '../../data/repo/products_repository.dart';
-import '../../data/repo/product_service.dart';
 import '../../data/repo/import_export_service.dart';
-import 'product_template_editor.dart';
+import '../../data/repo/product_service.dart';
+import '../../data/repo/products_repository.dart';
+import '../editors/product_template_editor_dialog.dart';
 
 Future<void> _exportJsonProducts(BuildContext context, WidgetRef ref) async {
   final svc = ref.read(importExportServiceProvider);
@@ -117,8 +117,14 @@ class ProductTemplatesPage extends ConsumerWidget {
               final now = DateTime.now().toUtc().millisecondsSinceEpoch;
               await repo.upsertProduct(ProductDef(id: id.trim(), name: name.trim(), createdAt: now, updatedAt: now));
               if (context.mounted) {
+/*
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => ProductTemplateEditorPage(productId: id.trim())),
+                );
+*/
+                showDialog(
+                  context: context,
+                  builder: (_) => ProductTemplateEditorDialog(productId: id.trim()),
                 );
               }
             },
@@ -192,8 +198,14 @@ class ProductTemplatesPage extends ConsumerWidget {
                         ],
                       ),
                       onTap: () {
+/*
                         Navigator.of(context).push(
                           MaterialPageRoute(builder: (_) => ProductTemplateEditorPage(productId: p.id)),
+                        );
+*/
+                        showDialog(
+                          context: context,
+                          builder: (_) => ProductTemplateEditorDialog(productId: p.id),
                         );
                       },
                     );

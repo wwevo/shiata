@@ -2,10 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../db/raw_db.dart';
 import '../providers.dart';
-import 'kinds_repository.dart';
-import 'products_repository.dart';
 import 'entries_repository.dart';
+import 'kinds_repository.dart';
 import 'product_service.dart';
+import 'products_repository.dart';
 
 class KindUsage {
   KindUsage({required this.kindId, required this.productsUsing, required this.directEntriesCount});

@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'products/db_backed_product.dart';
-import 'recipes/db_backed_recipe.dart';
-import 'widget_kind.dart';
-import 'create_action.dart';
 import '../../data/providers.dart';
-import 'kinds/db_backed_kind.dart';
 import '../../data/repo/kinds_repository.dart';
 import '../../data/repo/products_repository.dart';
 import '../../data/repo/recipes_repository.dart';
+import 'create_action.dart';
+import 'kinds/db_backed_kind.dart';
+import 'products/db_backed_product.dart';
+import 'recipes/db_backed_recipe.dart';
+import 'widget_kind.dart';
 
 /// Holds all registered widget kinds and provides simple helpers.
 class WidgetRegistry {

@@ -7,8 +7,8 @@ import '../../data/providers.dart';
 import '../../domain/widgets/widget_kind.dart';
 
 /// Generic integer-only nutrient editor driven by WidgetKind metadata.
-class GenericNutrientEditorScreen extends ConsumerStatefulWidget {
-  const GenericNutrientEditorScreen({
+class KindInstanceEditorScreen extends ConsumerStatefulWidget {
+  const KindInstanceEditorScreen({
     super.key,
     required this.kind,
     this.entryId,
@@ -20,10 +20,10 @@ class GenericNutrientEditorScreen extends ConsumerStatefulWidget {
   final DateTime? initialTargetAt; // prefill for create
 
   @override
-  ConsumerState<GenericNutrientEditorScreen> createState() => _GenericNutrientEditorScreenState();
+  ConsumerState<KindInstanceEditorScreen> createState() => _KindInstanceEditorScreenState();
 }
 
-class _GenericNutrientEditorScreenState extends ConsumerState<GenericNutrientEditorScreen> {
+class _KindInstanceEditorScreenState extends ConsumerState<KindInstanceEditorScreen> {
   String _fmtDouble(num v) {
     final s = (v.toDouble()).toStringAsFixed(6);
     return s.replaceFirst(RegExp(r'\.?0+$'), '');

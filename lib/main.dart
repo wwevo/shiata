@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'ui/main_screen.dart';
+
 import 'data/db/db_lifecycle.dart';
+import 'ui/main_screen.dart';
 import 'ui/widgets/bottom_controls.dart';
 
 void main() {

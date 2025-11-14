@@ -1,3 +1,4 @@
+// add / edit product instance
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -6,8 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/product_service.dart';
 
-class ProductEditorScreen extends ConsumerStatefulWidget {
-  const ProductEditorScreen({super.key, this.entryId, this.productId, this.productName, this.defaultGrams = 100, this.initialTargetAt});
+class ProductEditorDialog extends ConsumerStatefulWidget {
+  const ProductEditorDialog({super.key, this.entryId, this.productId, this.productName, this.defaultGrams = 100, this.initialTargetAt});
 
   final String? entryId; // if present → edit existing parent product entry
   final String? productId;
@@ -16,15 +17,16 @@ class ProductEditorScreen extends ConsumerStatefulWidget {
   final DateTime? initialTargetAt;
 
   @override
-  ConsumerState<ProductEditorScreen> createState() => _ProductEditorScreenState();
+  ConsumerState<ProductEditorDialog> createState() => _ProductEditorDialogState();
 }
 
-class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
+class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _gramsController;
   bool _isStatic = false;
   DateTime _targetAt = DateTime.now();
   bool _saving = false;
+  bool _loading = false;
   String? _productId; // for edit/create paths
   String? _productName;
 
@@ -43,8 +45,12 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   }
 
   Future<void> _loadExisting() async {
+    setState(() => _loading = true);
     final entries = ref.read(entriesRepositoryProvider);
-    if (entries == null) return;
+    if (entries == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     final rec = await entries.getById(widget.entryId!);
     if (rec != null) {
       try {
@@ -57,8 +63,8 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
       _targetAt = DateTime.fromMillisecondsSinceEpoch(rec.targetAt, isUtc: true).toLocal();
       _isStatic = rec.isStatic;
       _productId = rec.productId ?? _productId;
-      if (mounted) setState(() {});
     }
+    if (mounted) setState(() => _loading = false);
   }
 
   @override
@@ -147,84 +153,99 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.entryId == null
-              ? '${_productName ?? 'Product'} — Add'
-              : '${_productName ?? 'Product'} — Edit',
-        ),
-        actions: [
-          IconButton(onPressed: _saving ? null : () => _save(context), icon: const Icon(Icons.check)),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Amount (grams)', style: theme.textTheme.titleMedium),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _gramsController,
-                      decoration: const InputDecoration(border: OutlineInputBorder(), hintText: '100'),
-                      keyboardType: TextInputType.number,
-                      validator: (v) {
-                        final val = int.tryParse(v ?? '');
-                        if (val == null) return 'Enter an integer';
-                        if (val <= 0 || val > 2000) return 'Must be 1–2000';
-                        return null;
-                      },
+    final isEdit = widget.entryId != null;
+
+    return AlertDialog(
+      title: Text(isEdit
+          ? '${_productName ?? 'Product'} — Edit'
+          : '${_productName ?? 'Product'} — Add'),
+      content: _loading
+          ? const SizedBox(
+        width: 400,
+        height: 300,
+        child: Center(child: CircularProgressIndicator()),
+      )
+          : SizedBox(
+        width: 400,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Amount (grams)', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _gramsController,
+                        decoration: const InputDecoration(border: OutlineInputBorder(), hintText: '100'),
+                        keyboardType: TextInputType.number,
+                        validator: (v) {
+                          final val = int.tryParse(v ?? '');
+                          if (val == null) return 'Enter an integer';
+                          if (val <= 0 || val > 2000) return 'Must be 1–2000';
+                          return null;
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
-                    children: [
-                      IconButton(
-                        onPressed: () {
-                          final val = int.tryParse(_gramsController.text) ?? widget.defaultGrams;
-                          final next = (val + 10).clamp(1, 2000);
-                          _gramsController.text = next.toString();
-                        },
-                        icon: const Icon(Icons.add),
-                        tooltip: '+10',
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          final val = int.tryParse(_gramsController.text) ?? widget.defaultGrams;
-                          final next = (val - 10).clamp(1, 2000);
-                          _gramsController.text = next.toString();
-                        },
-                        icon: const Icon(Icons.remove),
-                        tooltip: '-10',
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text('When', style: theme.textTheme.titleMedium),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () => _pickDateTime(context),
-                icon: const Icon(Icons.schedule),
-                label: Text('$_targetAt'),
-              ),
-              const SizedBox(height: 16),
-              SwitchListTile(
-                value: _isStatic,
-                onChanged: (v) => setState(() => _isStatic = v),
-                title: const Text('Static (don\'t update if product changes)'),
-              ),
-            ],
+                    const SizedBox(width: 8),
+                    Column(
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            final val = int.tryParse(_gramsController.text) ?? widget.defaultGrams;
+                            final next = (val + 10).clamp(1, 2000);
+                            _gramsController.text = next.toString();
+                          },
+                          icon: const Icon(Icons.add),
+                          tooltip: '+10',
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            final val = int.tryParse(_gramsController.text) ?? widget.defaultGrams;
+                            final next = (val - 10).clamp(1, 2000);
+                            _gramsController.text = next.toString();
+                          },
+                          icon: const Icon(Icons.remove),
+                          tooltip: '-10',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text('When', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => _pickDateTime(context),
+                  icon: const Icon(Icons.schedule),
+                  label: Text('$_targetAt'),
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _isStatic,
+                  onChanged: (v) => setState(() => _isStatic = v),
+                  title: const Text('Static (don\'t update if product changes)'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : () => _save(context),
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }

@@ -18,14 +18,12 @@ class RecipeDef {
 enum RecipeComponentType { kind, product }
 
 class RecipeComponentDef {
-  RecipeComponentDef.kind({required this.recipeId, required this.compId, required double amount})
+  RecipeComponentDef.kind({required this.recipeId, required this.compId, required double this.amount})
       : type = RecipeComponentType.kind,
-        this.amount = amount,
-        this.grams = null;
-  RecipeComponentDef.product({required this.recipeId, required this.compId, required int grams})
+        grams = null;
+  RecipeComponentDef.product({required this.recipeId, required this.compId, required int this.grams})
       : type = RecipeComponentType.product,
-        this.amount = null,
-        this.grams = grams;
+        amount = null;
 
   final String recipeId;
   final RecipeComponentType type;
