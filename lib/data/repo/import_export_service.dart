@@ -10,36 +10,42 @@ import '../providers.dart';
 import 'entries_repository.dart';
 import 'kinds_repository.dart';
 import 'products_repository.dart';
+import 'recipes_repository.dart';
 
 class ImportResult {
   ImportResult({
     required this.kindsUpserted,
     required this.productsUpserted,
+    required this.recipesUpserted,
     required this.componentsWritten,
     required this.warnings,
   });
   final int kindsUpserted;
   final int productsUpserted;
+  final int recipesUpserted;
   final int componentsWritten;
   final List<String> warnings;
 }
 
 class ImportExportService {
-  ImportExportService({required this.db, required this.kinds, required this.products, required this.entries});
+  ImportExportService({required this.db, required this.kinds, required this.products, required this.recipes, required this.entries});
   final AppDb db;
   final KindsRepository kinds;
   final ProductsRepository products;
+  final RecipesRepository recipes;
   final EntriesRepository entries;
 
   /// Export full bundle including entries.
   Future<Map<String, Object?>> exportBundle() async {
     final kindsList = await kinds.dumpKinds();
     final productsList = await products.dumpProductsWithComponents();
+    final recipesList = await recipes.dumpRecipes();
     final entriesList = await entries.dumpEntries();
     return <String, Object?>{
       'version': 1,
       'kinds': kindsList,
       'products': productsList,
+      'recipes': recipesList,
       'entries': entriesList,
     };
   }
@@ -62,11 +68,14 @@ class ImportExportService {
 
     int kindsUpserted = 0;
     int productsUpserted = 0;
+    int recipesUpserted = 0;
     int componentsWritten = 0;
 
-    // Wipe existing data first (entries → components → products → kinds)
+    // Wipe existing data first (entries → recipe_components → recipes → product_components → products → kinds)
     await db.transaction(() async {
       await db.customStatement('DELETE FROM entries;');
+      await db.customStatement('DELETE FROM recipe_components;');
+      await db.customStatement('DELETE FROM recipes;');
       await db.customStatement('DELETE FROM product_components;');
       await db.customStatement('DELETE FROM products;');
       await db.customStatement('DELETE FROM kinds;');
@@ -130,6 +139,52 @@ class ImportExportService {
       componentsWritten += comps.length;
     }
 
+    // Recipes + components
+    final recipesArr = (root['recipes'] as List?) ?? const [];
+    for (final item in recipesArr) {
+      if (item is! Map) continue;
+      final id = (item['id'] ?? '').toString().trim();
+      final name = (item['name'] ?? '').toString().trim();
+      final createdAt = _asInt(item['createdAt']) ?? now;
+      final updatedAt = _asInt(item['updatedAt']) ?? now;
+      final isActive = item['isActive'] == true || item['isActive'] == 1;
+      final icon = (item['icon'] as String?)?.trim();
+      final colorVal = item['color'];
+      final color = colorVal is int
+          ? colorVal
+          : (colorVal is String && int.tryParse(colorVal) != null)
+              ? int.parse(colorVal)
+              : null;
+      await recipes.upsertRecipe(RecipeDef(
+        id: id,
+        name: name,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+        isActive: isActive,
+        icon: (icon == null || icon.isEmpty) ? null : icon,
+        color: color,
+      ));
+      recipesUpserted++;
+
+      final comps = <RecipeComponentDef>[];
+      final compsArr = (item['components'] as List?) ?? const [];
+      for (final c in compsArr) {
+        if (c is! Map) continue;
+        final type = (c['type'] ?? '').toString().trim();
+        final compId = (c['compId'] ?? '').toString().trim();
+        if (type == 'kind') {
+          final amountRaw = c['amount'];
+          final amount = (amountRaw is num) ? amountRaw.toDouble() : double.tryParse(amountRaw?.toString() ?? '0') ?? 0.0;
+          comps.add(RecipeComponentDef.kind(recipeId: id, compId: compId, amount: amount));
+        } else if (type == 'product') {
+          final gramsVal = _asInt(c['grams']) ?? 0;
+          comps.add(RecipeComponentDef.product(recipeId: id, compId: compId, grams: gramsVal));
+        }
+      }
+      await recipes.setComponents(id, comps);
+      componentsWritten += comps.length;
+    }
+
     // Entries last (full rows)
     final entriesArr = (root['entries'] as List?) ?? const [];
     if (entriesArr.isNotEmpty) {
@@ -144,6 +199,7 @@ class ImportExportService {
     return ImportResult(
       kindsUpserted: kindsUpserted,
       productsUpserted: productsUpserted,
+      recipesUpserted: recipesUpserted,
       componentsWritten: componentsWritten,
       warnings: const <String>[],
     );
@@ -213,7 +269,8 @@ final importExportServiceProvider = Provider<ImportExportService?>((ref) {
   final db = ref.watch(appDbProvider);
   final kr = ref.watch(kindsRepositoryProvider);
   final pr = ref.watch(productsRepositoryProvider);
+  final rr = ref.watch(recipesRepositoryProvider);
   final er = ref.watch(entriesRepositoryProvider);
-  if (db == null || kr == null || pr == null || er == null) return null;
-  return ImportExportService(db: db, kinds: kr, products: pr, entries: er);
+  if (db == null || kr == null || pr == null || rr == null || er == null) return null;
+  return ImportExportService(db: db, kinds: kr, products: pr, recipes: rr, entries: er);
 });

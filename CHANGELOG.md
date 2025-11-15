@@ -1,5 +1,37 @@
 # CHANGELOG.md
 
+## [0.7.0] - 2025-11-15
+### Added
+- **Database Management Page**: New centralized database section accessible from bottom navigation
+  - Full database export/import operations with JSON support
+  - Quick backup/restore to single-slot file
+  - Database wipe functionality with double confirmation
+  - All operations now include recipes in addition to kinds, products, and entries
+- **Database section navigation**: New "Database" button in bottom navigation bar (storage icon)
+  - Added `database` to `AppSection` enum
+  - Integrated with existing section-based navigation
+
+### Changed
+- **Import/Export consolidation**: Removed scattered import/export UI from individual pages
+  - Removed export/import buttons from Kinds page
+  - Removed export/import buttons from Products page
+  - Removed backup/restore/wipe popup menu from bottom controls
+  - All database operations now centralized in Database section
+
+### Technical
+- Enhanced `ImportExportService` with complete recipes support
+  - Added `RecipesRepository` parameter to service constructor
+  - Updated `exportBundle()` to include recipes with components
+  - Updated `importBundle()` to import recipes with both kind and product components
+  - Added `recipesUpserted` field to `ImportResult` class
+- Added `dumpRecipes()` method to `RecipesRepository`
+  - Exports all recipes with their components (kinds and products)
+  - Follows same pattern as `dumpProductsWithComponents()`
+- Updated `importExportServiceProvider` to include `RecipesRepository`
+- Created new `lib/ui/database/database_page.dart` with comprehensive database management UI
+
+---
+
 ## [0.6.7] - 2025-11-14
 ### Added
 - **Weekly Overview Panel**: New 7-day summary view with pie chart and entry list

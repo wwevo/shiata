@@ -139,6 +139,34 @@ class RecipesRepository {
     _notify();
   }
 
+  /// Export all recipes with components as JSON-serializable maps
+  Future<List<Map<String, Object?>>> dumpRecipes() async {
+    final list = await listRecipes(onlyActive: false);
+    final out = <Map<String, Object?>>[];
+    for (final r in list) {
+      final comps = await getComponents(r.id);
+      out.add({
+        'id': r.id,
+        'name': r.name,
+        'createdAt': r.createdAt,
+        'updatedAt': r.updatedAt,
+        'isActive': r.isActive,
+        'icon': r.icon,
+        'color': r.color,
+        'components': [
+          for (final c in comps)
+            {
+              'type': c.type == RecipeComponentType.kind ? 'kind' : 'product',
+              'compId': c.compId,
+              'amount': c.amount,
+              'grams': c.grams,
+            }
+        ]
+      });
+    }
+    return out;
+  }
+
   void dispose() {
     _changes.close();
   }

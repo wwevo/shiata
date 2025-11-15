@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/db/db_handle.dart';
-import '../../data/repo/import_export_service.dart';
 import '../main_screen_providers.dart';
 
 class BottomControls extends ConsumerWidget {
@@ -68,6 +66,13 @@ class BottomControls extends ConsumerWidget {
             },
             icon: const Icon(Icons.restaurant_menu_outlined),
           ),
+          IconButton(
+            tooltip: 'Database',
+            onPressed: () {
+              ref.read(currentSectionProvider.notifier).state = AppSection.database;
+            },
+            icon: const Icon(Icons.storage),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: TextField(
@@ -88,99 +93,6 @@ class BottomControls extends ConsumerWidget {
               ref.read(middleModeProvider.notifier).state = q.trim().isEmpty ? MiddleMode.main : MiddleMode.search;
             },
             icon: const Icon(Icons.search),
-          ),
-          PopupMenuButton<String>(
-            tooltip: 'More',
-            onSelected: (value) async {
-              switch (value) {
-                case 'backup_single':
-                  try {
-                    final svc = ref.read(importExportServiceProvider);
-                    if (svc == null) break;
-                    final path = await svc.backupToFile();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup saved to ${path.split('/').last}')));
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup failed: $e')));
-                    }
-                  }
-                  break;
-                case 'restore_single':
-                  final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Restore backup?'),
-                          content: const Text('This will wipe current data and restore from the single-slot backup.'),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-                            FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Restore')),
-                          ],
-                        ),
-                      ) ??
-                      false;
-                  if (confirm != true) return;
-                  if (!context.mounted) return;
-                  try {
-                    final svc = ref.read(importExportServiceProvider);
-                    if (svc == null) break;
-                    final path = await svc.restoreFromFile();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Restored from ${path.split('/').last}')));
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Restore failed: $e')));
-                    }
-                  }
-                  break;
-                case 'wipe_db':
-                  final first = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Wipe database?'),
-                          content: const Text('This will delete all local data and restart with bootstrap demo data.'),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-                            FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Continue')),
-                          ],
-                        ),
-                      ) ??
-                      false;
-                  if (first != true) return;
-                  if (!context.mounted) return;
-                  final second = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Are you absolutely sure?'),
-                          content: const Text('Wiping the DB cannot be undone. Proceed?'),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('No')),
-                            FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Yes, wipe')),
-                          ],
-                        ),
-                      ) ??
-                      false;
-                  if (second != true) return;
-                  try {
-                    await ref.read(dbHandleProvider.notifier).wipeDb();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Database wiped')));
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to wipe DB: $e')));
-                    }
-                  }
-                  break;
-              }
-            },
-            itemBuilder: (ctx) => const [
-              PopupMenuItem(value: 'backup_single', child: Text('Backup (single slot)')),
-              PopupMenuItem(value: 'restore_single', child: Text('Restore (single slot)')),
-              PopupMenuItem(value: 'wipe_db', child: Text('Wipe DB (temporary)')),
-            ],
           ),
         ],
       ),
