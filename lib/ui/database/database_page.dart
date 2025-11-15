@@ -62,7 +62,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
           children: [
             ElevatedButton.icon(
               icon: const Icon(Icons.download),
-              label: const Text('Export All to File'),
+              label: const Text('Export All'),
               onPressed: _exportAllToFile,
             ),
             ElevatedButton.icon(
@@ -303,7 +303,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
         // Export button
         ElevatedButton.icon(
           icon: const Icon(Icons.download),
-          label: const Text('Export Selected to File'),
+          label: const Text('Export Selected'),
           onPressed: (_selectedKinds.isEmpty && _selectedProducts.isEmpty && _selectedRecipes.isEmpty)
               ? null
               : _exportSelectedToFile,
@@ -322,10 +322,42 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
     }
 
     try {
-      final path = await svc.backupToFile(fileName: 'shiata_full_export.json');
-      if (mounted) {
-        _showSnackBar('Exported to ${path.split('/').last}');
-      }
+      final bundle = await svc.exportBundle();
+      final encoder = const JsonEncoder.withIndent('  ');
+      final text = encoder.convert(bundle);
+
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (ctx) {
+          return AlertDialog(
+            title: const Text('Export All (JSON)'),
+            content: SizedBox(
+              width: 600,
+              child: SingleChildScrollView(
+                child: SelectableText(text),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: text));
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(content: Text('Copied to clipboard - paste into a file to save')),
+                    );
+                  }
+                },
+                child: const Text('Copy to Clipboard'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
+      );
     } catch (e) {
       if (mounted) {
         _showSnackBar('Export failed: $e');
