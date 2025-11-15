@@ -80,6 +80,14 @@
    - Success/failure feedback for all operations
    - Empty states with helpful guidance
 
+5. **Advanced Component Editor** (Premium UX)
+   - Inline dropdown-based component editing
+   - Add nutrient inserts new row with kind dropdown + amount field
+   - Dropdown shows only unused nutrients (no duplicates)
+   - Unit label dynamically adapts to selected kind
+   - All editing happens inline, no separate dialogs
+   - Applies to both product template and instance component editors
+
 **Deliverable**: Polished, delightful user experience.
 
 ---

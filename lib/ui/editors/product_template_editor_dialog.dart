@@ -26,11 +26,20 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
   bool _loading = true;
   bool _saving = false;
   String _productName = '';
+  final Map<String, TextEditingController> _controllers = {};
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    for (final ctrl in _controllers.values) {
+      ctrl.dispose();
+    }
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -44,6 +53,10 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
           _components = comps;
           _loading = false;
         });
+        // Initialize controllers for each component
+        for (final c in comps) {
+          _controllers[c.kindId] = TextEditingController(text: fmtDouble(c.amountPerGram));
+        }
       }
     } else {
       if (mounted) setState(() => _loading = false);
@@ -58,9 +71,20 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
       if (mounted) setState(() => _saving = false);
       return;
     }
+    // Read values from controllers and update components
+    final updatedComponents = <ProductComponent>[];
+    for (final c in _components) {
+      final ctrl = _controllers[c.kindId];
+      final amount = parseDouble(ctrl?.text) ?? 0.0;
+      updatedComponents.add(ProductComponent(
+        productId: widget.productId,
+        kindId: c.kindId,
+        amountPerGram: amount,
+      ));
+    }
     // Capture old components for Undo
     final old = await repo.getComponents(widget.productId);
-    await repo.setComponents(widget.productId, _components);
+    await repo.setComponents(widget.productId, updatedComponents);
     if (!mounted) return;
     // Ask to propagate to non-static instances
     final doProp = await showDialog<bool>(
@@ -108,22 +132,31 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
   Future<void> _addComponent() async {
     final registry = ref.read(widgetRegistryProvider);
     final kinds = registry.kinds.toList();
-    final picked = await showDialog<(WidgetKind, double)?>(
+    final picked = await showDialog<WidgetKind?>(
       context: context,
       builder: (ctx) => _AddComponentDialog(kinds: kinds),
     );
     if (picked == null) return;
-    final (kind, per100) = picked;
     setState(() {
+      // Remove if already exists
+      _components = [..._components.where((c) => c.kindId != picked.id)];
+      // Add new component with initial value 0
       _components = [
-        ..._components.where((c) => c.kindId != kind.id),
-        ProductComponent(productId: widget.productId, kindId: kind.id, amountPerGram: per100),
+        ..._components,
+        ProductComponent(productId: widget.productId, kindId: picked.id, amountPerGram: 0.0),
       ];
+      // Create controller for the new component
+      _controllers[picked.id] = TextEditingController(text: '0');
     });
   }
 
   void _removeAt(int index) {
     setState(() {
+      final c = _components[index];
+      // Dispose and remove controller
+      _controllers[c.kindId]?.dispose();
+      _controllers.remove(c.kindId);
+      // Remove component
       final list = [..._components];
       list.removeAt(index);
       _components = list;
@@ -155,6 +188,8 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
                 itemBuilder: (ctx, i) {
                   final c = _components[i];
                   final kind = ref.read(widgetRegistryProvider).byId(c.kindId);
+                  final unit = kind?.unit ?? '';
+                  final ctrl = _controllers[c.kindId]!;
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundColor: kind?.accentColor ?? Theme.of(context).colorScheme.primary,
@@ -162,26 +197,28 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
                       child: Icon(kind?.icon ?? Icons.circle, size: 18),
                     ),
                     title: Text(kind?.displayName ?? c.kindId),
-                    subtitle: Text('Per 100 g: ${fmtDouble(c.amountPerGram)} ${kind?.unit ?? ''}'),
-                    trailing: IconButton(
-                      tooltip: 'Remove',
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () => _removeAt(i),
+                    subtitle: Text(unit.isEmpty ? 'Per 100 g' : 'Per 100 g ($unit)'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 100,
+                          child: TextField(
+                            controller: ctrl,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(
+                              hintText: '0',
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Remove',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _removeAt(i),
+                        ),
+                      ],
                     ),
-                    onTap: () async {
-                      final newVal = await _askForAmount(context, kind, c.amountPerGram);
-                      if (newVal != null) {
-                        setState(() {
-                          _components = [
-                            for (final x in _components)
-                              if (x.kindId == c.kindId)
-                                ProductComponent(productId: x.productId, kindId: x.kindId, amountPerGram: newVal)
-                              else
-                                x,
-                          ];
-                        });
-                      }
-                    },
                   );
                 },
               ),
@@ -205,32 +242,6 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
       ),
     );
   }
-
-  Future<double?> _askForAmount(BuildContext context, WidgetKind? kind, double current) async {
-    final c = TextEditingController(text: fmtDouble(current));
-    return showDialog<double>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Per 100 g (${kind?.unit ?? ''})'),
-        content: TextField(
-          controller: c,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-          decoration: const InputDecoration(hintText: 'number'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              final v = parseDouble(c.text.trim());
-              if (v == null || v < 0) return;
-              Navigator.of(ctx).pop(v);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _AddComponentDialog extends StatefulWidget {
@@ -243,46 +254,27 @@ class _AddComponentDialog extends StatefulWidget {
 
 class _AddComponentDialogState extends State<_AddComponentDialog> {
   WidgetKind? _selected;
-  final _amountController = TextEditingController(text: '0');
-
-  @override
-  void dispose() {
-    _amountController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Add component'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DropdownButtonFormField<WidgetKind>(
-            initialValue: _selected,
-            items: [
-              for (final k in widget.kinds)
-                DropdownMenuItem(value: k, child: Text(k.displayName)),
-            ],
-            onChanged: (v) => setState(() => _selected = v),
-            decoration: const InputDecoration(labelText: 'Kind'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _amountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-            decoration: const InputDecoration(labelText: 'Per 100 g (number)'),
-          ),
+      title: const Text('Add nutrient'),
+      content: DropdownButtonFormField<WidgetKind>(
+        value: _selected,
+        items: [
+          for (final k in widget.kinds)
+            DropdownMenuItem(value: k, child: Text(k.displayName)),
         ],
+        onChanged: (v) => setState(() => _selected = v),
+        decoration: const InputDecoration(labelText: 'Select nutrient'),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
         FilledButton(
           onPressed: () {
             final k = _selected;
-            final v = double.tryParse(_amountController.text.trim());
-            if (k == null || v == null || v < 0) return;
-            Navigator.of(context).pop((k, v));
+            if (k == null) return;
+            Navigator.of(context).pop(k);
           },
           child: const Text('Add'),
         ),
