@@ -25,6 +25,10 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
   List<EntryRecord> _children = const [];
   final Map<String, TextEditingController> _controllers = {};
 
+  // Pending changes (transient until Save)
+  final List<WidgetKind> _pendingAdds = [];
+  final Set<String> _pendingDeletes = {};
+
   @override
   void initState() {
     super.initState();
@@ -58,9 +62,11 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
 
   @override
   void dispose() {
+    // Dispose all controllers (both existing and pending)
     for (final t in _controllers.values) {
       t.dispose();
     }
+    _controllers.clear();
     super.dispose();
   }
 
@@ -72,10 +78,39 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
       if (mounted) setState(() => _saving = false);
       return;
     }
+
+    // Get parent entry to extract targetAt for new entries
+    final parent = await repo.getById(widget.parentEntryId);
+    if (parent == null) {
+      if (mounted) setState(() => _saving = false);
+      return;
+    }
+
     // Mark parent as static on first override
     await repo.update(widget.parentEntryId, {'is_static': 1});
-    // Update each child payload amount
+
+    // 1. Delete pending deletes
+    for (final id in _pendingDeletes) {
+      await repo.delete(id);
+    }
+
+    // 2. Create pending adds
+    for (final kind in _pendingAdds) {
+      final ctrl = _controllers['pending_${kind.id}']!;
+      final val = double.tryParse(ctrl.text.trim()) ?? 0.0;
+      await repo.create(
+        widgetKind: kind.id,
+        targetAtLocal: DateTime.fromMillisecondsSinceEpoch(parent.targetAt, isUtc: true).toLocal(),
+        payload: {'amount': val, 'unit': kind.unit},
+        showInCalendar: false,
+        schemaVersion: 1,
+        sourceEntryId: widget.parentEntryId,
+      );
+    }
+
+    // 3. Update existing children (excluding deleted ones)
     for (final c in _children) {
+      if (_pendingDeletes.contains(c.id)) continue;
       final ctrl = _controllers[c.id]!;
       final val = double.tryParse(ctrl.text.trim()) ?? 0.0;
       try {
@@ -93,6 +128,11 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
         });
       }
     }
+
+    // Clear pending changes after successful save
+    _pendingAdds.clear();
+    _pendingDeletes.clear();
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Updated components (instance is now Static)')));
     if (mounted) setState(() => _saving = false);
@@ -103,14 +143,14 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
 
   Future<void> _addComponent() async {
     final registry = ref.read(widgetRegistryProvider);
-    final repo = ref.read(entriesRepositoryProvider);
-    if (repo == null) return;
 
     // Get all available kinds
     final allKinds = registry.kinds.toList();
-    // Filter out kinds that already exist in children
+    // Filter out kinds that already exist in children or pending adds
     final existingKindIds = _children.map((c) => c.widgetKind).toSet();
-    final availableKinds = allKinds.where((k) => !existingKindIds.contains(k.id)).toList();
+    final pendingKindIds = _pendingAdds.map((k) => k.id).toSet();
+    final usedKindIds = {...existingKindIds, ...pendingKindIds};
+    final availableKinds = allKinds.where((k) => !usedKindIds.contains(k.id)).toList();
 
     if (availableKinds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -125,22 +165,27 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
     );
     if (picked == null) return;
 
-    // Get parent entry to extract targetAt
-    final parent = await repo.getById(widget.parentEntryId);
-    if (parent == null) return;
+    // Add to pending (no DB write yet)
+    setState(() {
+      _pendingAdds.add(picked);
+      // Create controller for the pending add (use kind.id as key)
+      _controllers['pending_${picked.id}'] = TextEditingController(text: '0');
+    });
+  }
 
-    // Create new child entry with the selected kind
-    final newEntryId = await repo.create(
-      widgetKind: picked.id,
-      targetAtLocal: DateTime.fromMillisecondsSinceEpoch(parent.targetAt, isUtc: true).toLocal(),
-      payload: {'amount': 0.0, 'unit': picked.unit},
-      showInCalendar: false,
-      schemaVersion: 1,
-      sourceEntryId: widget.parentEntryId,
-    );
+  void _removeExisting(String entryId) {
+    setState(() {
+      _pendingDeletes.add(entryId);
+    });
+  }
 
-    // Reload to include the new entry
-    await _load();
+  void _removePending(WidgetKind kind) {
+    setState(() {
+      _pendingAdds.remove(kind);
+      // Dispose and remove controller
+      _controllers['pending_${kind.id}']?.dispose();
+      _controllers.remove('pending_${kind.id}');
+    });
   }
 
   @override
@@ -161,41 +206,101 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
         child: Column(
           children: [
             Expanded(
-              child: _children.isEmpty
-                  ? const Center(child: Text('No components yet'))
-                  : ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: _children.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (ctx, i) {
-                  final e = _children[i];
-                  final kind = registry.byId(e.widgetKind);
-                  final icon = kind?.icon ?? Icons.circle;
-                  final color = kind?.accentColor ?? Theme.of(context).colorScheme.primary;
-                  final unit = kind?.unit ?? '';
-                  final ctrl = _controllers[e.id]!;
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: color,
-                      foregroundColor: Colors.white,
-                      child: Icon(icon, size: 18),
-                    ),
-                    title: Text(kind?.displayName ?? e.widgetKind),
-                    subtitle: Text(unit.isEmpty ? '' : 'Unit: $unit'),
-                    trailing: SizedBox(
-                      width: 100,
-                      child: TextField(
-                        controller: ctrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
-                          hintText: '0',
-                          isDense: true,
+              child: () {
+                // Build combined list: existing (minus deleted) + pending adds
+                final visibleChildren = _children.where((c) => !_pendingDeletes.contains(c.id)).toList();
+                final totalCount = visibleChildren.length + _pendingAdds.length;
+
+                if (totalCount == 0) {
+                  return const Center(child: Text('No components yet'));
+                }
+
+                return ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: totalCount,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (ctx, i) {
+                    // First show existing children, then pending adds
+                    if (i < visibleChildren.length) {
+                      // Existing child
+                      final e = visibleChildren[i];
+                      final kind = registry.byId(e.widgetKind);
+                      final icon = kind?.icon ?? Icons.circle;
+                      final color = kind?.accentColor ?? Theme.of(context).colorScheme.primary;
+                      final unit = kind?.unit ?? '';
+                      final ctrl = _controllers[e.id]!;
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: color,
+                          foregroundColor: Colors.white,
+                          child: Icon(icon, size: 18),
                         ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+                        title: Text(kind?.displayName ?? e.widgetKind),
+                        subtitle: Text(unit.isEmpty ? '' : 'Unit: $unit'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 100,
+                              child: TextField(
+                                controller: ctrl,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(
+                                  hintText: '0',
+                                  isDense: true,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Remove',
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () => _removeExisting(e.id),
+                            ),
+                          ],
+                        ),
+                      );
+                    } else {
+                      // Pending add
+                      final pendingIndex = i - visibleChildren.length;
+                      final kind = _pendingAdds[pendingIndex];
+                      final icon = kind.icon;
+                      final color = kind.accentColor;
+                      final unit = kind.unit ?? '';
+                      final ctrl = _controllers['pending_${kind.id}']!;
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: color,
+                          foregroundColor: Colors.white,
+                          child: Icon(icon, size: 18),
+                        ),
+                        title: Text(kind.displayName),
+                        subtitle: Text(unit.isEmpty ? '(new)' : '(new) Unit: $unit'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 100,
+                              child: TextField(
+                                controller: ctrl,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(
+                                  hintText: '0',
+                                  isDense: true,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Remove',
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () => _removePending(kind),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                  },
+                );
+              }(),
             ),
             const Divider(height: 1),
             Padding(
