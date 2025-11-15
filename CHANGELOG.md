@@ -1,5 +1,31 @@
 # CHANGELOG.md
 
+## [0.7.5] - 2025-11-15
+### Changed
+- **Universal actions-on-the-side pattern**: All list pages now use explicit Edit/Delete buttons instead of clickable list items
+  - Kinds page: Edit/Delete buttons (already correct)
+  - Products page: Edit/Delete buttons (already correct)
+  - Recipes page: Edit/Delete buttons (already correct)
+  - Day details panel: Added Edit button for kind entries, removed clickable behavior
+  - Weekly overview panel: Added Edit button for kind entries, removed clickable behavior
+  - Search results: Added Edit/Delete buttons, removed clickable behavior
+  - Database page: Checkboxes for selection (appropriate pattern)
+- **Weekly overview collapsible views**: Products and recipes now expand to show child entries
+  - Matches day details panel behavior with AnimatedRotation chevron
+  - onTap only handles expand/collapse for parent items (products/recipes)
+  - Kind entries have no onTap handler
+- **Pie chart height balance**: Chart section now exactly matches calendar height (420px)
+  - Filter chips included within the fixed height container
+  - Pie chart uses Expanded to fill remaining space after chips
+
+### Technical
+- Created shared icon resolver helper in `lib/ui/widgets/icon_resolver.dart`
+  - Eliminated ~120 lines of duplicate code across kinds/recipes/database pages
+  - Centralized icon resolution for consistency
+- Standardized all list items: Card + CircleAvatar + ListView.builder throughout
+
+---
+
 ## [0.7.0] - 2025-11-15
 ### Added
 - **Database Management Page**: New centralized database section accessible from bottom navigation
