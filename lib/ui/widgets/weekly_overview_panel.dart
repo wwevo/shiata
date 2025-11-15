@@ -211,10 +211,8 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                         ),
                       ),
                     )
-                  : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  : ListView.builder(
                       itemCount: parentEntries.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (ctx, i) {
                         final e = parentEntries[i];
                         final localTime = DateTime.fromMillisecondsSinceEpoch(
@@ -258,8 +256,10 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                           }
                         } catch (_) {}
 
-                        return ListTile(
-                          onTap: () {
+                        return Card(
+                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          child: ListTile(
+                            onTap: () {
                             if (e.widgetKind == 'product') {
                               showDialog(
                                 context: context,
@@ -294,6 +294,7 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                                 Text('• $summary'),
                               ],
                             ],
+                          ),
                           ),
                         );
                       },

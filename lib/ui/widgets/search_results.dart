@@ -45,11 +45,9 @@ class SearchResults extends ConsumerWidget {
             ),
           );
         }
-        return ListView.separated(
+        return ListView.builder(
           controller: controller,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           itemCount: results.length,
-          separatorBuilder: (_, _) => const Divider(height: 1),
           itemBuilder: (ctx, i) {
             final e = results[i];
             final kind = registry.byId(e.widgetKind);
@@ -91,8 +89,10 @@ class SearchResults extends ConsumerWidget {
             } catch (_) {}
 
             final localTime = DateTime.fromMillisecondsSinceEpoch(e.targetAt, isUtc: true).toLocal();
-            return ListTile(
-              onTap: () {
+            return Card(
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: ListTile(
+                onTap: () {
 /*
                 if (e.widgetKind == 'protein') {
                   Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProteinEditorScreen(entryId: e.id)));
@@ -119,6 +119,7 @@ class SearchResults extends ConsumerWidget {
               title: Text('$title${summary.isEmpty ? '' : ' • $summary'}'),
               subtitle: Text('${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')}  ${_fmtTime(localTime)}'),
               trailing: const Icon(Icons.chevron_right),
+              ),
             );
           },
         );
