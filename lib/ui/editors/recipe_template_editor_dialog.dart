@@ -22,6 +22,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
   bool _loading = true;
   bool _saving = false;
   String _recipeName = '';
+  final Map<String, TextEditingController> _controllers = {};
 
   @override
   void initState() {
@@ -41,9 +42,25 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
           _loading = false;
         });
       }
+      // Initialize controllers for all components
+      for (final c in comps) {
+        if (c.type == RecipeComponentType.kind) {
+          _controllers['kind_${c.compId}'] = TextEditingController(text: fmtDouble(c.amount ?? 0.0));
+        } else {
+          _controllers['product_${c.compId}'] = TextEditingController(text: (c.grams ?? 0).toString());
+        }
+      }
     } else {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  @override
+  void dispose() {
+    for (final ctrl in _controllers.values) {
+      ctrl.dispose();
+    }
+    super.dispose();
   }
 
   Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
@@ -53,7 +70,28 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
       if (mounted) setState(() => _saving = false);
       return;
     }
-    await repo.setComponents(widget.recipeId, _components);
+    // Read values from controllers and update components
+    final updatedComponents = <RecipeComponentDef>[];
+    for (final c in _components) {
+      if (c.type == RecipeComponentType.kind) {
+        final ctrl = _controllers['kind_${c.compId}']!;
+        final val = double.tryParse(ctrl.text.trim()) ?? c.amount ?? 0.0;
+        updatedComponents.add(RecipeComponentDef.kind(
+          recipeId: c.recipeId,
+          compId: c.compId,
+          amount: val,
+        ));
+      } else {
+        final ctrl = _controllers['product_${c.compId}']!;
+        final val = int.tryParse(ctrl.text.trim()) ?? c.grams ?? 0;
+        updatedComponents.add(RecipeComponentDef.product(
+          recipeId: c.recipeId,
+          compId: c.compId,
+          grams: val,
+        ));
+      }
+    }
+    await repo.setComponents(widget.recipeId, updatedComponents);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved recipe')));
     if (mounted) setState(() => _saving = false);
@@ -93,31 +131,37 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
 
     switch (choice) {
       case 'kind':
-        final picked = await showDialog<(String, double)?>(
+        final picked = await showDialog<String?>(
           context: context,
           builder: (ctx) => _AddKindToRecipeDialog(registry: registry),
         );
         if (picked != null) {
           setState(() {
+            // Remove if exists, then add new
             _components = [
-              ..._components.where((c) => !(c.type == RecipeComponentType.kind && c.compId == picked.$1)),
-              RecipeComponentDef.kind(recipeId: widget.recipeId, compId: picked.$1, amount: picked.$2),
+              ..._components.where((c) => !(c.type == RecipeComponentType.kind && c.compId == picked)),
+              RecipeComponentDef.kind(recipeId: widget.recipeId, compId: picked, amount: 0.0),
             ];
+            // Create controller for new component
+            _controllers['kind_$picked'] = TextEditingController(text: '0');
           });
         }
         break;
       case 'product':
         if (productsRepo == null) return;
-        final picked = await showDialog<(String, int)?>(
+        final picked = await showDialog<String?>(
           context: context,
           builder: (ctx) => _AddProductToRecipeDialog(productsRepo: productsRepo),
         );
         if (picked != null) {
           setState(() {
+            // Remove if exists, then add new
             _components = [
-              ..._components.where((c) => !(c.type == RecipeComponentType.product && c.compId == picked.$1)),
-              RecipeComponentDef.product(recipeId: widget.recipeId, compId: picked.$1, grams: picked.$2),
+              ..._components.where((c) => !(c.type == RecipeComponentType.product && c.compId == picked)),
+              RecipeComponentDef.product(recipeId: widget.recipeId, compId: picked, grams: 100),
             ];
+            // Create controller for new component
+            _controllers['product_$picked'] = TextEditingController(text: '100');
           });
         }
         break;
@@ -151,6 +195,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
                   final c = _components[i];
                   if (c.type == RecipeComponentType.kind) {
                     final kind = registry.byId(c.compId);
+                    final ctrl = _controllers['kind_${c.compId}']!;
                     return ListTile(
                       leading: CircleAvatar(
                         backgroundColor: kind?.accentColor ?? Theme.of(context).colorScheme.primary,
@@ -158,30 +203,38 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
                         child: Icon(kind?.icon ?? Icons.circle, size: 18),
                       ),
                       title: Text(kind?.displayName ?? c.compId),
-                      subtitle: Text('Amount: ${fmtDouble(c.amount ?? 0.0)} ${kind?.unit ?? ''}'),
-                      trailing: IconButton(
-                        tooltip: 'Remove',
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => setState(() => _components = [
-                          ..._components.where((x) => !(x.type == RecipeComponentType.kind && x.compId == c.compId)),
-                        ]),
+                      subtitle: Text('Unit: ${kind?.unit ?? ''}'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 100,
+                            child: TextField(
+                              controller: ctrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: const InputDecoration(
+                                hintText: '0',
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Remove',
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () {
+                              setState(() {
+                                _components = _components.where((x) => !(x.type == RecipeComponentType.kind && x.compId == c.compId)).toList();
+                              });
+                              // Dispose controller
+                              ctrl.dispose();
+                              _controllers.remove('kind_${c.compId}');
+                            },
+                          ),
+                        ],
                       ),
-                      onTap: () async {
-                        final v = await _askForDouble(context, 'Amount (${kind?.unit ?? ''})', c.amount ?? 0.0);
-                        if (v != null) {
-                          setState(() {
-                            _components = [
-                              for (final x in _components)
-                                if (x.type == RecipeComponentType.kind && x.compId == c.compId)
-                                  RecipeComponentDef.kind(recipeId: x.recipeId, compId: x.compId, amount: v)
-                                else
-                                  x,
-                            ];
-                          });
-                        }
-                      },
                     );
                   } else {
+                    final ctrl = _controllers['product_${c.compId}']!;
                     return ListTile(
                       leading: const CircleAvatar(
                         backgroundColor: Colors.purple,
@@ -189,28 +242,35 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
                         child: Icon(Icons.shopping_basket, size: 18),
                       ),
                       title: Text(c.compId),
-                      subtitle: Text('Grams: ${c.grams ?? 0} g'),
-                      trailing: IconButton(
-                        tooltip: 'Remove',
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => setState(() => _components = [
-                          ..._components.where((x) => !(x.type == RecipeComponentType.product && x.compId == c.compId)),
-                        ]),
+                      subtitle: const Text('Unit: g'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 100,
+                            child: TextField(
+                              controller: ctrl,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                hintText: '100',
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Remove',
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () {
+                              setState(() {
+                                _components = _components.where((x) => !(x.type == RecipeComponentType.product && x.compId == c.compId)).toList();
+                              });
+                              // Dispose controller
+                              ctrl.dispose();
+                              _controllers.remove('product_${c.compId}');
+                            },
+                          ),
+                        ],
                       ),
-                      onTap: () async {
-                        final v = await _askForInt(context, 'Grams', c.grams ?? 0);
-                        if (v != null) {
-                          setState(() {
-                            _components = [
-                              for (final x in _components)
-                                if (x.type == RecipeComponentType.product && x.compId == c.compId)
-                                  RecipeComponentDef.product(recipeId: x.recipeId, compId: x.compId, grams: v)
-                                else
-                                  x,
-                            ];
-                          });
-                        }
-                      },
                     );
                   }
                 },
@@ -235,150 +295,87 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
       ),
     );
   }
-
-  Future<double?> _askForDouble(BuildContext context, String title, double current) async {
-    final c = TextEditingController(text: fmtDouble(current));
-    return showDialog<double>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: c,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-          decoration: const InputDecoration(hintText: 'number'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              final v = double.tryParse(c.text.trim());
-              if (v == null || v < 0) return;
-              Navigator.of(ctx).pop(v);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<int?> _askForInt(BuildContext context, String title, int current) async {
-    final c = TextEditingController(text: current.toString());
-    return showDialog<int>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: c,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(hintText: 'integer'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              final v = int.tryParse(c.text.trim());
-              if (v == null || v < 0) return;
-              Navigator.of(ctx).pop(v);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-class _AddKindToRecipeDialog extends StatelessWidget {
+class _AddKindToRecipeDialog extends StatefulWidget {
   const _AddKindToRecipeDialog({required this.registry});
   final WidgetRegistry registry;
+
+  @override
+  State<_AddKindToRecipeDialog> createState() => _AddKindToRecipeDialogState();
+}
+
+class _AddKindToRecipeDialogState extends State<_AddKindToRecipeDialog> {
+  WidgetKind? _selected;
+
   @override
   Widget build(BuildContext context) {
-    final kinds = registry.kinds;
-    WidgetKind? selected;
-    final amountCtrl = TextEditingController(text: '0');
-    return StatefulBuilder(builder: (ctx, setState) {
-      return AlertDialog(
-        title: const Text('Add kind'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<WidgetKind>(
-              initialValue: selected,
-              items: [for (final k in kinds) DropdownMenuItem(value: k, child: Text(k.displayName))],
-              onChanged: (v) => setState(() => selected = v),
-              decoration: const InputDecoration(labelText: 'Kind'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: amountCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-              decoration: const InputDecoration(labelText: 'Amount (number)'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              final k = selected;
-              final v = double.tryParse(amountCtrl.text.trim());
-              if (k == null || v == null || v < 0) return;
-              Navigator.of(context).pop((k.id, v));
-            },
-            child: const Text('Add'),
-          ),
+    return AlertDialog(
+      title: const Text('Add kind'),
+      content: DropdownButtonFormField<WidgetKind>(
+        value: _selected,
+        items: [
+          for (final k in widget.registry.kinds)
+            DropdownMenuItem(value: k, child: Text(k.displayName)),
         ],
-      );
-    });
+        onChanged: (v) => setState(() => _selected = v),
+        decoration: const InputDecoration(labelText: 'Select kind'),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () {
+            final k = _selected;
+            if (k == null) return;
+            Navigator.of(context).pop(k.id);
+          },
+          child: const Text('Add'),
+        ),
+      ],
+    );
   }
 }
 
-class _AddProductToRecipeDialog extends StatelessWidget {
+class _AddProductToRecipeDialog extends StatefulWidget {
   const _AddProductToRecipeDialog({required this.productsRepo});
   final ProductsRepository productsRepo;
+
+  @override
+  State<_AddProductToRecipeDialog> createState() => _AddProductToRecipeDialogState();
+}
+
+class _AddProductToRecipeDialogState extends State<_AddProductToRecipeDialog> {
+  String? _selectedId;
+
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: productsRepo.listProducts(),
+    return FutureBuilder<List<ProductDef>>(
+      future: widget.productsRepo.listProducts(),
       builder: (ctx, snap) {
         final products = snap.data ?? const <ProductDef>[];
-        String? selectedId;
-        final gramsCtrl = TextEditingController(text: '100');
-        return StatefulBuilder(builder: (ctx, setState) {
-          return AlertDialog(
-            title: const Text('Add product'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: selectedId,
-                  items: [for (final p in products) DropdownMenuItem(value: p.id, child: Text(p.name))],
-                  onChanged: (v) => setState(() => selectedId = v),
-                  decoration: const InputDecoration(labelText: 'Product'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: gramsCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Grams (integer)'),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-              FilledButton(
-                onPressed: () {
-                  final id = selectedId;
-                  final g = int.tryParse(gramsCtrl.text.trim());
-                  if (id == null || g == null || g <= 0) return;
-                  Navigator.of(context).pop((id, g));
-                },
-                child: const Text('Add'),
-              ),
+        return AlertDialog(
+          title: const Text('Add product'),
+          content: DropdownButtonFormField<String>(
+            value: _selectedId,
+            items: [
+              for (final p in products)
+                DropdownMenuItem(value: p.id, child: Text(p.name)),
             ],
-          );
-        });
+            onChanged: (v) => setState(() => _selectedId = v),
+            decoration: const InputDecoration(labelText: 'Select product'),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                final id = _selectedId;
+                if (id == null) return;
+                Navigator.of(context).pop(id);
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
       },
     );
   }
