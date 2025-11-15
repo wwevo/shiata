@@ -24,12 +24,13 @@ class ProductTemplatesPage extends ConsumerWidget {
                 : () async {
                     final created = await _askForIdAndName(context);
                     if (created == null) return;
-                    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
-                    await repo.upsertProduct(ProductDef(id: created.key, name: created.value, createdAt: now, updatedAt: now));
                     if (context.mounted) {
                       showDialog(
                         context: context,
-                        builder: (_) => ProductTemplateEditorDialog(productId: created.key),
+                        builder: (_) => ProductTemplateEditorDialog(
+                          productId: created.key,
+                          productName: created.value,
+                        ),
                       );
                     }
                   },

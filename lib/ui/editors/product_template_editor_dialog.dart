@@ -13,8 +13,13 @@ import '../../utils/formatters.dart';
 import '../widgets/editor_dialog_actions.dart';
 
 class ProductTemplateEditorDialog extends ConsumerStatefulWidget {
-  const ProductTemplateEditorDialog({super.key, required this.productId});
+  const ProductTemplateEditorDialog({
+    super.key,
+    required this.productId,
+    this.productName,  // for new products (if not in DB yet)
+  });
   final String productId;
+  final String? productName;
 
   @override
   ConsumerState<ProductTemplateEditorDialog> createState() => _ProductTemplateEditorDialogState();
@@ -49,7 +54,8 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
       final comps = await repo.getComponents(widget.productId);
       if (mounted) {
         setState(() {
-          _productName = def?.name ?? widget.productId;
+          // If product doesn't exist in DB, use provided name (creating new)
+          _productName = def?.name ?? widget.productName ?? widget.productId;
           _components = comps;
           _loading = false;
         });
@@ -71,6 +77,20 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
       if (mounted) setState(() => _saving = false);
       return;
     }
+
+    // Check if product exists in DB
+    final existing = await repo.getProduct(widget.productId);
+    if (existing == null) {
+      // Create new product first
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+      await repo.upsertProduct(ProductDef(
+        id: widget.productId,
+        name: widget.productName ?? widget.productId,
+        createdAt: now,
+        updatedAt: now,
+      ));
+    }
+
     // Read values from controllers and update components
     final updatedComponents = <ProductComponent>[];
     for (final c in _components) {

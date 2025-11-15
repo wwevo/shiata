@@ -25,13 +25,13 @@ class RecipesPage extends ConsumerWidget {
                 : () async {
                     final created = await _askForIdAndName(context);
                     if (created == null) return;
-                    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
-                    await repo.upsertRecipe(RecipeDef(id: created.key, name: created.value, createdAt: now, updatedAt: now));
                     if (context.mounted) {
-//                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => RecipeEditorPage(recipeId: created.key)));
                       showDialog(
                         context: context,
-                        builder: (_) => RecipeEditorDialog(recipeId: created.key),
+                        builder: (_) => RecipeEditorDialog(
+                          recipeId: created.key,
+                          recipeName: created.value,
+                        ),
                       );
                     }
                   },

@@ -10,8 +10,13 @@ import '../../utils/formatters.dart';
 import '../widgets/editor_dialog_actions.dart';
 
 class RecipeEditorDialog extends ConsumerStatefulWidget {
-  const RecipeEditorDialog({super.key, required this.recipeId});
+  const RecipeEditorDialog({
+    super.key,
+    required this.recipeId,
+    this.recipeName,  // for new recipes (if not in DB yet)
+  });
   final String recipeId;
+  final String? recipeName;
   @override
   ConsumerState<RecipeEditorDialog> createState() => _RecipeEditorDialogState();
 }
@@ -37,7 +42,8 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
       final comps = await repo.getComponents(widget.recipeId);
       if (mounted) {
         setState(() {
-          _recipeName = def?.name ?? widget.recipeId;
+          // If recipe doesn't exist in DB, use provided name (creating new)
+          _recipeName = def?.name ?? widget.recipeName ?? widget.recipeId;
           _components = comps;
           _loading = false;
         });
@@ -70,6 +76,20 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
       if (mounted) setState(() => _saving = false);
       return;
     }
+
+    // Check if recipe exists in DB
+    final existing = await repo.getRecipe(widget.recipeId);
+    if (existing == null) {
+      // Create new recipe first
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+      await repo.upsertRecipe(RecipeDef(
+        id: widget.recipeId,
+        name: widget.recipeName ?? widget.recipeId,
+        createdAt: now,
+        updatedAt: now,
+      ));
+    }
+
     // Read values from controllers and update components
     final updatedComponents = <RecipeComponentDef>[];
     for (final c in _components) {
