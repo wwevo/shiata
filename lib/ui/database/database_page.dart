@@ -9,6 +9,7 @@ import '../../data/repo/import_export_service.dart';
 import '../../data/repo/kinds_repository.dart';
 import '../../data/repo/products_repository.dart';
 import '../../data/repo/recipes_repository.dart';
+import '../widgets/icon_resolver.dart';
 
 class DatabasePage extends ConsumerStatefulWidget {
   const DatabasePage({super.key});
@@ -119,7 +120,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
             }
             return Column(
               children: kinds.map((k) {
-                final icon = _resolveIcon(k.icon, Icons.category);
+                final icon = resolveIcon(k.icon, Icons.category);
                 final color = Color(k.color ?? 0xFF607D8B);
                 final isSelected = _selectedKinds.contains(k.id);
                 return Card(
@@ -241,7 +242,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
               }
               return Column(
                 children: recipes.map((r) {
-                  final icon = r.icon != null ? _resolveIcon(r.icon, Icons.restaurant_menu) : Icons.restaurant_menu;
+                  final icon = r.icon != null ? resolveIcon(r.icon, Icons.restaurant_menu) : Icons.restaurant_menu;
                   final color = r.color != null ? Color(r.color!) : Colors.brown;
                   final isSelected = _selectedRecipes.contains(r.id);
                   return Card(
@@ -571,43 +572,5 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
-  }
-
-  // Icon resolver from kinds_page.dart
-  IconData _resolveIcon(String? name, IconData fallback) {
-    switch (name) {
-      case 'fitness_center':
-        return Icons.fitness_center;
-      case 'opacity':
-        return Icons.opacity;
-      case 'rice_bowl':
-        return Icons.rice_bowl;
-      case 'battery_charging_full':
-        return Icons.battery_charging_full;
-      case 'blur_on':
-        return Icons.blur_on;
-      case 'bolt':
-        return Icons.bolt;
-      case 'circle':
-        return Icons.circle;
-      case 'hexagon':
-        return Icons.hexagon;
-      case 'science':
-        return Icons.science;
-      case 'visibility':
-        return Icons.visibility;
-      case 'medical_information':
-        return Icons.medical_information;
-      case 'local_florist':
-        return Icons.local_florist;
-      case 'wb_sunny':
-        return Icons.wb_sunny;
-      case 'eco':
-        return Icons.eco;
-      case 'grass':
-        return Icons.grass;
-      default:
-        return fallback;
-    }
   }
 }

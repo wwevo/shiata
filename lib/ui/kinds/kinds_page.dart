@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/kind_service.dart';
 import '../editors/kind_template_editor_dialog.dart';
+import '../widgets/icon_resolver.dart';
 
 class KindsPage extends ConsumerWidget {
   const KindsPage({super.key});
@@ -36,7 +37,7 @@ class KindsPage extends ConsumerWidget {
             itemCount: kinds.length,
             itemBuilder: (ctx, i) {
               final k = kinds[i];
-              final icon = _resolveIcon(k.icon, Icons.category);
+              final icon = resolveIcon(k.icon, Icons.category);
               final color = Color(k.color ?? 0xFF607D8B);
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -173,42 +174,5 @@ class KindsPage extends ConsumerWidget {
         error: (e, st) => Center(child: Text('Error loading kinds')),
       ),
     );
-  }
-}
-
-IconData _resolveIcon(String? name, IconData fallback) {
-  switch (name) {
-    case 'fitness_center':
-      return Icons.fitness_center;
-    case 'opacity':
-      return Icons.opacity;
-    case 'rice_bowl':
-      return Icons.rice_bowl;
-    case 'battery_charging_full':
-      return Icons.battery_charging_full;
-    case 'blur_on':
-      return Icons.blur_on;
-    case 'bolt':
-      return Icons.bolt;
-    case 'circle':
-      return Icons.circle;
-    case 'hexagon':
-      return Icons.hexagon;
-    case 'science':
-      return Icons.science;
-    case 'visibility':
-      return Icons.visibility;
-    case 'medical_information':
-      return Icons.medical_information;
-    case 'local_florist':
-      return Icons.local_florist;
-    case 'wb_sunny':
-      return Icons.wb_sunny;
-    case 'eco':
-      return Icons.eco;
-    case 'grass':
-      return Icons.grass;
-    default:
-      return fallback;
   }
 }

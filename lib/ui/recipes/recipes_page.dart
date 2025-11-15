@@ -6,6 +6,7 @@ import '../../data/providers.dart';
 import '../../data/repo/recipe_service.dart';
 import '../../data/repo/recipes_repository.dart';
 import '../editors/recipe_template_editor_dialog.dart';
+import '../widgets/icon_resolver.dart';
 
 class RecipesPage extends ConsumerWidget {
   const RecipesPage({super.key});
@@ -49,7 +50,7 @@ class RecipesPage extends ConsumerWidget {
                   itemCount: list.length,
                   itemBuilder: (ctx, i) {
                     final r = list[i];
-                    final icon = _resolveIcon(r.icon, Icons.restaurant_menu);
+                    final icon = resolveIcon(r.icon, Icons.restaurant_menu);
                     final color = r.color != null ? Color(r.color!) : Colors.brown;
                     return Card(
                       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -109,43 +110,6 @@ class RecipesPage extends ConsumerWidget {
               },
             ),
     );
-  }
-
-  IconData _resolveIcon(String? name, IconData fallback) {
-    switch (name) {
-      case 'fitness_center':
-        return Icons.fitness_center;
-      case 'opacity':
-        return Icons.opacity;
-      case 'rice_bowl':
-        return Icons.rice_bowl;
-      case 'battery_charging_full':
-        return Icons.battery_charging_full;
-      case 'blur_on':
-        return Icons.blur_on;
-      case 'bolt':
-        return Icons.bolt;
-      case 'circle':
-        return Icons.circle;
-      case 'hexagon':
-        return Icons.hexagon;
-      case 'science':
-        return Icons.science;
-      case 'visibility':
-        return Icons.visibility;
-      case 'medical_information':
-        return Icons.medical_information;
-      case 'local_florist':
-        return Icons.local_florist;
-      case 'wb_sunny':
-        return Icons.wb_sunny;
-      case 'eco':
-        return Icons.eco;
-      case 'grass':
-        return Icons.grass;
-      default:
-        return fallback;
-    }
   }
 
   Future<MapEntry<String, String>?> _askForIdAndName(BuildContext context) async {
