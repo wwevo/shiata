@@ -340,8 +340,55 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
   }
 
   Future<void> _exportSelected() async {
-    // TODO: This requires implementing exportSelected() in ImportExportService
-    _showSnackBar('Fine-grained export not yet implemented in backend');
+    final svc = ref.read(importExportServiceProvider);
+    if (svc == null) {
+      _showSnackBar('Service not ready');
+      return;
+    }
+
+    try {
+      final bundle = await svc.exportSelected(
+        kindIds: _selectedKinds.toList(),
+        productIds: _selectedProducts.toList(),
+        recipeIds: _selectedRecipes.toList(),
+        includeEntries: _includeEntries,
+      );
+
+      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
+      final fileName = 'shiata_selected_export_$timestamp.json';
+
+      // Save to file
+      final path = await svc.saveBundleToFile(bundle, fileName: fileName);
+
+      if (mounted) {
+        // Count what was exported
+        final kinds = (bundle['kinds'] as List?)?.length ?? 0;
+        final products = (bundle['products'] as List?)?.length ?? 0;
+        final recipes = (bundle['recipes'] as List?)?.length ?? 0;
+
+        await showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Export Complete'),
+            content: SelectableText(
+              'Exported $kinds kinds, $products products, $recipes recipes\n'
+              '(includes auto-resolved dependencies)\n\n'
+              'File saved to:\n$path',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar('Export failed: $e');
+      }
+    }
   }
 
   Future<void> _importAll() async {

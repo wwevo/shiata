@@ -205,9 +205,127 @@ class ImportExportService {
     );
   }
 
-  /// One-tap backup to single-slot file (JSON bundle). Returns the path.
-  Future<String> backupToFile({String fileName = 'backup.json'}) async {
-    final bundle = await exportBundle();
+  /// Export selected items with automatic dependency resolution.
+  /// Dependencies are automatically included:
+  /// - Products include their component kinds
+  /// - Recipes include their ingredient products and those products' component kinds
+  Future<Map<String, Object?>> exportSelected({
+    List<String>? kindIds,
+    List<String>? productIds,
+    List<String>? recipeIds,
+    bool includeEntries = false,
+  }) async {
+    final selectedKindIds = <String>{...?kindIds};
+    final selectedProductIds = <String>{...?productIds};
+    final selectedRecipeIds = <String>{...?recipeIds};
+
+    // Resolve dependencies: products → component kinds
+    for (final productId in List<String>.from(selectedProductIds)) {
+      final components = await products.getComponents(productId);
+      for (final c in components) {
+        selectedKindIds.add(c.kindId);
+      }
+    }
+
+    // Resolve dependencies: recipes → ingredient products → component kinds
+    for (final recipeId in List<String>.from(selectedRecipeIds)) {
+      final components = await recipes.getComponents(recipeId);
+      for (final c in components) {
+        if (c.type == RecipeComponentType.product) {
+          selectedProductIds.add(c.compId);
+          // Also get that product's component kinds
+          final prodComponents = await products.getComponents(c.compId);
+          for (final pc in prodComponents) {
+            selectedKindIds.add(pc.kindId);
+          }
+        } else if (c.type == RecipeComponentType.kind) {
+          selectedKindIds.add(c.compId);
+        }
+      }
+    }
+
+    // Now export only the selected items
+    final kindsList = <Map<String, Object?>>[];
+    for (final id in selectedKindIds) {
+      final k = await kinds.getKind(id);
+      if (k != null) {
+        kindsList.add({
+          'id': k.id,
+          'name': k.name,
+          'unit': k.unit,
+          'color': k.color,
+          'icon': k.icon,
+          'min': k.min,
+          'max': k.max,
+          'defaultShowInCalendar': k.defaultShowInCalendar,
+        });
+      }
+    }
+
+    final productsList = <Map<String, Object?>>[];
+    for (final id in selectedProductIds) {
+      final p = await products.getProduct(id);
+      if (p != null) {
+        final comps = await products.getComponents(id);
+        productsList.add({
+          'id': p.id,
+          'name': p.name,
+          'components': [
+            for (final c in comps)
+              {
+                'kindId': c.kindId,
+                'per100': c.amountPerGram,
+              }
+          ]
+        });
+      }
+    }
+
+    final recipesList = <Map<String, Object?>>[];
+    for (final id in selectedRecipeIds) {
+      final r = await recipes.getRecipe(id);
+      if (r != null) {
+        final comps = await recipes.getComponents(id);
+        recipesList.add({
+          'id': r.id,
+          'name': r.name,
+          'createdAt': r.createdAt,
+          'updatedAt': r.updatedAt,
+          'isActive': r.isActive,
+          'icon': r.icon,
+          'color': r.color,
+          'components': [
+            for (final c in comps)
+              {
+                'type': c.type == RecipeComponentType.kind ? 'kind' : 'product',
+                'compId': c.compId,
+                'amount': c.amount,
+                'grams': c.grams,
+              }
+          ]
+        });
+      }
+    }
+
+    final bundle = <String, Object?>{
+      'version': 1,
+      'kinds': kindsList,
+      'products': productsList,
+      'recipes': recipesList,
+    };
+
+    // Optionally include calendar entries that reference these items
+    if (includeEntries) {
+      // TODO: Implement filtered entry export
+      // Would need a method to get entries by kind/product/recipe IDs
+      bundle['entries'] = const <Map<String, Object?>>[];
+    }
+
+    return bundle;
+  }
+
+  /// Save any bundle to a file. Returns the full path.
+  Future<String> saveBundleToFile(Map<String, Object?> bundle, {String fileName = 'export.json'}) async {
     final encoder = const JsonEncoder.withIndent('  ');
     final text = encoder.convert(bundle);
     final dirPath = await _appDocsDirPath();
@@ -215,6 +333,12 @@ class ImportExportService {
     final file = File(path);
     await file.writeAsString(text);
     return path;
+  }
+
+  /// One-tap backup to single-slot file (JSON bundle). Returns the path.
+  Future<String> backupToFile({String fileName = 'backup.json'}) async {
+    final bundle = await exportBundle();
+    return saveBundleToFile(bundle, fileName: fileName);
   }
 
   /// Restore from the single-slot backup file (destructive). Returns the path used.
