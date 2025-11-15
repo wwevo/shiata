@@ -107,104 +107,110 @@ class WeeklyOverviewPanel extends ConsumerWidget {
           key: ValueKey(selectedKinds.hashCode), // Force rebuild when filter changes
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Filter chips for kind selection
-            if (allKinds.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: Wrap(
-                  spacing: 8,
-                  children: allKinds.map((kind) {
-                    final isSelected = selectedKinds.contains(kind.id);
-                    return FilterChip(
-                      label: Text(kind.displayName),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        final newSet = {...selectedKinds};
-                        if (selected) {
-                          newSet.add(kind.id);
-                        } else {
-                          newSet.remove(kind.id);
-                        }
-                        ref.read(selectedKindsForChartProvider.notifier).state = newSet;
-                      },
-                      avatar: CircleAvatar(
-                        backgroundColor: isSelected ? kind.accentColor : Colors.grey,
-                        radius: 8,
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            // Pie chart section
+            // Filter chips and pie chart section (combined height matches calendar)
             Container(
               height: uxConfig.topSheet.expandedHeight,
               padding: const EdgeInsets.all(16),
-              child: chartData.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No data for last 7 days',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    )
-                  : Row(
-                      children: [
-                        Expanded(
-                          child: PieChart(
-                            PieChartData(
-                              sections: chartData.entries.map((entry) {
-                                final kind = registry.byId(entry.key);
-                                final color = kind?.accentColor ?? theme.colorScheme.primary;
-                                final unit = kind?.unit ?? '';
-                                return PieChartSectionData(
-                                  value: entry.value,
-                                  title: '${entry.value.toStringAsFixed(0)}$unit',
-                                  color: color,
-                                  radius: 100,
-                                  titleStyle: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                );
-                              }).toList(),
-                              sectionsSpace: 2,
-                              centerSpaceRadius: 40,
-                            ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Filter chips for kind selection
+                  if (allKinds.isNotEmpty)
+                    Wrap(
+                      spacing: 8,
+                      children: allKinds.map((kind) {
+                        final isSelected = selectedKinds.contains(kind.id);
+                        return FilterChip(
+                          label: Text(kind.displayName),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            final newSet = {...selectedKinds};
+                            if (selected) {
+                              newSet.add(kind.id);
+                            } else {
+                              newSet.remove(kind.id);
+                            }
+                            ref.read(selectedKindsForChartProvider.notifier).state = newSet;
+                          },
+                          avatar: CircleAvatar(
+                            backgroundColor: isSelected ? kind.accentColor : Colors.grey,
+                            radius: 8,
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: chartData.entries.map((entry) {
-                            final kind = registry.byId(entry.key);
-                            final color = kind?.accentColor ?? theme.colorScheme.primary;
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 16,
-                                    height: 16,
-                                    decoration: BoxDecoration(
-                                      color: color,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    kind?.displayName ?? entry.key,
-                                    style: theme.textTheme.bodyMedium,
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ],
+                        );
+                      }).toList(),
                     ),
+                  if (allKinds.isNotEmpty) const SizedBox(height: 8),
+                  // Pie chart
+                  Expanded(
+                    child: chartData.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No data for last 7 days',
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          )
+                        : Row(
+                            children: [
+                              Expanded(
+                                child: PieChart(
+                                  PieChartData(
+                                    sections: chartData.entries.map((entry) {
+                                      final kind = registry.byId(entry.key);
+                                      final color = kind?.accentColor ?? theme.colorScheme.primary;
+                                      final unit = kind?.unit ?? '';
+                                      return PieChartSectionData(
+                                        value: entry.value,
+                                        title: '${entry.value.toStringAsFixed(0)}$unit',
+                                        color: color,
+                                        radius: 100,
+                                        titleStyle: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      );
+                                    }).toList(),
+                                    sectionsSpace: 2,
+                                    centerSpaceRadius: 40,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: chartData.entries.map((entry) {
+                                  final kind = registry.byId(entry.key);
+                                  final color = kind?.accentColor ?? theme.colorScheme.primary;
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 4),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 16,
+                                          height: 16,
+                                          decoration: BoxDecoration(
+                                            color: color,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          kind?.displayName ?? entry.key,
+                                          style: theme.textTheme.bodyMedium,
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
             ),
             const Divider(height: 1),
             // Header for list
