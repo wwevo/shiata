@@ -7,12 +7,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/db/db_handle.dart';
 import '../../data/providers.dart';
 import '../../data/repo/import_export_service.dart';
+import '../../data/repo/kinds_repository.dart';
+import '../../data/repo/products_repository.dart';
+import '../../data/repo/recipes_repository.dart';
 
-class DatabasePage extends ConsumerWidget {
+class DatabasePage extends ConsumerStatefulWidget {
   const DatabasePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DatabasePage> createState() => _DatabasePageState();
+}
+
+class _DatabasePageState extends ConsumerState<DatabasePage> {
+  // Selection state for fine-grained export
+  final Set<String> _selectedKinds = {};
+  final Set<String> _selectedProducts = {};
+  final Set<String> _selectedRecipes = {};
+  bool _includeEntries = false;
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Database'),
@@ -20,15 +34,15 @@ class DatabasePage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildFullOperationsSection(context, ref),
+          _buildFullOperationsSection(),
           const Divider(height: 32),
-          _buildQuickBackupSection(context, ref),
+          _buildFineGrainedSection(),
         ],
       ),
     );
   }
 
-  Widget _buildFullOperationsSection(BuildContext context, WidgetRef ref) {
+  Widget _buildFullOperationsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -48,13 +62,13 @@ class DatabasePage extends ConsumerWidget {
           children: [
             ElevatedButton.icon(
               icon: const Icon(Icons.download),
-              label: const Text('Export All'),
-              onPressed: () => _exportAll(context, ref),
+              label: const Text('Export All to File'),
+              onPressed: _exportAllToFile,
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.upload),
               label: const Text('Import All'),
-              onPressed: () => _importAll(context, ref),
+              onPressed: _importAll,
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.delete_forever),
@@ -63,7 +77,7 @@ class DatabasePage extends ConsumerWidget {
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
               ),
-              onPressed: () => _wipeDatabase(context, ref),
+              onPressed: _wipeDatabase,
             ),
           ],
         ),
@@ -71,103 +85,264 @@ class DatabasePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildQuickBackupSection(BuildContext context, WidgetRef ref) {
+  Widget _buildFineGrainedSection() {
+    final kindsAsync = ref.watch(kindsListProvider);
+    final productsRepo = ref.watch(productsRepositoryProvider);
+    final recipesRepo = ref.watch(recipesRepositoryProvider);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Quick Backup (Single Slot)',
+          'Export Selected Items',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 8),
         Text(
-          'Single-slot backup saved to device storage. Quick way to save and restore your complete database.',
+          'Select specific kinds, products, or recipes to export. Dependencies will be included automatically.',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 16),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+
+        // Kinds section
+        ExpansionTile(
+          title: Text('Kinds (${_selectedKinds.length} selected)'),
+          initiallyExpanded: false,
           children: [
-            ElevatedButton.icon(
-              icon: const Icon(Icons.save),
-              label: const Text('Backup to File'),
-              onPressed: () => _backupToFile(context, ref),
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.restore),
-              label: const Text('Restore from File'),
-              onPressed: () => _restoreFromFile(context, ref),
+            kindsAsync.when(
+              data: (kinds) {
+                if (kinds.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Text('No kinds available'),
+                  );
+                }
+                return Column(
+                  children: [
+                    CheckboxListTile(
+                      title: const Text('Select All'),
+                      value: _selectedKinds.length == kinds.length && kinds.isNotEmpty,
+                      tristate: _selectedKinds.isNotEmpty && _selectedKinds.length < kinds.length,
+                      onChanged: (val) {
+                        setState(() {
+                          if (val == true) {
+                            _selectedKinds.addAll(kinds.map((k) => k.id));
+                          } else {
+                            _selectedKinds.clear();
+                          }
+                        });
+                      },
+                    ),
+                    const Divider(),
+                    ...kinds.map((k) => CheckboxListTile(
+                          dense: true,
+                          title: Text(k.name),
+                          subtitle: Text('${k.unit}  •  ${k.id}'),
+                          value: _selectedKinds.contains(k.id),
+                          onChanged: (val) {
+                            setState(() {
+                              if (val == true) {
+                                _selectedKinds.add(k.id);
+                              } else {
+                                _selectedKinds.remove(k.id);
+                              }
+                            });
+                          },
+                        )),
+                  ],
+                );
+              },
+              loading: () => const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, st) => Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text('Error: $e'),
+              ),
             ),
           ],
+        ),
+
+        // Products section
+        ExpansionTile(
+          title: Text('Products (${_selectedProducts.length} selected)'),
+          initiallyExpanded: false,
+          children: [
+            if (productsRepo == null)
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text('Repository not ready'),
+              )
+            else
+              StreamBuilder<List<ProductDef>>(
+                stream: productsRepo.watchProducts(),
+                builder: (context, snapshot) {
+                  final products = snapshot.data ?? [];
+                  if (products.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text('No products available'),
+                    );
+                  }
+                  return Column(
+                    children: [
+                      CheckboxListTile(
+                        title: const Text('Select All'),
+                        value: _selectedProducts.length == products.length,
+                        tristate: _selectedProducts.isNotEmpty && _selectedProducts.length < products.length,
+                        onChanged: (val) {
+                          setState(() {
+                            if (val == true) {
+                              _selectedProducts.addAll(products.map((p) => p.id));
+                            } else {
+                              _selectedProducts.clear();
+                            }
+                          });
+                        },
+                      ),
+                      const Divider(),
+                      ...products.map((p) => CheckboxListTile(
+                            dense: true,
+                            title: Text(p.name),
+                            subtitle: Text(p.id),
+                            value: _selectedProducts.contains(p.id),
+                            onChanged: (val) {
+                              setState(() {
+                                if (val == true) {
+                                  _selectedProducts.add(p.id);
+                                } else {
+                                  _selectedProducts.remove(p.id);
+                                }
+                              });
+                            },
+                          )),
+                    ],
+                  );
+                },
+              ),
+          ],
+        ),
+
+        // Recipes section
+        ExpansionTile(
+          title: Text('Recipes (${_selectedRecipes.length} selected)'),
+          initiallyExpanded: false,
+          children: [
+            if (recipesRepo == null)
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text('Repository not ready'),
+              )
+            else
+              StreamBuilder<List<RecipeDef>>(
+                stream: recipesRepo.watchRecipes(onlyActive: false),
+                builder: (context, snapshot) {
+                  final recipes = snapshot.data ?? [];
+                  if (recipes.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text('No recipes available'),
+                    );
+                  }
+                  return Column(
+                    children: [
+                      CheckboxListTile(
+                        title: const Text('Select All'),
+                        value: _selectedRecipes.length == recipes.length,
+                        tristate: _selectedRecipes.isNotEmpty && _selectedRecipes.length < recipes.length,
+                        onChanged: (val) {
+                          setState(() {
+                            if (val == true) {
+                              _selectedRecipes.addAll(recipes.map((r) => r.id));
+                            } else {
+                              _selectedRecipes.clear();
+                            }
+                          });
+                        },
+                      ),
+                      const Divider(),
+                      ...recipes.map((r) => CheckboxListTile(
+                            dense: true,
+                            title: Text(r.name),
+                            subtitle: Text(r.id),
+                            value: _selectedRecipes.contains(r.id),
+                            onChanged: (val) {
+                              setState(() {
+                                if (val == true) {
+                                  _selectedRecipes.add(r.id);
+                                } else {
+                                  _selectedRecipes.remove(r.id);
+                                }
+                              });
+                            },
+                          )),
+                    ],
+                  );
+                },
+              ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // Include entries checkbox
+        CheckboxListTile(
+          title: const Text('Include calendar entries'),
+          subtitle: const Text('Export calendar instances of selected items'),
+          value: _includeEntries,
+          onChanged: (val) {
+            setState(() {
+              _includeEntries = val ?? false;
+            });
+          },
+        ),
+
+        const SizedBox(height: 16),
+
+        // Export button
+        ElevatedButton.icon(
+          icon: const Icon(Icons.download),
+          label: const Text('Export Selected to File'),
+          onPressed: (_selectedKinds.isEmpty && _selectedProducts.isEmpty && _selectedRecipes.isEmpty)
+              ? null
+              : _exportSelectedToFile,
         ),
       ],
     );
   }
 
-  // Helper methods for full operations
+  // Helper methods
 
-  Future<void> _exportAll(BuildContext context, WidgetRef ref) async {
+  Future<void> _exportAllToFile() async {
     final svc = ref.read(importExportServiceProvider);
     if (svc == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Service not ready')),
-      );
+      _showSnackBar('Service not ready');
       return;
     }
 
     try {
-      final bundle = await svc.exportBundle();
-      final encoder = const JsonEncoder.withIndent('  ');
-      final text = encoder.convert(bundle);
-
-      if (!context.mounted) return;
-      await showDialog(
-        context: context,
-        builder: (ctx) {
-          return AlertDialog(
-            title: const Text('Export All (JSON)'),
-            content: SizedBox(
-              width: 600,
-              child: SingleChildScrollView(
-                child: SelectableText(text),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: text));
-                  if (ctx.mounted) Navigator.of(ctx).pop();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Copied to clipboard')),
-                    );
-                  }
-                },
-                child: const Text('Copy'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Close'),
-              ),
-            ],
-          );
-        },
-      );
+      final path = await svc.backupToFile(fileName: 'shiata_full_export.json');
+      if (mounted) {
+        _showSnackBar('Exported to ${path.split('/').last}');
+      }
     } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Export failed: $e')),
-      );
+      if (mounted) {
+        _showSnackBar('Export failed: $e');
+      }
     }
   }
 
-  Future<void> _importAll(BuildContext context, WidgetRef ref) async {
+  Future<void> _exportSelectedToFile() async {
+    // TODO: This requires implementing exportSelected() in ImportExportService
+    // For now, show a message
+    _showSnackBar('Fine-grained export not yet implemented in backend');
+  }
+
+  Future<void> _importAll() async {
     final svc = ref.read(importExportServiceProvider);
     if (svc == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Service not ready')),
-      );
+      _showSnackBar('Service not ready');
       return;
     }
 
@@ -214,10 +389,9 @@ class DatabasePage extends ConsumerWidget {
       },
     );
 
-    if (confirmed != true) return;
-    if (!context.mounted) return;
+    if (confirmed != true || !mounted) return;
 
-    // Second confirmation - are you sure?
+    // Second confirmation
     final reallyConfirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -239,11 +413,11 @@ class DatabasePage extends ConsumerWidget {
       ),
     );
 
-    if (reallyConfirmed != true) return;
+    if (reallyConfirmed != true || !mounted) return;
 
     try {
       final result = await svc.importBundle(controller.text);
-      if (!context.mounted) return;
+      if (!mounted) return;
 
       final msg = 'Imported:\n'
           '${result.kindsUpserted} kinds\n'
@@ -275,14 +449,13 @@ class DatabasePage extends ConsumerWidget {
         ),
       );
     } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Import failed: $e')),
-      );
+      if (mounted) {
+        _showSnackBar('Import failed: $e');
+      }
     }
   }
 
-  Future<void> _wipeDatabase(BuildContext context, WidgetRef ref) async {
+  Future<void> _wipeDatabase() async {
     // First confirmation
     final first = await showDialog<bool>(
       context: context,
@@ -304,8 +477,7 @@ class DatabasePage extends ConsumerWidget {
       ),
     );
 
-    if (first != true) return;
-    if (!context.mounted) return;
+    if (first != true || !mounted) return;
 
     // Second confirmation
     final second = await showDialog<bool>(
@@ -333,92 +505,19 @@ class DatabasePage extends ConsumerWidget {
 
     try {
       await ref.read(dbHandleProvider.notifier).wipeDb();
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Database wiped successfully')),
-        );
+      if (mounted) {
+        _showSnackBar('Database wiped successfully');
       }
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to wipe database: $e')),
-        );
+      if (mounted) {
+        _showSnackBar('Failed to wipe database: $e');
       }
     }
   }
 
-  // Helper methods for quick backup
-
-  Future<void> _backupToFile(BuildContext context, WidgetRef ref) async {
-    final svc = ref.read(importExportServiceProvider);
-    if (svc == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Service not ready')),
-      );
-      return;
-    }
-
-    try {
-      final path = await svc.backupToFile();
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Backup saved to ${path.split('/').last}')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Backup failed: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _restoreFromFile(BuildContext context, WidgetRef ref) async {
-    final svc = ref.read(importExportServiceProvider);
-    if (svc == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Service not ready')),
-      );
-      return;
-    }
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Restore Backup?'),
-        content: const Text(
-          'This will wipe current data and restore from the single-slot backup.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Restore'),
-          ),
-        ],
-      ),
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
-
-    if (confirm != true) return;
-    if (!context.mounted) return;
-
-    try {
-      final path = await svc.restoreFromFile();
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Restored from ${path.split('/').last}')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Restore failed: $e')),
-        );
-      }
-    }
   }
 }
