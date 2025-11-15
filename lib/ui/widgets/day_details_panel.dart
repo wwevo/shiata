@@ -159,10 +159,8 @@ class DayDetailsPanel extends ConsumerWidget {
               ),
             ),
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: ListView.builder(
                 itemCount: entries.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (ctx, i) {
                   final e = entries[i];
                   final localTime = DateTime.fromMillisecondsSinceEpoch(
@@ -201,8 +199,10 @@ class DayDetailsPanel extends ConsumerWidget {
 
                   final expandedSet = ref.watch(expandedProductsProvider);
                   final isExpanded = isParent && expandedSet.contains(e.id);
-                  Widget parentRow = ListTile(
-                    onTap: () {
+                  Widget parentRow = Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: ListTile(
+                      onTap: () {
                       if (isParent) {
                         final set = {...expandedSet};
                         if (isExpanded) {
@@ -523,6 +523,7 @@ class DayDetailsPanel extends ConsumerWidget {
                         else
                           const Icon(Icons.chevron_right),
                       ],
+                    ),
                     ),
                   );
 
