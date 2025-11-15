@@ -202,8 +202,7 @@ class DayDetailsPanel extends ConsumerWidget {
                   Widget parentRow = Card(
                     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     child: ListTile(
-                      onTap: () {
-                      if (isParent) {
+                      onTap: isParent ? () {
                         final set = {...expandedSet};
                         if (isExpanded) {
                           set.remove(e.id);
@@ -211,33 +210,7 @@ class DayDetailsPanel extends ConsumerWidget {
                           set.add(e.id);
                         }
                         ref.read(expandedProductsProvider.notifier).state = set;
-                        return;
-                      }
-                      // Open editor in edit mode based on kind id (non-parent)
-                      /*
-                      if (e.widgetKind == 'protein') {
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProteinEditorScreen(entryId: e.id)));
-                      } else if (e.widgetKind == 'fat') {
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => FatEditorScreen(entryId: e.id)));
-                      } else if (e.widgetKind == 'carbohydrate') {
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => CarbohydrateEditorScreen(entryId: e.id)));
-                      } else {
-*/
-                      final k = registry.byId(e.widgetKind);
-                      if (k != null) {
-                        /*
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => KindInstanceEditorScreen(kind: k, entryId: e.id)),
-                        );
-*/
-                        showDialog(
-                          context: context,
-                          builder: (_) =>
-                              KindInstanceEditorDialog(kind: k, entryId: e.id),
-                        );
-                      }
-                      //                      }
-                    },
+                      } : null,
                     leading: CircleAvatar(
                       backgroundColor: bg,
                       foregroundColor: Colors.white,
@@ -278,17 +251,25 @@ class DayDetailsPanel extends ConsumerWidget {
                             tooltip: 'Edit',
                             icon: const Icon(Icons.edit_outlined),
                             onPressed: () async {
-                              /*                              await Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      ProductEditorScreen(entryId: e.id),
-                                ),
-                              );*/
                               await showDialog(
                                 context: ctx,
                                 builder: (_) =>
                                     ProductEditorDialog(entryId: e.id),
                               );
+                            },
+                          )
+                        else if (!isRecipeParent)
+                          IconButton(
+                            tooltip: 'Edit',
+                            icon: const Icon(Icons.edit_outlined),
+                            onPressed: () {
+                              final k = registry.byId(e.widgetKind);
+                              if (k != null) {
+                                showDialog(
+                                  context: context,
+                                  builder: (_) => KindInstanceEditorDialog(kind: k, entryId: e.id),
+                                );
+                              }
                             },
                           ),
                         IconButton(

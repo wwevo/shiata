@@ -287,26 +287,15 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                         Widget parentRow = Card(
                           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           child: ListTile(
-                            onTap: () {
-                              if (isParent) {
-                                final set = {...expandedSet};
-                                if (isExpanded) {
-                                  set.remove(e.id);
-                                } else {
-                                  set.add(e.id);
-                                }
-                                ref.read(expandedProductsProvider.notifier).state = set;
-                                return;
+                            onTap: isParent ? () {
+                              final set = {...expandedSet};
+                              if (isExpanded) {
+                                set.remove(e.id);
+                              } else {
+                                set.add(e.id);
                               }
-                              // Open editor for non-parent kinds
-                              final k = registry.byId(e.widgetKind);
-                              if (k != null) {
-                                showDialog(
-                                  context: context,
-                                  builder: (_) => KindInstanceEditorDialog(kind: k, entryId: e.id),
-                                );
-                              }
-                            },
+                              ref.read(expandedProductsProvider.notifier).state = set;
+                            } : null,
                             leading: CircleAvatar(
                               backgroundColor: bg,
                               foregroundColor: Colors.white,
@@ -333,6 +322,20 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                                         context: ctx,
                                         builder: (_) => ProductEditorDialog(entryId: e.id),
                                       );
+                                    },
+                                  )
+                                else if (!isRecipeParent)
+                                  IconButton(
+                                    tooltip: 'Edit',
+                                    icon: const Icon(Icons.edit_outlined),
+                                    onPressed: () {
+                                      final k = registry.byId(e.widgetKind);
+                                      if (k != null) {
+                                        showDialog(
+                                          context: context,
+                                          builder: (_) => KindInstanceEditorDialog(kind: k, entryId: e.id),
+                                        );
+                                      }
                                     },
                                   ),
                                 IconButton(
