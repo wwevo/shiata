@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/db/db_handle.dart';
@@ -63,7 +62,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
             ElevatedButton.icon(
               icon: const Icon(Icons.download),
               label: const Text('Export All'),
-              onPressed: _exportAllToFile,
+              onPressed: _exportAll,
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.upload),
@@ -105,184 +104,174 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
         const SizedBox(height: 16),
 
         // Kinds section
-        ExpansionTile(
-          title: Text('Kinds (${_selectedKinds.length} selected)'),
-          initiallyExpanded: false,
-          children: [
-            kindsAsync.when(
-              data: (kinds) {
-                if (kinds.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text('No kinds available'),
-                  );
-                }
-                return Column(
-                  children: [
-                    CheckboxListTile(
-                      title: const Text('Select All'),
-                      value: _selectedKinds.length == kinds.length && kinds.isNotEmpty,
-                      tristate: _selectedKinds.isNotEmpty && _selectedKinds.length < kinds.length,
+        Text(
+          'Kinds (${_selectedKinds.length} selected)',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        kindsAsync.when(
+          data: (kinds) {
+            if (kinds.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text('No kinds available'),
+              );
+            }
+            return Column(
+              children: kinds.map((k) {
+                final icon = _resolveIcon(k.icon, Icons.category);
+                final color = Color(k.color ?? 0xFF607D8B);
+                final isSelected = _selectedKinds.contains(k.id);
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: color,
+                      foregroundColor: Colors.white,
+                      child: Icon(icon, color: Colors.white),
+                    ),
+                    title: Text(k.name),
+                    subtitle: Text('${k.unit}  •  min ${k.min}  •  max ${k.max}'),
+                    trailing: Checkbox(
+                      value: isSelected,
                       onChanged: (val) {
                         setState(() {
                           if (val == true) {
-                            _selectedKinds.addAll(kinds.map((k) => k.id));
+                            _selectedKinds.add(k.id);
                           } else {
-                            _selectedKinds.clear();
+                            _selectedKinds.remove(k.id);
                           }
                         });
                       },
                     ),
-                    const Divider(),
-                    ...kinds.map((k) => CheckboxListTile(
-                          dense: true,
-                          title: Text(k.name),
-                          subtitle: Text('${k.unit}  •  ${k.id}'),
-                          value: _selectedKinds.contains(k.id),
-                          onChanged: (val) {
-                            setState(() {
-                              if (val == true) {
-                                _selectedKinds.add(k.id);
-                              } else {
-                                _selectedKinds.remove(k.id);
-                              }
-                            });
-                          },
-                        )),
-                  ],
+                  ),
                 );
-              },
-              loading: () => const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (e, st) => Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text('Error: $e'),
-              ),
-            ),
-          ],
+              }).toList(),
+            );
+          },
+          loading: () => const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, st) => Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text('Error: $e'),
+          ),
         ),
+
+        const SizedBox(height: 16),
 
         // Products section
-        ExpansionTile(
-          title: Text('Products (${_selectedProducts.length} selected)'),
-          initiallyExpanded: false,
-          children: [
-            if (productsRepo == null)
-              const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Text('Repository not ready'),
-              )
-            else
-              StreamBuilder<List<ProductDef>>(
-                stream: productsRepo.watchProducts(),
-                builder: (context, snapshot) {
-                  final products = snapshot.data ?? [];
-                  if (products.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Text('No products available'),
-                    );
-                  }
-                  return Column(
-                    children: [
-                      CheckboxListTile(
-                        title: const Text('Select All'),
-                        value: _selectedProducts.length == products.length,
-                        tristate: _selectedProducts.isNotEmpty && _selectedProducts.length < products.length,
+        Text(
+          'Products (${_selectedProducts.length} selected)',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        if (productsRepo == null)
+          const Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text('Repository not ready'),
+          )
+        else
+          StreamBuilder<List<ProductDef>>(
+            stream: productsRepo.watchProducts(),
+            builder: (context, snapshot) {
+              final products = snapshot.data ?? [];
+              if (products.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('No products available'),
+                );
+              }
+              return Column(
+                children: products.map((p) {
+                  final isSelected = _selectedProducts.contains(p.id);
+                  return Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: ListTile(
+                      leading: const CircleAvatar(
+                        backgroundColor: Colors.purple,
+                        foregroundColor: Colors.white,
+                        child: Icon(Icons.shopping_basket, color: Colors.white),
+                      ),
+                      title: Text(p.name),
+                      subtitle: Text(p.id),
+                      trailing: Checkbox(
+                        value: isSelected,
                         onChanged: (val) {
                           setState(() {
                             if (val == true) {
-                              _selectedProducts.addAll(products.map((p) => p.id));
+                              _selectedProducts.add(p.id);
                             } else {
-                              _selectedProducts.clear();
+                              _selectedProducts.remove(p.id);
                             }
                           });
                         },
                       ),
-                      const Divider(),
-                      ...products.map((p) => CheckboxListTile(
-                            dense: true,
-                            title: Text(p.name),
-                            subtitle: Text(p.id),
-                            value: _selectedProducts.contains(p.id),
-                            onChanged: (val) {
-                              setState(() {
-                                if (val == true) {
-                                  _selectedProducts.add(p.id);
-                                } else {
-                                  _selectedProducts.remove(p.id);
-                                }
-                              });
-                            },
-                          )),
-                    ],
+                    ),
                   );
-                },
-              ),
-          ],
-        ),
+                }).toList(),
+              );
+            },
+          ),
+
+        const SizedBox(height: 16),
 
         // Recipes section
-        ExpansionTile(
-          title: Text('Recipes (${_selectedRecipes.length} selected)'),
-          initiallyExpanded: false,
-          children: [
-            if (recipesRepo == null)
-              const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Text('Repository not ready'),
-              )
-            else
-              StreamBuilder<List<RecipeDef>>(
-                stream: recipesRepo.watchRecipes(onlyActive: false),
-                builder: (context, snapshot) {
-                  final recipes = snapshot.data ?? [];
-                  if (recipes.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Text('No recipes available'),
-                    );
-                  }
-                  return Column(
-                    children: [
-                      CheckboxListTile(
-                        title: const Text('Select All'),
-                        value: _selectedRecipes.length == recipes.length,
-                        tristate: _selectedRecipes.isNotEmpty && _selectedRecipes.length < recipes.length,
+        Text(
+          'Recipes (${_selectedRecipes.length} selected)',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        if (recipesRepo == null)
+          const Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text('Repository not ready'),
+          )
+        else
+          StreamBuilder<List<RecipeDef>>(
+            stream: recipesRepo.watchRecipes(onlyActive: false),
+            builder: (context, snapshot) {
+              final recipes = snapshot.data ?? [];
+              if (recipes.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('No recipes available'),
+                );
+              }
+              return Column(
+                children: recipes.map((r) {
+                  final icon = r.icon != null ? _resolveIcon(r.icon, Icons.restaurant_menu) : Icons.restaurant_menu;
+                  final color = r.color != null ? Color(r.color!) : Colors.brown;
+                  final isSelected = _selectedRecipes.contains(r.id);
+                  return Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: color,
+                        foregroundColor: Colors.white,
+                        child: Icon(icon, color: Colors.white),
+                      ),
+                      title: Text(r.name),
+                      subtitle: Text(r.id),
+                      trailing: Checkbox(
+                        value: isSelected,
                         onChanged: (val) {
                           setState(() {
                             if (val == true) {
-                              _selectedRecipes.addAll(recipes.map((r) => r.id));
+                              _selectedRecipes.add(r.id);
                             } else {
-                              _selectedRecipes.clear();
+                              _selectedRecipes.remove(r.id);
                             }
                           });
                         },
                       ),
-                      const Divider(),
-                      ...recipes.map((r) => CheckboxListTile(
-                            dense: true,
-                            title: Text(r.name),
-                            subtitle: Text(r.id),
-                            value: _selectedRecipes.contains(r.id),
-                            onChanged: (val) {
-                              setState(() {
-                                if (val == true) {
-                                  _selectedRecipes.add(r.id);
-                                } else {
-                                  _selectedRecipes.remove(r.id);
-                                }
-                              });
-                            },
-                          )),
-                    ],
+                    ),
                   );
-                },
-              ),
-          ],
-        ),
+                }).toList(),
+              );
+            },
+          ),
 
         const SizedBox(height: 16),
 
@@ -306,7 +295,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
           label: const Text('Export Selected'),
           onPressed: (_selectedKinds.isEmpty && _selectedProducts.isEmpty && _selectedRecipes.isEmpty)
               ? null
-              : _exportSelectedToFile,
+              : _exportSelected,
         ),
       ],
     );
@@ -314,7 +303,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
 
   // Helper methods
 
-  Future<void> _exportAllToFile() async {
+  Future<void> _exportAll() async {
     final svc = ref.read(importExportServiceProvider);
     if (svc == null) {
       _showSnackBar('Service not ready');
@@ -322,42 +311,27 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
     }
 
     try {
-      final bundle = await svc.exportBundle();
-      final encoder = const JsonEncoder.withIndent('  ');
-      final text = encoder.convert(bundle);
+      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
+      final fileName = 'shiata_full_export_$timestamp.json';
+      final path = await svc.backupToFile(fileName: fileName);
 
-      if (!mounted) return;
-      await showDialog(
-        context: context,
-        builder: (ctx) {
-          return AlertDialog(
-            title: const Text('Export All (JSON)'),
-            content: SizedBox(
-              width: 600,
-              child: SingleChildScrollView(
-                child: SelectableText(text),
-              ),
+      if (mounted) {
+        await showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Export Complete'),
+            content: SelectableText(
+              'Database exported to:\n\n$path\n\nYou can find this file in your app\'s documents directory.',
             ),
             actions: [
-              TextButton(
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: text));
-                  if (ctx.mounted) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(
-                      const SnackBar(content: Text('Copied to clipboard - paste into a file to save')),
-                    );
-                  }
-                },
-                child: const Text('Copy to Clipboard'),
-              ),
               FilledButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Close'),
+                child: const Text('OK'),
               ),
             ],
-          );
-        },
-      );
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         _showSnackBar('Export failed: $e');
@@ -365,9 +339,8 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
     }
   }
 
-  Future<void> _exportSelectedToFile() async {
+  Future<void> _exportSelected() async {
     // TODO: This requires implementing exportSelected() in ImportExportService
-    // For now, show a message
     _showSnackBar('Fine-grained export not yet implemented in backend');
   }
 
@@ -551,5 +524,43 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
+  }
+
+  // Icon resolver from kinds_page.dart
+  IconData _resolveIcon(String? name, IconData fallback) {
+    switch (name) {
+      case 'fitness_center':
+        return Icons.fitness_center;
+      case 'opacity':
+        return Icons.opacity;
+      case 'rice_bowl':
+        return Icons.rice_bowl;
+      case 'battery_charging_full':
+        return Icons.battery_charging_full;
+      case 'blur_on':
+        return Icons.blur_on;
+      case 'bolt':
+        return Icons.bolt;
+      case 'circle':
+        return Icons.circle;
+      case 'hexagon':
+        return Icons.hexagon;
+      case 'science':
+        return Icons.science;
+      case 'visibility':
+        return Icons.visibility;
+      case 'medical_information':
+        return Icons.medical_information;
+      case 'local_florist':
+        return Icons.local_florist;
+      case 'wb_sunny':
+        return Icons.wb_sunny;
+      case 'eco':
+        return Icons.eco;
+      case 'grass':
+        return Icons.grass;
+      default:
+        return fallback;
+    }
   }
 }
