@@ -5,12 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
+import '../../data/repo/product_service.dart';
+import '../../data/repo/recipe_service.dart';
 import '../../domain/widgets/registry.dart';
 import '../editors/kind_instance_editor_dialog.dart';
+import '../editors/product_instance_editor_dialog.dart';
 import '../main_screen_providers.dart';
-// import '../editors/protein_editor.dart';
-// import '../editors/fat_editor.dart';
-// import '../editors/carbohydrate_editor.dart';
 
 class SearchResults extends ConsumerWidget {
   const SearchResults({super.key, required this.controller});
@@ -89,41 +89,209 @@ class SearchResults extends ConsumerWidget {
             } catch (_) {}
 
             final localTime = DateTime.fromMillisecondsSinceEpoch(e.targetAt, isUtc: true).toLocal();
+
+            final isProduct = e.widgetKind == 'product';
+            final isRecipe = e.widgetKind == 'recipe';
+
             return Card(
               margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: ListTile(
-                onTap: () {
-/*
-                if (e.widgetKind == 'protein') {
-                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProteinEditorScreen(entryId: e.id)));
-                } else if (e.widgetKind == 'fat') {
-                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => FatEditorScreen(entryId: e.id)));
-                } else if (e.widgetKind == 'carbohydrate') {
-                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => CarbohydrateEditorScreen(entryId: e.id)));
-                }
-*/
-                final k = registry.byId(e.widgetKind);
-                if (k != null) {
-/*                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => KindInstanceEditorScreen(kind: k, entryId: e.id)),
-                  );*/
-                  showDialog(
-                    context: context,
-                    builder: (_) =>
-                        KindInstanceEditorDialog(kind: k, entryId: e.id),
-                  );
-                }
-
-              },
-              leading: CircleAvatar(backgroundColor: color, foregroundColor: Colors.white, child: Icon(icon, size: 18)),
-              title: Text('$title${summary.isEmpty ? '' : ' • $summary'}'),
-              subtitle: Text('${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')}  ${_fmtTime(localTime)}'),
-              trailing: const Icon(Icons.chevron_right),
+                leading: CircleAvatar(
+                  backgroundColor: color,
+                  foregroundColor: Colors.white,
+                  child: Icon(icon, size: 18),
+                ),
+                title: Text('$title${summary.isEmpty ? '' : ' • $summary'}'),
+                subtitle: Text(
+                  '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')}  ${_fmtTime(localTime)}',
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isProduct)
+                      IconButton(
+                        tooltip: 'Edit',
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: () async {
+                          await showDialog(
+                            context: context,
+                            builder: (_) => ProductEditorDialog(entryId: e.id),
+                          );
+                        },
+                      )
+                    else if (!isRecipe)
+                      IconButton(
+                        tooltip: 'Edit',
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: () {
+                          final k = registry.byId(e.widgetKind);
+                          if (k != null) {
+                            showDialog(
+                              context: context,
+                              builder: (_) => KindInstanceEditorDialog(kind: k, entryId: e.id),
+                            );
+                          }
+                        },
+                      ),
+                    IconButton(
+                      tooltip: 'Delete',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () => _deleteEntry(context, ref, e, isProduct, isRecipe, repo),
+                    ),
+                    Icon(isProduct || isRecipe ? Icons.chevron_right : Icons.chevron_right),
+                  ],
+                ),
               ),
             );
           },
         );
       },
     );
+  }
+
+  Future<void> _deleteEntry(
+    BuildContext context,
+    WidgetRef ref,
+    EntryRecord e,
+    bool isProduct,
+    bool isRecipe,
+    EntriesRepository repo,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete entry?'),
+        content: Text(
+          isProduct
+              ? 'This will remove the product entry and its components. You can undo from the snackbar.'
+              : 'This will remove the entry. You can undo from the snackbar.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    if (isProduct) {
+      final original = e;
+      Map<String, Object?> parentPayload = const {};
+      String? productId;
+      int grams = 0;
+      bool staticFlag = false;
+      try {
+        final map = jsonDecode(original.payloadJson) as Map<String, dynamic>;
+        parentPayload = map;
+        productId = map['product_id'] as String?;
+        grams = (map['grams'] as num?)?.toInt() ?? 0;
+      } catch (_) {}
+      staticFlag = original.isStatic;
+      final targetLocal = DateTime.fromMillisecondsSinceEpoch(
+        original.targetAt,
+        isUtc: true,
+      ).toLocal();
+      final service = ref.read(productServiceProvider);
+      await repo.deleteChildrenOfParent(original.id);
+      await repo.delete(original.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Product deleted'),
+          action: SnackBarAction(
+            label: 'UNDO',
+            onPressed: () async {
+              try {
+                if (service != null && productId != null && grams > 0) {
+                  await service.createProductEntry(
+                    productId: productId,
+                    productGrams: grams,
+                    targetAtLocal: targetLocal,
+                    isStatic: staticFlag,
+                  );
+                } else {
+                  await repo.create(
+                    widgetKind: original.widgetKind,
+                    targetAtLocal: targetLocal,
+                    payload: parentPayload,
+                    showInCalendar: original.showInCalendar,
+                    schemaVersion: original.schemaVersion,
+                  );
+                }
+              } catch (_) {}
+            },
+          ),
+        ),
+      );
+    } else if (isRecipe) {
+      String recipeId = '';
+      try {
+        final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
+        recipeId = (map['recipe_id'] as String?) ?? '';
+      } catch (_) {}
+      final targetLocal = DateTime.fromMillisecondsSinceEpoch(
+        e.targetAt,
+        isUtc: true,
+      ).toLocal();
+
+      // Delete recipe and its children
+      await repo.deleteChildrenOfParent(e.id);
+      await repo.delete(e.id);
+      if (!context.mounted) return;
+      final recipeSvc = ref.read(recipeServiceProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Recipe deleted'),
+          action: SnackBarAction(
+            label: 'UNDO',
+            onPressed: () async {
+              try {
+                if (recipeSvc != null && recipeId.isNotEmpty) {
+                  await recipeSvc.createRecipeEntry(
+                    recipeId: recipeId,
+                    targetAtLocal: targetLocal,
+                    showParentInCalendar: true,
+                  );
+                }
+              } catch (_) {}
+            },
+          ),
+        ),
+      );
+    } else {
+      final original = e;
+      await repo.delete(e.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Entry deleted'),
+          action: SnackBarAction(
+            label: 'UNDO',
+            onPressed: () async {
+              final local = DateTime.fromMillisecondsSinceEpoch(
+                original.targetAt,
+                isUtc: true,
+              ).toLocal();
+              try {
+                final payload = jsonDecode(original.payloadJson) as Map<String, Object?>;
+                await repo.create(
+                  widgetKind: original.widgetKind,
+                  targetAtLocal: local,
+                  payload: payload,
+                  showInCalendar: original.showInCalendar,
+                  schemaVersion: original.schemaVersion,
+                );
+              } catch (_) {}
+            },
+          ),
+        ),
+      );
+    }
   }
 }
