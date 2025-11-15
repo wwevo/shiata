@@ -1,5 +1,42 @@
 # CHANGELOG.md
 
+## [0.7.6] - 2025-11-15
+### Code Quality & Architecture
+- **Pattern compliance audit**: Comprehensive review and harmonization of all editor dialogs
+  - Unified inline editing pattern across all template editors
+  - Consistent transient state management (changes only committed on explicit Save)
+  - Save-based creation pattern: Products/Recipes now created on Save instead of before opening editor
+  - Fixed: Cancel now properly reverts all changes without leaving orphaned data
+
+### Fixed
+- **Product instance components editor**: Critical fix for immediate database writes
+  - Now uses transient local state like other editors
+  - Add/Delete operations no longer write to DB until Save is clicked
+  - Cancel button now correctly reverts all pending changes
+  - Added missing Delete button for component removal
+
+### Changed
+- **Recipe template editor**: Switched from popup-based to inline editing
+  - Consistent with product template editor UX
+  - Values now editable directly in list items (faster workflow)
+  - Simplified Add dialogs to only select component (amount set inline)
+- **Product/Recipe creation**: No longer creates empty templates before editor opens
+  - Template created on first Save instead
+  - Prevents orphaned empty entries if user clicks Cancel
+  - Cleaner separation: user action (Save) triggers database write
+
+### Technical
+- **Code cleanup**: Removed 5 obsolete editor screens (1061 lines of dead code)
+  - Deleted: `product_instance_editor.dart`, `kind_instance_editor.dart`
+  - Deleted: `product_instance_components_editor.dart`, `product_template_editor.dart`, `recipe_template_editor.dart`
+  - All functionality consolidated into `*_dialog.dart` variants
+- **Centralized formatters**: Created `lib/utils/formatters.dart`
+  - Eliminated duplication of `fmtDouble`, `parseDouble`, `fmtTime` across 11+ files
+  - Single source of truth for number/time formatting
+- **Repository consistency**: Added missing `dispose()` method to `ProductsRepository`
+
+---
+
 ## [0.7.5] - 2025-11-15
 ### Changed
 - **Universal actions-on-the-side pattern**: All list pages now use explicit Edit/Delete buttons instead of clickable list items
