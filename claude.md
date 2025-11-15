@@ -1,112 +1,118 @@
 # Claude Code Guidelines for Shiata
 
-This document contains guidelines and best practices for working with Claude Code on the Shiata project.
+**Premium experience standards**: This is not a quickly-hacked-together app. Every feature must be tight, clean, and congruent. Follow established patterns religiously.
+
+## Core Principles
+
+1. **Consistency is king**: Users recognize visual patterns (colors, icons) better than text
+2. **No half-measures**: Clipboard-only exports, incomplete flows = bad UX
+3. **Follow the pattern**: If a pattern exists, use it everywhere - no exceptions
+4. **Show, don't hide**: File paths, actions, state changes - make them visible
 
 ## Workflow
 
 ### Branch Management
-- **Always work from master**: Create new branches from the current master branch for each work session
-- **Branch naming**: Use format `claude/<description>-<session-id>` (e.g., `claude/weekly-overview-018WndKAKB4iJCe6fLhV9fqY`)
-- **Clean branches**: Each session should start with a clean branch from master, not continuing from previous session branches
-- **Push when complete**: Push all changes to the feature branch when work is complete
+- **Start from master**: Create new branches from current master each session
+- **Branch naming**: `claude/<description>-<session-id>`
+- **Push when complete**: All changes to feature branch
 
 ### Development Cycle
-1. User tests locally and updates master branch when satisfied
-2. Create new feature branch from master for next task
-3. Implement changes
-4. User tests locally
-5. User pushes to master when satisfied
-6. Repeat for next task
+1. User tests → User updates master → New branch → Implement → User tests → Repeat
 
 ## Code Style
 
-### List Displays
-All list pages (Products, Kinds, Recipes) should follow this consistent style:
-- **Wrap in Card**: Each list item in a Card with `margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6)`
-- **Leading icon**: CircleAvatar with appropriate color and icon
-  - Products: purple basket (`Colors.purple`, `Icons.shopping_basket`)
-  - Recipes: brown menu (`Colors.brown`, `Icons.restaurant_menu`)
-  - Kinds: kind's accent color and icon from metadata
-- **Non-clickable**: No `onTap` on the ListTile
-- **Explicit actions**: Edit and Delete buttons in trailing section
-- **Use ListView.builder**: Not ListView.separated
+### List Items (MANDATORY PATTERN)
+**ALL list items** (display or selection) must follow this pattern:
+
+```dart
+Card(
+  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+  child: ListTile(
+    leading: CircleAvatar(
+      backgroundColor: color,  // Item's actual color
+      foregroundColor: Colors.white,
+      child: Icon(icon, color: Colors.white),  // Item's actual icon
+    ),
+    title: Text(item.name),
+    subtitle: Text('relevant • metadata'),
+    trailing: /* Checkbox OR Row(Edit, Delete) */,
+  ),
+)
+```
+
+**Standard colors/icons:**
+- **Kinds**: Use kind's own color and icon from metadata
+- **Products**: Purple (`Colors.purple`), basket (`Icons.shopping_basket`)
+- **Recipes**: Recipe's color/icon if set, else brown (`Colors.brown`), menu (`Icons.restaurant_menu`)
+
+**Why**: Users recognize items by visual patterns, not text. Consistency across all pages is critical.
 
 ### Edit Dialogs
-- **Two save buttons**: "Save" (keeps dialog open) and "Save & Close" (closes after save)
-- **Save behavior**: Use `closeAfter` parameter to control dialog closure
-- **Button styles**:
-  - Cancel: TextButton
-  - Save: OutlinedButton
-  - Save & Close: FilledButton (primary action)
+- **Two save buttons**: "Save" (OutlinedButton) + "Save & Close" (FilledButton)
+- **Cancel**: TextButton
 
 ### Navigation
-- **Section-based**: Use `currentSectionProvider` to switch between app sections
-- **No Navigator.push**: For main sections (Calendar, Products, Kinds, Recipes)
-- **ViewMode persistence**: Calendar section's overview/calendar state persists across section switches
-- **Bottom bar**: Always visible, defined once at root level
+- **Section-based**: Use `currentSectionProvider` - NO `Navigator.push` for main sections
+- **Bottom bar**: Always visible
+- **ViewMode**: Persists across section switches
 
 ## Architecture
 
 ### State Management
-- **Riverpod**: Use StateProvider for simple state, StreamBuilder for reactive data
-- **Providers**:
-  - `currentSectionProvider`: Current app section (calendar, products, kinds, recipes)
-  - `viewModeProvider`: Overview vs calendar view within calendar section
-  - `searchQueryProvider`: Current search query
-  - `selectedDayProvider`: Selected day for day details
+- **Riverpod**: StateProvider for simple state, StreamBuilder for reactive data
+- **Key providers**: `currentSectionProvider`, `viewModeProvider`, `searchQueryProvider`, `selectedDayProvider`
 
 ### File Organization
-- **UI**: `lib/ui/` - All UI components
-  - `lib/ui/editors/` - Dialog editors for creating/editing entries
-  - `lib/ui/kinds/` - Kinds page
-  - `lib/ui/products/` - Products page
-  - `lib/ui/recipes/` - Recipes page
-  - `lib/ui/widgets/` - Reusable widgets
-- **Data**: `lib/data/` - Repositories, services, database
-- **Domain**: `lib/domain/` - Domain models and business logic
+- `lib/ui/` - All UI (editors, pages, widgets)
+- `lib/data/` - Repositories, services, database
+- `lib/domain/` - Models and business logic
 
 ### Key Patterns
-- **Product/Recipe names**: Extract from `payloadJson` using `jsonDecode`, not from kind metadata
-- **Date handling**: Use `DateTime.toUtc().millisecondsSinceEpoch` for storage, convert to local for display
-- **StreamBuilder**: Handle Map<DateTime, List<>> from `watchByDayRange`, flatten to list when needed
-- **Unit display**: Extract units from kind metadata, never hardcode
+- **Names**: Extract from `payloadJson` using `jsonDecode`
+- **Dates**: Store UTC milliseconds, display local
+- **Units**: From kind metadata, never hardcode
 
 ## Common Pitfalls
 
-### Navigation Issues
-- ❌ Don't use Navigator.push for main sections
-- ❌ Don't duplicate Scaffold/bottomNavigationBar in individual pages
-- ✅ Use section-based navigation with providers
+### ❌ DON'T
+- Use different list styles across pages
+- Use clipboard-only for file exports
+- Hardcode units, colors, or icons
+- Use `Navigator.push` for main sections
+- Show generic labels instead of actual names
 
-### Display Issues
-- ❌ Don't show generic "Product" or "Recipe" labels
-- ✅ Extract actual names from payloadJson: `map['name'] as String?`
-- ❌ Don't hardcode units (e.g., always showing 'g')
-- ✅ Get unit from kind metadata: `kind?.unit ?? ''`
+### ✅ DO
+- Use the established list item pattern everywhere
+- Show full file paths or let user choose location
+- Extract metadata from actual data sources
+- Use section-based navigation
+- Display actual item names from payloadJson
 
-### Date Range Issues
-- ❌ Don't use exclusive end dates without adding 1 day
-- ✅ Add `Duration(days: 1)` to include the end day: `today.add(const Duration(days: 1))`
+## File Exports
+
+**Rule**: Users must know where files are saved or choose the location themselves.
+
+Good patterns:
+1. Save to file → Show dialog with **full path**
+2. Show JSON dialog → User copies and saves where they want
+
+Bad patterns:
+- ❌ "Saved to backup.json" (where??)
+- ❌ Clipboard-only (too many steps, users won't do it)
 
 ## Testing Checklist
 
-Before marking work complete:
-- [ ] All main sections (Calendar, Products, Kinds, Recipes) accessible via bottom bar
-- [ ] Bottom bar visible on all pages
-- [ ] Navigation doesn't create stack buildup (no back button maze)
-- [ ] Product/recipe names show correctly in all lists
-- [ ] Search works in calendar mode
-- [ ] Edit dialogs have both Save and Save & Close buttons
-- [ ] Pie chart shows correct units (not always 'g')
-- [ ] Today's entries appear in weekly overview
-- [ ] Filter chips in overview actually filter the chart
+Before marking complete:
+- [ ] All sections accessible via bottom bar
+- [ ] List items match established pattern (colors, icons, Card layout)
+- [ ] File operations show full paths
+- [ ] Names/units extracted correctly (not hardcoded)
+- [ ] Navigation works without stack buildup
+- [ ] Edit dialogs have Save + Save & Close
 
 ## Version Management
 
-- Update `pubspec.yaml` version for each release
-- Update `CHANGELOG.md` with detailed changes organized by category:
-  - Added: New features
-  - Changed: Modifications to existing features
-  - Fixed: Bug fixes
-  - Technical: Implementation details
+- Update `pubspec.yaml` version
+- Update `CHANGELOG.md` with categories: Added, Changed, Fixed, Technical
 - Format: `## [X.Y.Z] - YYYY-MM-DD`
+
