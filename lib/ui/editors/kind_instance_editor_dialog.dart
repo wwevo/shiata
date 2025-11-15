@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../domain/widgets/widget_kind.dart';
+import '../../utils/formatters.dart';
 import '../widgets/editor_dialog_actions.dart';
 
 /// Generic integer-only nutrient editor driven by WidgetKind metadata.
@@ -25,18 +26,6 @@ class KindInstanceEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDialog> {
-  // Helper methods
-  String _fmtDouble(num v) {
-    final s = (v.toDouble()).toStringAsFixed(6);
-    return s.replaceFirst(RegExp(r'\.?0+$'), '');
-  }
-
-  double? _parseDouble(String? text) {
-    final t = (text ?? '').trim();
-    if (t.isEmpty) return null;
-    return double.tryParse(t);
-  }
-
   // State variables
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _amountController;
@@ -64,7 +53,7 @@ class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDia
         try {
           final map = jsonDecode(rec.payloadJson) as Map<String, dynamic>;
           final amount = (map['amount'] as num?)?.toDouble() ?? 0.0;
-          _amountController.text = _fmtDouble(amount);
+          _amountController.text = fmtDouble(amount);
         } catch (_) {}
         _targetAt = DateTime.fromMillisecondsSinceEpoch(rec.targetAt, isUtc: true).toLocal();
         _showInCalendar = rec.showInCalendar;
@@ -112,7 +101,7 @@ class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDia
       );
       return;
     }
-    final amountToStore = _parseDouble(_amountController.text) ?? 0.0;
+    final amountToStore = parseDouble(_amountController.text) ?? 0.0;
     try {
       if (widget.entryId != null) {
         await repo.update(widget.entryId!, {
@@ -188,12 +177,12 @@ class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDia
                         ),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
                         validator: (v) {
-                          final val = _parseDouble(v);
+                          final val = parseDouble(v);
                           if (val == null) return 'Enter a number';
                           final min = widget.kind.minValue.toDouble();
                           final max = widget.kind.maxValue.toDouble();
                           if (val < min || val > max) {
-                            return 'Must be ${_fmtDouble(min)}–${_fmtDouble(max)}';
+                            return 'Must be ${fmtDouble(min)}–${fmtDouble(max)}';
                           }
                           return null;
                         },
@@ -204,24 +193,24 @@ class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDia
                       children: [
                         IconButton(
                           onPressed: () {
-                            final current = _parseDouble(_amountController.text) ?? 0.0;
+                            final current = parseDouble(_amountController.text) ?? 0.0;
                             final next = (current + 1.0).clamp(
                               widget.kind.minValue.toDouble(),
                               widget.kind.maxValue.toDouble(),
                             );
-                            _amountController.text = _fmtDouble(next);
+                            _amountController.text = fmtDouble(next);
                           },
                           icon: const Icon(Icons.add),
                           tooltip: '+1',
                         ),
                         IconButton(
                           onPressed: () {
-                            final current = _parseDouble(_amountController.text) ?? 0.0;
+                            final current = parseDouble(_amountController.text) ?? 0.0;
                             final next = (current - 1.0).clamp(
                               widget.kind.minValue.toDouble(),
                               widget.kind.maxValue.toDouble(),
                             );
-                            _amountController.text = _fmtDouble(next);
+                            _amountController.text = fmtDouble(next);
                           },
                           icon: const Icon(Icons.remove),
                           tooltip: '-1',

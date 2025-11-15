@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
+import '../../utils/formatters.dart';
 import '../widgets/editor_dialog_actions.dart';
 
 class InstanceComponentsEditorDialog extends ConsumerStatefulWidget {
@@ -17,12 +18,6 @@ class InstanceComponentsEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceComponentsEditorDialog> {
-  // Helper methods
-  String _fmtDouble(double v) {
-    final s = v.toStringAsFixed(6);
-    return s.replaceFirst(RegExp(r'\.?0+$'), '');
-  }
-
   // State variables
   bool _loading = true;
   bool _saving = false;
@@ -53,7 +48,7 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
       try {
         final map = jsonDecode(c.payloadJson) as Map<String, dynamic>;
         final amount = (map['amount'] as num?)?.toDouble() ?? 0.0;
-        _controllers[c.id] = TextEditingController(text: _fmtDouble(amount));
+        _controllers[c.id] = TextEditingController(text: fmtDouble(amount));
       } catch (_) {
         _controllers[c.id] = TextEditingController(text: '0');
       }

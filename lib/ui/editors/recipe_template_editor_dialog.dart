@@ -6,6 +6,7 @@ import '../../data/repo/products_repository.dart';
 import '../../data/repo/recipes_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
+import '../../utils/formatters.dart';
 import '../widgets/editor_dialog_actions.dart';
 
 class RecipeEditorDialog extends ConsumerStatefulWidget {
@@ -16,12 +17,6 @@ class RecipeEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
-  // Helper methods
-  String _fmtDouble(double v) {
-    final s = v.toStringAsFixed(6);
-    return s.replaceFirst(RegExp(r'\.?0+$'), '');
-  }
-
   // State variables
   List<RecipeComponentDef> _components = const [];
   bool _loading = true;
@@ -163,7 +158,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
                         child: Icon(kind?.icon ?? Icons.circle, size: 18),
                       ),
                       title: Text(kind?.displayName ?? c.compId),
-                      subtitle: Text('Amount: ${_fmtDouble(c.amount ?? 0.0)} ${kind?.unit ?? ''}'),
+                      subtitle: Text('Amount: ${fmtDouble(c.amount ?? 0.0)} ${kind?.unit ?? ''}'),
                       trailing: IconButton(
                         tooltip: 'Remove',
                         icon: const Icon(Icons.delete_outline),
@@ -242,7 +237,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
   }
 
   Future<double?> _askForDouble(BuildContext context, String title, double current) async {
-    final c = TextEditingController(text: _fmtDouble(current));
+    final c = TextEditingController(text: fmtDouble(current));
     return showDialog<double>(
       context: context,
       builder: (ctx) => AlertDialog(

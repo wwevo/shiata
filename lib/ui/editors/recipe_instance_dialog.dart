@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/recipe_service.dart';
 import '../../domain/widgets/registry.dart';
+import '../../utils/formatters.dart';
 import '../widgets/editor_dialog_actions.dart';
 
 class RecipeInstantiateDialog extends ConsumerStatefulWidget {
@@ -15,12 +16,6 @@ class RecipeInstantiateDialog extends ConsumerStatefulWidget {
 }
 
 class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog> {
-  // Helper methods
-  String _fmtDouble(double v) {
-    final s = v.toStringAsFixed(6);
-    return s.replaceFirst(RegExp(r'\.?0+$'), '');
-  }
-
   // State variables
   String _recipeName = '';
   DateTime _targetAt = DateTime.now();
@@ -63,7 +58,7 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
       for (final c in comps) {
         final typeStr = c.type.toString();
         if (typeStr.endsWith('kind')) {
-          _kindCtrls[c.compId] = TextEditingController(text: _fmtDouble(c.amount ?? 0.0));
+          _kindCtrls[c.compId] = TextEditingController(text: fmtDouble(c.amount ?? 0.0));
         } else {
           _productCtrls[c.compId] = TextEditingController(text: (c.grams ?? 0).toString());
         }

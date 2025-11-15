@@ -8,6 +8,7 @@ import '../../data/repo/entries_repository.dart';
 import '../../data/repo/product_service.dart';
 import '../../data/repo/recipe_service.dart';
 import '../../domain/widgets/registry.dart';
+import '../../utils/formatters.dart';
 // import '../editors/protein_editor.dart';
 // import '../editors/fat_editor.dart';
 // import '../editors/carbohydrate_editor.dart';
@@ -44,12 +45,6 @@ class DayDetailsPanel extends ConsumerWidget {
     } catch (_) {
       return 'Recipe';
     }
-  }
-
-  String _fmtTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
   }
 
   @override
@@ -225,7 +220,7 @@ class DayDetailsPanel extends ConsumerWidget {
                     ),
                     subtitle: Row(
                       children: [
-                        Text(_fmtTime(localTime)),
+                        Text(fmtTime(localTime)),
                         if (!isProductParent && !e.showInCalendar) ...[
                           const SizedBox(width: 8),
                           Icon(

@@ -8,6 +8,7 @@ import '../../data/repo/entries_repository.dart';
 import '../../data/repo/product_service.dart';
 import '../../data/repo/recipe_service.dart';
 import '../../domain/widgets/registry.dart';
+import '../../utils/formatters.dart';
 import '../editors/kind_instance_editor_dialog.dart';
 import '../editors/product_instance_editor_dialog.dart';
 import '../main_screen_providers.dart';
@@ -15,12 +16,6 @@ import '../main_screen_providers.dart';
 class SearchResults extends ConsumerWidget {
   const SearchResults({super.key, required this.controller});
   final ScrollController controller;
-
-  String _fmtTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -103,7 +98,7 @@ class SearchResults extends ConsumerWidget {
                 ),
                 title: Text('$title${summary.isEmpty ? '' : ' • $summary'}'),
                 subtitle: Text(
-                  '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')}  ${_fmtTime(localTime)}',
+                  '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')}  ${fmtTime(localTime)}',
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,

@@ -9,6 +9,7 @@ import '../../data/repo/entries_repository.dart';
 import '../../data/repo/product_service.dart';
 import '../../data/repo/recipe_service.dart';
 import '../../domain/widgets/registry.dart';
+import '../../utils/formatters.dart';
 import '../editors/kind_instance_editor_dialog.dart';
 import '../editors/product_instance_components_editor_dialog.dart';
 import '../editors/product_instance_editor_dialog.dart';
@@ -26,12 +27,6 @@ final selectedKindsForChartProvider = StateProvider<Set<String>>((_) => {'protei
 /// - Scrollable list of all entries from last 7 days
 class WeeklyOverviewPanel extends ConsumerWidget {
   const WeeklyOverviewPanel({super.key});
-
-  String _fmtTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -308,7 +303,7 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                               style: theme.textTheme.bodyLarge,
                             ),
                             subtitle: Text(
-                              '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')} ${_fmtTime(localTime)}',
+                              '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')} ${fmtTime(localTime)}',
                             ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,

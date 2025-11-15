@@ -5,6 +5,7 @@ import '../../data/providers.dart';
 import '../../data/repo/product_service.dart';
 import '../../data/repo/products_repository.dart';
 import '../editors/product_template_editor_dialog.dart';
+import '../widgets/icon_resolver.dart';
 
 class ProductTemplatesPage extends ConsumerWidget {
   const ProductTemplatesPage({super.key});
@@ -18,27 +19,20 @@ class ProductTemplatesPage extends ConsumerWidget {
         actions: [
           IconButton(
             tooltip: 'Add product',
-            onPressed: () async {
-              if (repo == null) return;
-              final id = await _askForId(context);
-              if (id == null || id.trim().isEmpty) return;
-              if (!context.mounted) return;
-              final name = await _askForName(context, suggestion: _titleCase(id.replaceAll('_', ' ')));
-              if (name == null || name.trim().isEmpty) return;
-              final now = DateTime.now().toUtc().millisecondsSinceEpoch;
-              await repo.upsertProduct(ProductDef(id: id.trim(), name: name.trim(), createdAt: now, updatedAt: now));
-              if (context.mounted) {
-/*
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => ProductTemplateEditorPage(productId: id.trim())),
-                );
-*/
-                showDialog(
-                  context: context,
-                  builder: (_) => ProductTemplateEditorDialog(productId: id.trim()),
-                );
-              }
-            },
+            onPressed: repo == null
+                ? null
+                : () async {
+                    final created = await _askForIdAndName(context);
+                    if (created == null) return;
+                    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+                    await repo.upsertProduct(ProductDef(id: created.key, name: created.value, createdAt: now, updatedAt: now));
+                    if (context.mounted) {
+                      showDialog(
+                        context: context,
+                        builder: (_) => ProductTemplateEditorDialog(productId: created.key),
+                      );
+                    }
+                  },
             icon: const Icon(Icons.add),
           ),
         ],
@@ -56,13 +50,15 @@ class ProductTemplatesPage extends ConsumerWidget {
                   itemCount: list.length,
                   itemBuilder: (ctx, i) {
                     final p = list[i];
+                    final icon = resolveIcon(p.icon, Icons.shopping_basket);
+                    final color = p.color != null ? Color(p.color!) : Colors.purple;
                     return Card(
                       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       child: ListTile(
-                        leading: const CircleAvatar(
-                          backgroundColor: Colors.purple,
+                        leading: CircleAvatar(
+                          backgroundColor: color,
                           foregroundColor: Colors.white,
-                          child: Icon(Icons.shopping_basket, color: Colors.white),
+                          child: Icon(icon, color: Colors.white),
                         ),
                         title: Text(p.name),
                         subtitle: Text(p.id),
@@ -116,43 +112,32 @@ class ProductTemplatesPage extends ConsumerWidget {
     );
   }
 
-  static Future<String?> _askForId(BuildContext context) async {
-    final c = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('New product id'),
-        content: TextField(
-          controller: c,
-          decoration: const InputDecoration(hintText: 'e.g., egg'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(c.text.trim()), child: const Text('Create')),
-        ],
-      ),
-    );
-  }
-
-  static Future<String?> _askForName(BuildContext context, {String? suggestion}) async {
-    final c = TextEditingController(text: suggestion ?? '');
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Product name'),
-        content: TextField(
-          controller: c,
-          decoration: const InputDecoration(hintText: 'e.g., Egg'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(c.text.trim()), child: const Text('Continue')),
-        ],
-      ),
-    );
-  }
-
-  static String _titleCase(String s) {
-    return s.split(' ').map((w) => w.isEmpty ? w : (w[0].toUpperCase() + w.substring(1))).join(' ');
+  Future<MapEntry<String, String>?> _askForIdAndName(BuildContext context) async {
+    final idCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('New product'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: idCtrl, decoration: const InputDecoration(labelText: 'Id (stable, e.g., egg)')),
+                const SizedBox(height: 8),
+                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name (display)')),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+              FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Create')),
+            ],
+          ),
+        ) ??
+        false;
+    if (!ok) return null;
+    final id = idCtrl.text.trim();
+    final name = nameCtrl.text.trim();
+    if (id.isEmpty || name.isEmpty) return null;
+    return MapEntry(id, name);
   }
 }

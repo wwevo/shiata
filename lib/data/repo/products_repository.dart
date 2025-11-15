@@ -201,4 +201,8 @@ class ProductsRepository {
       yield await listProducts(onlyActive: onlyActive);
     }
   }
+
+  void dispose() {
+    _changes.close();
+  }
 }

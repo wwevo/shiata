@@ -9,6 +9,7 @@ import '../../data/repo/product_service.dart';
 import '../../data/repo/products_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
+import '../../utils/formatters.dart';
 import '../widgets/editor_dialog_actions.dart';
 
 class ProductTemplateEditorDialog extends ConsumerStatefulWidget {
@@ -20,18 +21,6 @@ class ProductTemplateEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEditorDialog> {
-  // Helper methods
-  String _fmtDouble(double v) {
-    final s = v.toStringAsFixed(6);
-    return s.replaceFirst(RegExp(r'\.?0+$'), '');
-  }
-
-  double? _parseDouble(String? text) {
-    final t = (text ?? '').trim();
-    if (t.isEmpty) return null;
-    return double.tryParse(t);
-  }
-
   // State variables
   List<ProductComponent> _components = const [];
   bool _loading = true;
@@ -173,7 +162,7 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
                       child: Icon(kind?.icon ?? Icons.circle, size: 18),
                     ),
                     title: Text(kind?.displayName ?? c.kindId),
-                    subtitle: Text('Per 100 g: ${_fmtDouble(c.amountPerGram)} ${kind?.unit ?? ''}'),
+                    subtitle: Text('Per 100 g: ${fmtDouble(c.amountPerGram)} ${kind?.unit ?? ''}'),
                     trailing: IconButton(
                       tooltip: 'Remove',
                       icon: const Icon(Icons.delete_outline),
@@ -218,7 +207,7 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
   }
 
   Future<double?> _askForAmount(BuildContext context, WidgetKind? kind, double current) async {
-    final c = TextEditingController(text: _fmtDouble(current));
+    final c = TextEditingController(text: fmtDouble(current));
     return showDialog<double>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -232,7 +221,7 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
           TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
           FilledButton(
             onPressed: () {
-              final v = _parseDouble(c.text.trim());
+              final v = parseDouble(c.text.trim());
               if (v == null || v < 0) return;
               Navigator.of(ctx).pop(v);
             },
@@ -255,12 +244,6 @@ class _AddComponentDialog extends StatefulWidget {
 class _AddComponentDialogState extends State<_AddComponentDialog> {
   WidgetKind? _selected;
   final _amountController = TextEditingController(text: '0');
-
-  double? _parse(String? text) {
-    final t = (text ?? '').trim();
-    if (t.isEmpty) return null;
-    return double.tryParse(t);
-  }
 
   @override
   void dispose() {
