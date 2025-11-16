@@ -1,5 +1,18 @@
 # CHANGELOG.md
 
+## [0.7.7] - 2025-11-16
+### Fixed
+- **Pie chart proportions**: Fixed incorrect proportions when mixing different units
+  - Weight units now normalized to grams for accurate proportions (mg÷1000, µg÷1000000)
+  - Display values still show original units (e.g., "500mg" instead of "0.5g")
+  - Prevents visual distortion when comparing nutrients with different scales
+
+### Changed
+- **Documentation**: Simplified claude.md from 119 to 66 lines
+  - Removed redundant sections (workflow, testing checklist, common pitfalls)
+  - Focused on core patterns and architecture essentials
+  - Added unit normalization pattern documentation
+
 ## [0.7.6] - 2025-11-15
 ### Code Quality & Architecture
 - **Pattern compliance audit**: Comprehensive review and harmonization of all editor dialogs

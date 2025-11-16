@@ -89,10 +89,33 @@ class WeeklyOverviewPanel extends ConsumerWidget {
             .toList();
 
         // Aggregate amounts for SELECTED kinds only (for the chart)
+        // Normalize to base units (g for weight) for proper proportions
         final aggregated = <String, double>{};
+        final displayValues = <String, double>{}; // Keep original values for display
         for (final kindId in selectedKinds) {
           if (allAmounts.containsKey(kindId)) {
-            aggregated[kindId] = allAmounts[kindId]!;
+            final originalValue = allAmounts[kindId]!;
+            displayValues[kindId] = originalValue;
+
+            // Normalize based on unit for proper proportions
+            final kind = registry.byId(kindId);
+            final unit = kind?.unit ?? '';
+            double normalizedValue = originalValue;
+
+            switch (unit) {
+              case 'mg':
+                normalizedValue = originalValue / 1000; // Convert mg to g
+                break;
+              case 'ug':
+              case 'µg':
+                normalizedValue = originalValue / 1000000; // Convert µg to g
+                break;
+              // 'g' and 'mL' and others stay as-is
+              default:
+                normalizedValue = originalValue;
+            }
+
+            aggregated[kindId] = normalizedValue;
           }
         }
 
@@ -155,9 +178,10 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                                       final kind = registry.byId(entry.key);
                                       final color = kind?.accentColor ?? theme.colorScheme.primary;
                                       final unit = kind?.unit ?? '';
+                                      final displayValue = displayValues[entry.key] ?? entry.value;
                                       return PieChartSectionData(
-                                        value: entry.value,
-                                        title: '${entry.value.toStringAsFixed(0)}$unit',
+                                        value: entry.value, // normalized value for proportions
+                                        title: '${displayValue.toStringAsFixed(0)}$unit', // original value for display
                                         color: color,
                                         radius: 100,
                                         titleStyle: const TextStyle(
