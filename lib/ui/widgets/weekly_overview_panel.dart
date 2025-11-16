@@ -179,9 +179,13 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                                       final color = kind?.accentColor ?? theme.colorScheme.primary;
                                       final unit = kind?.unit ?? '';
                                       final displayValue = displayValues[entry.key] ?? entry.value;
+                                      // Format: show 2 decimals for values < 1, otherwise 0 decimals
+                                      final formattedValue = displayValue < 1
+                                          ? displayValue.toStringAsFixed(2)
+                                          : displayValue.toStringAsFixed(0);
                                       return PieChartSectionData(
                                         value: entry.value, // normalized value for proportions
-                                        title: '${displayValue.toStringAsFixed(0)}$unit', // original value for display
+                                        title: '$formattedValue$unit', // original value for display
                                         color: color,
                                         radius: 100,
                                         titleStyle: const TextStyle(
@@ -292,10 +296,13 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                           } else if (e.widgetKind == 'recipe') {
                             title = (map['name'] as String?) ?? 'Recipe';
                           } else {
-                            // For kinds, show amount
+                            // For kinds, show amount with adaptive precision
                             final amount = (map['amount'] as num?)?.toDouble();
                             if (amount != null) {
-                              summary = '${amount.toStringAsFixed(1)} ${kind?.unit ?? ''}';
+                              final unit = kind?.unit ?? '';
+                              summary = amount < 1
+                                  ? '${amount.toStringAsFixed(2)} $unit'
+                                  : '${amount.toStringAsFixed(0)} $unit';
                             }
                           }
                         } catch (_) {}

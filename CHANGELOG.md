@@ -6,6 +6,12 @@
   - Weight units now normalized to grams for accurate proportions (mg÷1000, µg÷1000000)
   - Display values still show original units (e.g., "500mg" instead of "0.5g")
   - Prevents visual distortion when comparing nutrients with different scales
+- **Calendar view**: Fixed missing values for nutrient kinds in day details
+  - Kind entries now display amount with unit (previously showed only "—")
+- **Number formatting**: Adaptive precision for small values
+  - Values < 1 now show 2 decimal places (e.g., "0.50mg" instead of "0mg")
+  - Values ≥ 1 show 0 decimal places (e.g., "100mg" instead of "100.00mg")
+  - Applied consistently across calendar view, weekly overview, and child rows
 
 ### Changed
 - **Documentation**: Simplified claude.md from 119 to 66 lines

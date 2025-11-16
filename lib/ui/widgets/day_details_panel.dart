@@ -188,8 +188,20 @@ class DayDetailsPanel extends ConsumerWidget {
                   try {
                     final map =
                         jsonDecode(e.payloadJson) as Map<String, dynamic>;
+                    // For products: show grams
                     final grams = (map['grams'] as num?)?.toInt();
-                    if (grams != null) summary = '$grams g';
+                    if (grams != null) {
+                      summary = '$grams g';
+                    } else {
+                      // For kinds: show amount with unit
+                      final amount = (map['amount'] as num?)?.toDouble();
+                      if (amount != null) {
+                        final unit = kind?.unit ?? '';
+                        summary = amount < 1
+                          ? '${amount.toStringAsFixed(2)}$unit'
+                          : '${amount.toStringAsFixed(0)}$unit';
+                      }
+                    }
                   } catch (_) {}
 
                   final expandedSet = ref.watch(expandedProductsProvider);

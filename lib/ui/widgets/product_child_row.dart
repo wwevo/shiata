@@ -11,13 +11,16 @@ class ProductChildRow extends ConsumerWidget {
   final EntryRecord entry;
   final WidgetRegistry registry;
   String _formatAmount(Map<String, dynamic> map) {
-    int? amount = (map['amount'] as num?)?.toInt();
+    double? amount = (map['amount'] as num?)?.toDouble();
     final unitFromPayload = map['unit'] as String?; // optional
     if (amount == null) return '—';
     // derive a unit from kind registry when absent
     final kind = registry.byId(entry.widgetKind);
     final unit = unitFromPayload ?? kind?.unit ?? '';
-    final text = amount.toString();
+    // Format: show 2 decimals for values < 1, otherwise 0 decimals
+    final text = amount < 1
+        ? amount.toStringAsFixed(2)
+        : amount.toStringAsFixed(0);
     return unit.isEmpty ? text : '$text $unit';
   }
 
