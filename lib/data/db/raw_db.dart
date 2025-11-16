@@ -65,6 +65,9 @@ class AppDb extends GeneratedDatabase {
     if (!colNames.contains('is_static')) {
       await customStatement('ALTER TABLE entries ADD COLUMN is_static INTEGER NOT NULL DEFAULT 0;');
     }
+    if (!colNames.contains('recipe_id')) {
+      await customStatement('ALTER TABLE entries ADD COLUMN recipe_id TEXT NULL;');
+    }
 
     // kinds table (0.4.0)
     await customStatement('''
@@ -140,6 +143,9 @@ class AppDb extends GeneratedDatabase {
     );
     await _safeCreateIndex(
       'CREATE INDEX IF NOT EXISTS idx_entries_product_id ON entries(product_id);',
+    );
+    await _safeCreateIndex(
+      'CREATE INDEX IF NOT EXISTS idx_entries_recipe_id ON entries(recipe_id);',
     );
   }
 

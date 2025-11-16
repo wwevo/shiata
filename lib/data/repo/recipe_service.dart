@@ -37,6 +37,7 @@ class RecipeService {
       },
       showInCalendar: showParentInCalendar,
       schemaVersion: 1,
+      recipeId: recipeId,
       isStatic: true,
     );
 
@@ -83,16 +84,12 @@ class RecipeService {
   /// - For each recipe parent entry, detach children and delete the parent.
   Future<void> deleteRecipeTemplate(String recipeId) async {
     // Find all parent entries for this recipe
-    final parents = await entries.db.customSelect(
-      "SELECT * FROM entries WHERE widget_kind = 'recipe' AND json_extract(payload_json, '\$.recipe_id') = ?;",
-      variables: [Variable.withString(recipeId)],
-    ).get();
-    for (final row in parents) {
-      final parentId = row.data['id'] as String;
+    final parents = await entries.listParentsByRecipeId(recipeId);
+    for (final parent in parents) {
       // Detach children and make them visible
-      await entries.convertChildrenOfParentToStandalone(parentId);
+      await entries.convertChildrenOfParentToStandalone(parent.id);
       // Delete the parent
-      await entries.delete(parentId);
+      await entries.delete(parent.id);
     }
     // Delete template and its components
     await recipes.deleteRecipe(recipeId);

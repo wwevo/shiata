@@ -21,6 +21,7 @@ class EntryRecord {
     this.sourceWidgetKind,
     this.productId,
     this.productGrams,
+    this.recipeId,
     this.isStatic = false,
   });
 
@@ -37,6 +38,7 @@ class EntryRecord {
   final String? sourceWidgetKind;
   final String? productId;
   final int? productGrams;
+  final String? recipeId;
   final bool isStatic;
 
   Map<String, Object?> toDb() => {
@@ -53,6 +55,7 @@ class EntryRecord {
         'source_widget_kind': sourceWidgetKind,
         'product_id': productId,
         'product_grams': productGrams,
+        'recipe_id': recipeId,
         'is_static': isStatic ? 1 : 0,
       };
 
@@ -71,6 +74,7 @@ class EntryRecord {
       sourceWidgetKind: row['source_widget_kind'] as String?,
       productId: row['product_id'] as String?,
       productGrams: row['product_grams'] as int?,
+      recipeId: row['recipe_id'] as String?,
       isStatic: ((row['is_static'] ?? 0) as int) != 0,
     );
   }
@@ -143,6 +147,7 @@ class EntriesRepository {
     String? sourceWidgetKind,
     String? productId,
     int? productGrams,
+    String? recipeId,
     bool isStatic = false,
   }) async {
     await _ready;
@@ -163,6 +168,7 @@ class EntriesRepository {
       sourceWidgetKind: sourceWidgetKind,
       productId: productId,
       productGrams: productGrams,
+      recipeId: recipeId,
       isStatic: isStatic,
     );
 
@@ -242,6 +248,16 @@ class EntriesRepository {
     final rows = await db.customSelect(
       "SELECT * FROM entries WHERE widget_kind = 'product' AND product_id = ?;",
       variables: [Variable.withString(productId)],
+      readsFrom: const {},
+    ).get();
+    return rows.map((r) => EntryRecord.fromDb(r.data)).toList();
+  }
+
+  Future<List<EntryRecord>> listParentsByRecipeId(String recipeId) async {
+    await _ready;
+    final rows = await db.customSelect(
+      "SELECT * FROM entries WHERE widget_kind = 'recipe' AND recipe_id = ?;",
+      variables: [Variable.withString(recipeId)],
       readsFrom: const {},
     ).get();
     return rows.map((r) => EntryRecord.fromDb(r.data)).toList();

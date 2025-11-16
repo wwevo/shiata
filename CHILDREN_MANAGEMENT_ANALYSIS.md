@@ -1,262 +1,418 @@
-# Children Management System - Analysis & Design
+# Children Management System - Revised Design
 
 **Branch**: `claude/centralize-children-management-01LwN22cDGS78onRbs9CGUd2`
-**Date**: 2025-11-16
-**Goal**: Centralize parent-child relationship management to eliminate code duplication and improve maintainability
+**Date**: 2025-11-16 (Updated)
+**Criticality**: ⚠️ **CORE FUNCTIONALITY** - App useless if this breaks
 
 ---
 
-## Current State Analysis
+## Core Requirements
 
-### 1. **Parent-Child Relationships in DB**
+### 1. Template-Instance Architecture
 
-**Schema** (`entries` table):
-- `id` (String) - Entry ID
-- `source_entry_id` (String?) - Parent entry ID (NULL = top-level)
-- `widget_kind` (String) - Type (product, recipe, or nutrient kind)
+```
+Kinds (Templates Only)
+  └─ Instances (amount varies)
 
-**Current DB Methods** (`entries_repository.dart`):
-- ✅ `listChildrenOfParent(parentId)` - Loads direct children
-- ✅ `deleteChildrenOfParent(parentId)` - Deletes all children
-- ✅ `detachChildrenOfParent(parentId)` - Removes parent link
-- ✅ `convertChildrenOfParentToStandalone(parentId)` - Makes children standalone
+Product Templates (contain Kinds with fixed values)
+  ├─ Non-Static Instances (update when template changes)
+  └─ Static Instances (frozen, don't update)
 
-**Limitation**: Only handles **ONE level** (direct children). No recursive queries.
-
----
-
-### 2. **Current childrenByParent Map Pattern**
-
-**Used in**:
-1. `day_details_panel.dart` (Calendar View)
-2. `weekly_overview_panel.dart` (Weekly Overview)
-
-**Pattern**:
-```dart
-// Build map manually from flat list
-final childrenByParent = <String, List<EntryRecord>>{};
-for (final c in allEntries) {
-  if (c.sourceEntryId != null) {
-    (childrenByParent[c.sourceEntryId!] ??= []).add(c);
-  }
-}
+Recipe Templates (contain Kinds + Products)
+  ├─ Non-Static Instances (update when template changes)
+  └─ Static Instances (frozen, don't update)
 ```
 
-**Problem**:
-- ❌ Duplicated in 2 places
-- ❌ Must be rebuilt on every render
-- ❌ Only works when all entries are already loaded
+### 2. Propagation Rules (CRITICAL!)
 
----
-
-### 3. **Recursive Aggregation Pattern**
-
-**Used for Recipe Summaries** (3 locations):
-1. `day_details_panel.dart` - `_recipeTitleFromPayload()`
-2. `weekly_overview_panel.dart` - Recipe summary inline
-3. `recipes_page.dart` - `_RecipeTemplateSummary` widget
-
-**Pattern**:
-```dart
-void aggregateNutrients(List<EntryRecord> entries) {
-  for (final child in entries) {
-    if (child.widgetKind == 'product') {
-      totalProductGrams += grams;
-      // RECURSIVE: Get grandchildren
-      final grandchildren = childrenByParent[child.id] ?? [];
-      aggregateNutrients(grandchildren);
-    } else {
-      kindSummaries[child.widgetKind] = (kindSummaries[child.widgetKind] ?? 0) + amount;
-    }
-  }
-}
+**Kind Template Change**:
+```
+Kind Template changed
+  → Product Templates updated (all products using this kind)
+  → Product Instances updated (ONLY non-static!)
+  → Recipe Instances updated (ONLY non-static!)
 ```
 
-**Problems**:
-- ❌ **Code duplication**: 3x nearly identical implementations
-- ❌ **Unit normalization**: Duplicated sorting logic (mg→g, µg→g) in 3 places
-- ❌ **Performance**: Recursive traversal happens on every render
-- ❌ **Not reusable**: Search results can't use it (no childrenByParent available)
+**Product Template Change**:
+```
+Product Template changed
+  → Product Instances updated (ONLY non-static!)
+  → Recipe Instances updated (if recipe contains this product, ONLY non-static!)
+```
+
+**Recipe Template Change**:
+```
+Recipe Template changed
+  → Recipe Instances updated (ONLY non-static!)
+```
+
+**Static Instances**:
+- ❌ NEVER update automatically
+- ✅ Can be manually reset to template values
+
+### 3. Reset Functionality
+
+Users can reset static instances back to template:
+```
+Static Product Instance → Reset → Recalculate from Product Template
+Static Recipe Instance → Reset → Recalculate from Recipe Template
+```
+
+**No UI yet, but service MUST support this.**
 
 ---
 
-### 4. **Entry Creation with Children**
+## Service Architecture (Revised)
 
-**ProductService** (`product_service.dart`):
-- `createProductEntry()` - Creates parent + nutrient children
-- `updateParentAndChildren()` - Updates parent, deletes & recreates children
-
-**RecipeService** (`recipe_service.dart`):
-- `createRecipeEntry()` - Creates parent + product/nutrient children
-
-**Pattern**: Services handle creation, but **views handle traversal**.
-
----
-
-## Problem Summary
-
-### Code Duplication
-1. **childrenByParent map building**: 2 locations
-2. **Recursive nutrient aggregation**: 3 locations
-3. **Unit normalization for sorting**: 3 locations
-4. **Recipe summary formatting**: 3 locations
-
-### Performance Issues
-1. **Rebuilds on every render**: childrenByParent map + recursive aggregation
-2. **No caching**: Same data traversed multiple times
-3. **Inefficient for search**: Can't show summaries without loading all children
-
-### Maintainability Issues
-1. **Bug fixes need 3+ changes**: Any fix to aggregation logic must be replicated
-2. **Inconsistency risk**: Slight variations in logic between locations
-3. **Hard to extend**: Adding new features (e.g., 3-level nesting) requires changes everywhere
-
----
-
-## Proposed Solution: EntriesHierarchyService
-
-### Design Goals
-1. ✅ **Single source of truth** for parent-child relationships
-2. ✅ **Efficient caching** of hierarchy data
-3. ✅ **Reusable aggregations** (nutrients, summaries)
-4. ✅ **Flexible queries** (direct children, all descendants, ancestry)
-
----
-
-### Service Architecture
+### Multiple Specialized Services
 
 ```dart
-class EntriesHierarchyService {
-  final EntriesRepository _entries;
-  final WidgetRegistry _registry;
+// 1. ProductHierarchyService
+class ProductHierarchyService {
+  // Get product instance with all nutrient children
+  Future<ProductInstanceHierarchy> getProductInstance(String entryId);
 
-  // Cached hierarchy (invalidated on DB changes)
-  Map<String, List<EntryRecord>>? _childrenByParent;
+  // Aggregate nutrients from product (direct children only)
+  Future<NutrientSummary> aggregateNutrients(String productEntryId);
 
-  // --- Core Hierarchy Methods ---
+  // Reset static instance to template values
+  Future<void> resetToTemplate(String productEntryId);
 
-  /// Get direct children of an entry
-  Future<List<EntryRecord>> getChildren(String parentId);
-
-  /// Get ALL descendants recursively (children, grandchildren, etc.)
-  Future<List<EntryRecord>> getAllDescendants(String parentId);
-
-  /// Get childrenByParent map for a list of entries
-  Map<String, List<EntryRecord>> buildChildrenMap(List<EntryRecord> entries);
-
-  /// Get ancestry chain (parent -> grandparent -> ...)
-  Future<List<EntryRecord>> getAncestry(String childId);
-
-  // --- Aggregation Methods ---
-
-  /// Aggregate nutrients recursively for a recipe/product
-  Future<NutrientSummary> aggregateNutrients(
-    EntryRecord parent,
-    List<EntryRecord> allEntries,
-  );
-
-  /// Get formatted summary string
-  String formatSummary(NutrientSummary summary, {int topN = 2});
+  // Propagate template changes to non-static instances
+  Future<void> propagateTemplateChange(String productId);
 }
 
+// 2. RecipeHierarchyService
+class RecipeHierarchyService {
+  // Get recipe instance with all children (products + kinds)
+  Future<RecipeInstanceHierarchy> getRecipeInstance(String entryId);
+
+  // Aggregate nutrients RECURSIVELY (includes product children)
+  Future<NutrientSummary> aggregateNutrients(String recipeEntryId);
+
+  // Reset static instance to template values
+  Future<void> resetToTemplate(String recipeEntryId);
+
+  // Propagate template changes to non-static instances
+  Future<void> propagateTemplateChange(String recipeId);
+}
+
+// 3. Shared Data Structures
 class NutrientSummary {
   final double totalProductGrams;
-  final Map<String, double> nutrientsByKind; // Original values
-  final Map<String, double> normalizedNutrients; // For sorting (all in grams)
+  final Map<String, double> nutrientsByKind; // kindId -> amount (original)
+  final Map<String, double> normalizedNutrients; // kindId -> amount (normalized to g)
 
-  List<MapEntry<String, double>> getTopNutrients(int n) {
-    // Sort by normalized values, return original
-    return normalizedNutrients.entries
-      .toList()
-      ..sort((a, b) => b.value.compareTo(a.value))
-      .take(n)
-      .map((e) => MapEntry(e.key, nutrientsByKind[e.key]!))
-      .toList();
-  }
+  // Get top N nutrients sorted by normalized value
+  List<(String kindId, double originalAmount)> getTopNutrients(int n);
+
+  // Format as string with labels
+  String format(WidgetRegistry registry, {int topN = 2});
+}
+
+class ProductInstanceHierarchy {
+  final EntryRecord parent;
+  final List<EntryRecord> nutrientChildren;
+  final bool isStatic;
+}
+
+class RecipeInstanceHierarchy {
+  final EntryRecord parent;
+  final List<ProductInstanceHierarchy> productChildren;
+  final List<EntryRecord> kindChildren;
+  final bool isStatic;
 }
 ```
 
 ---
 
-### Migration Plan
+## Propagation Implementation
 
-#### Phase 1: Create Service (New Code)
-- [ ] Create `lib/data/repo/entries_hierarchy_service.dart`
-- [ ] Implement basic hierarchy methods
-- [ ] Implement nutrient aggregation
-- [ ] Add unit tests
+### Current DB Schema Check
 
-#### Phase 2: Migrate Views (One by One)
-- [ ] Migrate `weekly_overview_panel.dart`
-  - Replace manual childrenByParent building
-  - Replace inline recipe aggregation
-- [ ] Migrate `day_details_panel.dart`
-  - Replace `_recipeTitleFromPayload()` with service call
-  - Remove duplicate aggregation logic
-- [ ] Migrate `recipes_page.dart`
-  - Simplify `_RecipeTemplateSummary` to use service
+**entries table** (from `raw_db.dart`):
+```sql
+- id (TEXT PRIMARY KEY)
+- widget_kind (TEXT)
+- source_entry_id (TEXT) -- Parent link
+- product_id (TEXT) -- Link to product template
+- product_grams (INTEGER)
+- is_static (INTEGER) -- 0 = dynamic, 1 = static
+- payload_json (TEXT)
+- ...
+```
 
-#### Phase 3: Extend Functionality
-- [ ] Add caching/memoization for performance
-- [ ] Enable summaries in search results
-- [ ] Add hierarchy visualization helpers (tree view)
+**products table**:
+```sql
+- id (TEXT PRIMARY KEY)
+- name (TEXT)
+- ...
+```
 
-#### Phase 4: Cleanup
-- [ ] Remove all duplicate aggregation code
-- [ ] Update documentation
-- [ ] Performance testing
+**product_components table**:
+```sql
+- product_id (TEXT)
+- kind_id (TEXT)
+- amount_per_gram (REAL) -- per 100g
+```
+
+**recipes table**:
+```sql
+- id (TEXT PRIMARY KEY)
+- name (TEXT)
+- ...
+```
+
+**recipe_components table**:
+```sql
+- recipe_id (TEXT)
+- comp_id (TEXT) -- product_id OR kind_id
+- type (TEXT) -- 'product' OR 'kind'
+- grams (INTEGER) -- for products
+- amount (REAL) -- for kinds
+```
+
+**Assessment**: ✅ Schema is good! `is_static` flag exists, template links exist.
 
 ---
 
-### Benefits
+## Propagation Flows (Detailed)
 
-**Immediate**:
-- ✅ **Fix code duplication**: 3+ duplicate implementations → 1 service
-- ✅ **Consistent behavior**: All views use same logic
-- ✅ **Easier debugging**: Single place to fix bugs
+### Flow 1: Kind Definition Change
 
-**Long-term**:
-- ✅ **Better performance**: Caching + optimized queries
-- ✅ **Extensible**: Easy to add new aggregation types
-- ✅ **Testable**: Service can be unit tested independently
-- ✅ **Search results**: Can now show recipe summaries efficiently
+**Scenario**: User edits Kind "Protein" (changes unit or limits)
+
+**Impact**: NONE on instances (kinds don't have "values" in template, only schema)
+
+**Action**: No propagation needed
 
 ---
 
-### Risks & Mitigation
+### Flow 2: Product Template Change
 
-**Risk**: Breaking existing functionality during migration
-**Mitigation**: Migrate one view at a time, test thoroughly
+**Scenario**: User edits Product Template "Egg" components (e.g., 10g protein → 12g protein)
 
-**Risk**: Performance regression with caching
-**Mitigation**: Benchmark before/after, add lazy loading if needed
+**Steps**:
+1. Update `product_components` table
+2. Find all product instances: `SELECT * FROM entries WHERE product_id = 'egg'`
+3. For each instance:
+   - If `is_static = 0`: Recalculate children (delete + recreate with new formula)
+   - If `is_static = 1`: Skip
+4. Find all recipe instances containing this product
+5. For each recipe instance:
+   - If `is_static = 0`: Trigger recipe recalculation
+   - If `is_static = 1`: Skip
 
-**Risk**: Complexity in service layer
-**Mitigation**: Keep API simple, well-documented
+**Service Method**:
+```dart
+Future<void> propagateProductTemplateChange(String productId) async {
+  // 1. Get new template components
+  final components = await products.getComponents(productId);
+
+  // 2. Find all non-static instances
+  final instances = await entries.listParentsByProductId(productId);
+
+  for (final instance in instances) {
+    if (!instance.isStatic) {
+      // Recalculate children
+      await productService.updateParentAndChildren(
+        parentEntryId: instance.id,
+        productGrams: instance.productGrams!,
+      );
+    }
+  }
+
+  // 3. Find recipes containing this product
+  // TODO: Need way to query which recipes use a product
+  // May need new DB query or index
+}
+```
+
+---
+
+### Flow 3: Recipe Template Change
+
+**Scenario**: User edits Recipe Template "Smoothie" components
+
+**Steps**:
+1. Update `recipe_components` table
+2. Find all recipe instances: Query entries where `widget_kind = 'recipe'` AND payload contains `recipe_id = 'smoothie'`
+3. For each instance:
+   - If `is_static = 0`: Recalculate all children (products + kinds)
+   - If `is_static = 1`: Skip
+
+**Challenge**: No direct `recipe_id` foreign key in entries table!
+
+**Current**: Recipe ID stored in `payload_json`: `{"recipe_id": "smoothie", "name": "..."}`
+
+**Solution Options**:
+- **Option A**: Add `recipe_id` column to entries (cleaner, faster queries)
+- **Option B**: JSON query: `WHERE payload_json LIKE '%"recipe_id":"smoothie"%'` (slower, works now)
+
+---
+
+## Database Schema Improvements (Proposed)
+
+### Add recipe_id column to entries
+
+**Migration**:
+```sql
+ALTER TABLE entries ADD COLUMN recipe_id TEXT;
+CREATE INDEX idx_entries_recipe_id ON entries(recipe_id);
+```
+
+**Benefits**:
+- Fast queries for recipe instances
+- Consistent with `product_id` pattern
+- No JSON parsing needed
+
+**Migration Strategy**:
+1. Add column (nullable)
+2. Backfill from existing `payload_json`
+3. Update creation/update code to populate both
+
+---
+
+## Reset Functionality
+
+### Reset Static Product Instance
+
+```dart
+Future<void> resetProductInstanceToTemplate(String entryId) async {
+  final entry = await entries.getById(entryId);
+  if (entry == null || !entry.isStatic || entry.productId == null) {
+    throw Exception('Entry is not a static product instance');
+  }
+
+  // Mark as non-static and recalculate (uses template)
+  await productService.updateParentAndChildren(
+    parentEntryId: entryId,
+    productGrams: entry.productGrams!,
+    isStatic: false, // Back to dynamic
+  );
+}
+```
+
+### Reset Static Recipe Instance
+
+```dart
+Future<void> resetRecipeInstanceToTemplate(String entryId) async {
+  final entry = await entries.getById(entryId);
+  if (entry == null || !entry.isStatic) {
+    throw Exception('Entry is not a static recipe instance');
+  }
+
+  // Extract recipe_id from payload
+  final payload = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
+  final recipeId = payload['recipe_id'] as String?;
+  if (recipeId == null) throw Exception('No recipe_id found');
+
+  // Delete old children
+  await entries.deleteChildrenOfParent(entryId);
+
+  // Recreate from template
+  final targetAt = DateTime.fromMillisecondsSinceEpoch(entry.targetAt, isUtc: true).toLocal();
+  await recipeService.createRecipeEntry(
+    recipeId: recipeId,
+    targetAtLocal: targetAt,
+    showParentInCalendar: entry.showInCalendar,
+    overrideParentId: entryId, // Reuse same ID
+    isStatic: false, // Back to dynamic
+  );
+}
+```
+
+---
+
+## Implementation Plan
+
+### Phase 1: DB Schema Enhancement ✅
+- [x] Add `recipe_id` column to entries table
+- [x] Create migration script
+- [x] Update entry creation/update code
+- [x] Add query helper `listParentsByRecipeId()`
+- [ ] Write tests for schema changes
+
+**Implementation Notes**:
+- Added `recipe_id TEXT NULL` column to entries table (`raw_db.dart:68-70`)
+- Added index `idx_entries_recipe_id` for fast queries (`raw_db.dart:147-149`)
+- Updated `EntryRecord` class with `recipeId` field (`entries_repository.dart:24,41`)
+- Updated `EntriesRepository.create()` to accept `recipeId` parameter (`entries_repository.dart:150,171`)
+- Added `listParentsByRecipeId()` helper method (`entries_repository.dart:256-264`)
+- Updated `RecipeService.createRecipeEntry()` to populate `recipe_id` field (`recipe_service.dart:40`)
+- Updated `deleteRecipeTemplate()` to use new query method instead of JSON extraction (`recipe_service.dart:87`)
+
+### Phase 2: Core Services
+- [ ] Create `ProductHierarchyService`
+  - [ ] `getProductInstance()`
+  - [ ] `aggregateNutrients()`
+  - [ ] `resetToTemplate()`
+  - [ ] `propagateTemplateChange()`
+- [ ] Create `RecipeHierarchyService`
+  - [ ] `getRecipeInstance()`
+  - [ ] `aggregateNutrients()` (recursive!)
+  - [ ] `resetToTemplate()`
+  - [ ] `propagateTemplateChange()`
+- [ ] Create shared `NutrientSummary` class
+- [ ] Unit tests for all methods
+
+### Phase 3: Integrate Propagation
+- [ ] Hook into Product Template Editor
+  - On save: Call `propagateProductTemplateChange()`
+- [ ] Hook into Recipe Template Editor
+  - On save: Call `propagateRecipeTemplateChange()`
+- [ ] Add user feedback (e.g., "Updated 5 instances")
+
+### Phase 4: Migrate Views
+- [ ] Replace manual aggregation in `weekly_overview_panel.dart`
+- [ ] Replace manual aggregation in `day_details_panel.dart`
+- [ ] Replace manual aggregation in `recipes_page.dart`
+- [ ] Update search results (if feasible)
+
+### Phase 5: Reset UI (Future)
+- [ ] Add "Reset to Template" button in instance editors
+- [ ] Confirmation dialog
+- [ ] Visual indicator for static instances
+
+---
+
+## Critical Tests
+
+### Must Verify
+1. ✅ **Static instances don't update**: Change template → verify static unchanged
+2. ✅ **Non-static instances update**: Change template → verify non-static recalculated
+3. ✅ **Recursive propagation**: Product in Recipe → change product template → recipe updates
+4. ✅ **Reset works**: Static instance → reset → matches current template
+5. ✅ **No data loss**: Propagation doesn't delete user data
+6. ✅ **Performance**: Large templates (100+ instances) propagate in reasonable time
 
 ---
 
 ## Open Questions
 
-1. **Caching strategy**:
-   - Cache entire hierarchy map in memory?
-   - Or lazy-load on demand with LRU cache?
+1. **Partial propagation failures**:
+   - If 50 instances need update and #25 fails, what happens?
+   - Transaction? Rollback? Continue and log errors?
 
-2. **Recipe Templates vs Instances**:
-   - Recipe templates use `RecipeComponentDef` (from recipes_repository)
-   - Recipe instances use `EntryRecord` (from entries_repository)
-   - Should service handle both? Or separate services?
+2. **User notification**:
+   - Silent propagation or show progress/results?
+   - "Updated 47 product instances, 3 recipe instances"?
 
-3. **Unit normalization**:
-   - Hardcode in service (mg→g, µg→g)?
-   - Or make configurable via WidgetRegistry unit metadata?
+3. **Recipe-Product dependency tracking**:
+   - Do we need an index/cache of "which recipes use product X"?
+   - Or query on-demand (slower but simpler)?
+
+4. **Static-to-dynamic transition**:
+   - When resetting, should user choose to stay static or become dynamic?
+   - Or always become dynamic after reset?
 
 ---
 
 ## Next Steps
 
-1. **Discuss design** with user
-2. **Choose implementation approach** (phased vs big-bang)
-3. **Start with Phase 1**: Create service + tests
-4. **Iterate**: Migrate views one by one
+1. **Discuss**: Review this design, answer open questions
+2. **Phase 1**: DB schema enhancement (recipe_id column)
+3. **Phase 2**: Implement core services with tests
+4. **Phase 3**: Integrate propagation hooks
+5. **Phase 4**: Migrate views to use services
 
