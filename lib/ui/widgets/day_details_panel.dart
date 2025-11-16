@@ -37,31 +37,44 @@ class DayDetailsPanel extends ConsumerWidget {
     }
   }
 
-  String _recipeTitleFromPayload(EntryRecord e, List<EntryRecord> children, WidgetRegistry registry) {
+  String _recipeTitleFromPayload(
+    EntryRecord e,
+    List<EntryRecord> children,
+    Map<String, List<EntryRecord>> childrenByParent,
+    WidgetRegistry registry,
+  ) {
     try {
       final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
       final name = (map['name'] as String?) ?? 'Recipe';
 
-      // Sum up component weights
+      // Sum up component weights recursively
       double totalProductGrams = 0.0;
       final kindSummaries = <String, double>{};
 
-      for (final child in children) {
-        if (child.widgetKind == 'product') {
-          try {
-            final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
-            final grams = (childMap['grams'] as num?)?.toDouble() ?? 0.0;
-            totalProductGrams += grams;
-          } catch (_) {}
-        } else {
-          // It's a kind - aggregate by kind
-          try {
-            final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
-            final amount = (childMap['amount'] as num?)?.toDouble() ?? 0.0;
-            kindSummaries[child.widgetKind] = (kindSummaries[child.widgetKind] ?? 0.0) + amount;
-          } catch (_) {}
+      // Recursive helper to aggregate nutrients from nested products
+      void aggregateNutrients(List<EntryRecord> entries) {
+        for (final child in entries) {
+          if (child.widgetKind == 'product') {
+            try {
+              final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
+              final grams = (childMap['grams'] as num?)?.toDouble() ?? 0.0;
+              totalProductGrams += grams;
+            } catch (_) {}
+            // Recursively aggregate nutrients from this product's children
+            final grandchildren = childrenByParent[child.id] ?? const <EntryRecord>[];
+            aggregateNutrients(grandchildren);
+          } else {
+            // It's a kind - aggregate by kind
+            try {
+              final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
+              final amount = (childMap['amount'] as num?)?.toDouble() ?? 0.0;
+              kindSummaries[child.widgetKind] = (kindSummaries[child.widgetKind] ?? 0.0) + amount;
+            } catch (_) {}
+          }
         }
       }
+
+      aggregateNutrients(children);
 
       // Build summary string
       final parts = <String>[];
@@ -276,7 +289,7 @@ class DayDetailsPanel extends ConsumerWidget {
                       isProductParent
                           ? _productTitleFromPayload(e)
                           : isRecipeParent
-                          ? _recipeTitleFromPayload(e, childrenByParent[e.id] ?? const <EntryRecord>[], registry)
+                          ? _recipeTitleFromPayload(e, childrenByParent[e.id] ?? const <EntryRecord>[], childrenByParent, registry)
                           : '${kind?.displayName ?? e.widgetKind} • ${summary.isEmpty ? '—' : summary}',
                     ),
                     subtitle: Row(

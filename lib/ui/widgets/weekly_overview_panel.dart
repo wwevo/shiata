@@ -296,26 +296,34 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                           } else if (e.widgetKind == 'recipe') {
                             title = (map['name'] as String?) ?? 'Recipe';
 
-                            // Sum up recipe component weights
+                            // Sum up recipe component weights recursively
                             final children = childrenByParent[e.id] ?? const <EntryRecord>[];
                             double totalProductGrams = 0.0;
                             final kindSummaries = <String, double>{};
 
-                            for (final child in children) {
-                              if (child.widgetKind == 'product') {
-                                try {
-                                  final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
-                                  final grams = (childMap['grams'] as num?)?.toDouble() ?? 0.0;
-                                  totalProductGrams += grams;
-                                } catch (_) {}
-                              } else {
-                                try {
-                                  final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
-                                  final amount = (childMap['amount'] as num?)?.toDouble() ?? 0.0;
-                                  kindSummaries[child.widgetKind] = (kindSummaries[child.widgetKind] ?? 0.0) + amount;
-                                } catch (_) {}
+                            // Recursive helper to aggregate nutrients from nested products
+                            void aggregateNutrients(List<EntryRecord> entries) {
+                              for (final child in entries) {
+                                if (child.widgetKind == 'product') {
+                                  try {
+                                    final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
+                                    final grams = (childMap['grams'] as num?)?.toDouble() ?? 0.0;
+                                    totalProductGrams += grams;
+                                  } catch (_) {}
+                                  // Recursively aggregate nutrients from this product's children
+                                  final grandchildren = childrenByParent[child.id] ?? const <EntryRecord>[];
+                                  aggregateNutrients(grandchildren);
+                                } else {
+                                  try {
+                                    final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
+                                    final amount = (childMap['amount'] as num?)?.toDouble() ?? 0.0;
+                                    kindSummaries[child.widgetKind] = (kindSummaries[child.widgetKind] ?? 0.0) + amount;
+                                  } catch (_) {}
+                                }
                               }
                             }
+
+                            aggregateNutrients(children);
 
                             // Build summary
                             final parts = <String>[];
