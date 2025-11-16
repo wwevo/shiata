@@ -4,6 +4,24 @@
 **Date**: 2025-11-16 (Updated)
 **Criticality**: ⚠️ **CORE FUNCTIONALITY** - App useless if this breaks
 
+## Implementation Status: ✅ CORE COMPLETE
+
+**Completed Phases (v0.7.8)**:
+- ✅ Phase 1: DB Schema Enhancement (`recipe_id` column, index, migration)
+- ✅ Phase 2: Core Services (ProductHierarchyService, RecipeHierarchyService, NutrientSummary)
+- ✅ Phase 3: Propagation Hooks (Recipe template editor now propagates changes)
+
+**Deferred Phases** (non-critical):
+- ⏸️ Phase 4: View Migration (optional optimization, views work as-is)
+- ⏸️ Phase 5: Reset UI (service exists, UI can be added later)
+
+**Key Achievements**:
+1. ✅ Template change propagation to non-static instances
+2. ✅ Static vs dynamic instance support
+3. ✅ Reset functionality (service-level, no UI yet)
+4. ✅ Centralized hierarchy management services
+5. ✅ Fast recipe instance queries via `recipe_id` column
+
 ---
 
 ## Core Requirements
@@ -389,11 +407,23 @@ Future<void> resetRecipeInstanceToTemplate(String entryId) async {
   - Consistent UX with product editor
 - Both editors now support template change propagation to non-static instances
 
-### Phase 4: Migrate Views
+### Phase 4: Migrate Views (OPTIONAL - Future Work)
 - [ ] Replace manual aggregation in `weekly_overview_panel.dart`
 - [ ] Replace manual aggregation in `day_details_panel.dart`
 - [ ] Replace manual aggregation in `recipes_page.dart`
 - [ ] Update search results (if feasible)
+
+**Status**: DEFERRED
+**Reason**: Current views use synchronous aggregation during build for performance.
+          Converting to async service calls would require significant refactoring.
+          The core functionality (propagation, reset) is complete.
+          View migration can be done incrementally as optimization later.
+
+**Current Approach**: Views can continue using direct aggregation for rendering.
+                     Services are available for:
+                     - Template propagation (Phase 3) ✅
+                     - Instance reset (Phase 2) ✅
+                     - Future features requiring hierarchy info
 
 ### Phase 5: Reset UI (Future)
 - [ ] Add "Reset to Template" button in instance editors
