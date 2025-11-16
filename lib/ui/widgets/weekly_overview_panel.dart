@@ -336,8 +336,30 @@ class WeeklyOverviewPanel extends ConsumerWidget {
 
                             // Add top kind amounts (limit to avoid clutter)
                             if (kindSummaries.isNotEmpty) {
+                              // Normalize values for sorting (convert all to grams for weight units)
+                              final normalizedForSort = <String, double>{};
+                              for (final entry in kindSummaries.entries) {
+                                final k = registry.byId(entry.key);
+                                final unit = k?.unit ?? '';
+                                double normalized = entry.value;
+                                switch (unit) {
+                                  case 'mg':
+                                    normalized = entry.value / 1000;
+                                    break;
+                                  case 'ug':
+                                  case 'µg':
+                                    normalized = entry.value / 1000000;
+                                    break;
+                                  default:
+                                    normalized = entry.value;
+                                }
+                                normalizedForSort[entry.key] = normalized;
+                              }
+
+                              // Sort by normalized values
                               final sortedKinds = kindSummaries.entries.toList()
-                                ..sort((a, b) => b.value.compareTo(a.value));
+                                ..sort((a, b) => (normalizedForSort[b.key] ?? 0.0).compareTo(normalizedForSort[a.key] ?? 0.0));
+
                               for (final entry in sortedKinds.take(2)) {
                                 final k = registry.byId(entry.key);
                                 final kindName = k?.displayName ?? entry.key;
@@ -385,9 +407,9 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                               child: Icon(icon, size: 18),
                             ),
                             title: Text(
-                              isProductParent ? '$title ${summary.isNotEmpty ? "• $summary" : ""}' :
-                                isRecipeParent ? title :
-                                '$title ${summary.isNotEmpty ? "• $summary" : ""}',
+                              isProductParent || isRecipeParent
+                                ? '$title ${summary.isNotEmpty ? "• $summary" : ""}'
+                                : '$title ${summary.isNotEmpty ? "• $summary" : ""}',
                               style: theme.textTheme.bodyLarge,
                             ),
                             subtitle: Text(

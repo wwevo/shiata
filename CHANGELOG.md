@@ -15,9 +15,12 @@
 - **Recipe instances**: Now display component weight summaries with recursive aggregation
   - Shows total product grams plus top 2 nutrient kinds with **labels**
   - **Recursive**: Nutrients from products within recipes are now included
+  - **Unit-aware sorting**: Top nutrients sorted by normalized values (10g > 100mg)
   - Format example: "Breakfast Smoothie • 250g • Protein: 30g • Vitamin C: 500mg"
   - Applied to calendar view, weekly overview, and recipe templates page
   - Search shows name only (performance optimization)
+- **Weekly overview**: Fixed recipe summaries not displaying
+  - Recipe instances now show component weights (was showing only name)
 
 ### Changed
 - **Documentation**: Simplified claude.md from 119 to 66 lines
