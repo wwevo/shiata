@@ -75,10 +75,13 @@ class SearchResults extends ConsumerWidget {
               } else if (e.widgetKind == 'recipe') {
                 title = (map['name'] as String?) ?? 'Recipe';
               } else {
-                // For kinds, show amount
+                // For kinds, show amount with adaptive precision
                 final amount = (map['amount'] as num?)?.toDouble();
                 if (amount != null) {
-                  summary = '${amount.toStringAsFixed(1)} ${kind?.unit ?? ''}';
+                  final unit = kind?.unit ?? '';
+                  summary = amount < 1
+                      ? '${amount.toStringAsFixed(2)} $unit'
+                      : '${amount.toStringAsFixed(0)} $unit';
                 }
               }
             } catch (_) {}

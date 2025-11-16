@@ -11,7 +11,11 @@
 - **Number formatting**: Adaptive precision for small values
   - Values < 1 now show 2 decimal places (e.g., "0.50mg" instead of "0mg")
   - Values ≥ 1 show 0 decimal places (e.g., "100mg" instead of "100.00mg")
-  - Applied consistently across calendar view, weekly overview, and child rows
+  - Applied consistently across calendar view, weekly overview, child rows, and search
+- **Recipe instances**: Now display component weight summaries
+  - Shows total product grams plus top 2 nutrient kinds with amounts
+  - Format example: "Breakfast Smoothie • 250g • 30g • 500mg"
+  - Applied to calendar view and weekly overview (search shows name only)
 
 ### Changed
 - **Documentation**: Simplified claude.md from 119 to 66 lines

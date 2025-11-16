@@ -37,11 +37,60 @@ class DayDetailsPanel extends ConsumerWidget {
     }
   }
 
-  String _recipeTitleFromPayload(EntryRecord e) {
+  String _recipeTitleFromPayload(EntryRecord e, List<EntryRecord> children, WidgetRegistry registry) {
     try {
       final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
       final name = (map['name'] as String?) ?? 'Recipe';
-      return name;
+
+      // Sum up component weights
+      double totalProductGrams = 0.0;
+      final kindSummaries = <String, double>{};
+
+      for (final child in children) {
+        if (child.widgetKind == 'product') {
+          try {
+            final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
+            final grams = (childMap['grams'] as num?)?.toDouble() ?? 0.0;
+            totalProductGrams += grams;
+          } catch (_) {}
+        } else {
+          // It's a kind - aggregate by kind
+          try {
+            final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
+            final amount = (childMap['amount'] as num?)?.toDouble() ?? 0.0;
+            kindSummaries[child.widgetKind] = (kindSummaries[child.widgetKind] ?? 0.0) + amount;
+          } catch (_) {}
+        }
+      }
+
+      // Build summary string
+      final parts = <String>[];
+      if (totalProductGrams > 0) {
+        final formatted = totalProductGrams < 1
+            ? totalProductGrams.toStringAsFixed(2)
+            : totalProductGrams.toStringAsFixed(0);
+        parts.add('${formatted}g');
+      }
+
+      // Add top kind amounts (limit to avoid clutter)
+      if (kindSummaries.isNotEmpty) {
+        final sortedKinds = kindSummaries.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+        for (final entry in sortedKinds.take(2)) {
+          final kind = registry.byId(entry.key);
+          final unit = kind?.unit ?? '';
+          final formatted = entry.value < 1
+              ? entry.value.toStringAsFixed(2)
+              : entry.value.toStringAsFixed(0);
+          parts.add('$formatted$unit');
+        }
+      }
+
+      if (parts.isEmpty) {
+        return name;
+      }
+
+      return '$name • ${parts.join(' • ')}';
     } catch (_) {
       return 'Recipe';
     }
@@ -227,7 +276,7 @@ class DayDetailsPanel extends ConsumerWidget {
                       isProductParent
                           ? _productTitleFromPayload(e)
                           : isRecipeParent
-                          ? _recipeTitleFromPayload(e)
+                          ? _recipeTitleFromPayload(e, childrenByParent[e.id] ?? const <EntryRecord>[], registry)
                           : '${kind?.displayName ?? e.widgetKind} • ${summary.isEmpty ? '—' : summary}',
                     ),
                     subtitle: Row(

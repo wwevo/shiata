@@ -295,6 +295,54 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                             if (grams != null) summary = '$grams g';
                           } else if (e.widgetKind == 'recipe') {
                             title = (map['name'] as String?) ?? 'Recipe';
+
+                            // Sum up recipe component weights
+                            final children = childrenByParent[e.id] ?? const <EntryRecord>[];
+                            double totalProductGrams = 0.0;
+                            final kindSummaries = <String, double>{};
+
+                            for (final child in children) {
+                              if (child.widgetKind == 'product') {
+                                try {
+                                  final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
+                                  final grams = (childMap['grams'] as num?)?.toDouble() ?? 0.0;
+                                  totalProductGrams += grams;
+                                } catch (_) {}
+                              } else {
+                                try {
+                                  final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
+                                  final amount = (childMap['amount'] as num?)?.toDouble() ?? 0.0;
+                                  kindSummaries[child.widgetKind] = (kindSummaries[child.widgetKind] ?? 0.0) + amount;
+                                } catch (_) {}
+                              }
+                            }
+
+                            // Build summary
+                            final parts = <String>[];
+                            if (totalProductGrams > 0) {
+                              final formatted = totalProductGrams < 1
+                                  ? totalProductGrams.toStringAsFixed(2)
+                                  : totalProductGrams.toStringAsFixed(0);
+                              parts.add('${formatted}g');
+                            }
+
+                            // Add top kind amounts (limit to avoid clutter)
+                            if (kindSummaries.isNotEmpty) {
+                              final sortedKinds = kindSummaries.entries.toList()
+                                ..sort((a, b) => b.value.compareTo(a.value));
+                              for (final entry in sortedKinds.take(2)) {
+                                final k = registry.byId(entry.key);
+                                final unit = k?.unit ?? '';
+                                final formatted = entry.value < 1
+                                    ? entry.value.toStringAsFixed(2)
+                                    : entry.value.toStringAsFixed(0);
+                                parts.add('$formatted$unit');
+                              }
+                            }
+
+                            if (parts.isNotEmpty) {
+                              summary = parts.join(' • ');
+                            }
                           } else {
                             // For kinds, show amount with adaptive precision
                             final amount = (map['amount'] as num?)?.toDouble();
