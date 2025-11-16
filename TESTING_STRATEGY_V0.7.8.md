@@ -199,7 +199,43 @@ flutter run
 
 ---
 
+## 🤖 AUTOMATISIERTE TESTS (NEU!)
+
+**Datei**: `test/propagation_test.dart`
+
+Alle manuellen Tests sind jetzt automatisiert! Run mit:
+```bash
+flutter test test/propagation_test.dart
+```
+
+### Test Coverage
+
+1. ✅ **Product template propagation**
+   - Dynamic instances update
+   - Static instances unchanged
+   - Small values NOT nulled (regression test)
+
+2. ✅ **Recipe template propagation**
+   - Dynamic instances update
+   - Static instances unchanged
+   - Recursive propagation (recipe → product → nutrients)
+
+3. ✅ **Schema verification**
+   - recipe_id column populated
+   - listParentsByRecipeId works
+
+### Vorteile
+
+- **Schnell**: Alle Tests in ~2 Sekunden
+- **Reproduzierbar**: Gleiche Ergebnisse jeden Run
+- **Regression-Schutz**: Bugs wie integer division (~/) werden sofort gefangen
+- **CI-Ready**: Kann in GitHub Actions laufen
+
+---
+
 ## 📊 Test-Ergebnisse (LEER - zum Ausfüllen)
+
+### Manuelle Tests (optional, nach automatisierten Tests)
 
 | Test | Status | Notizen |
 |------|--------|---------|
@@ -210,3 +246,5 @@ flutter run
 | Test 6: Recursive aggregation | ⬜ | |
 
 Legende: ✅ Pass | ❌ Fail | ⬜ Not tested
+
+**Hinweis**: Automatisierte Tests (`flutter test`) sind jetzt verfügbar und sollten zuerst laufen!
