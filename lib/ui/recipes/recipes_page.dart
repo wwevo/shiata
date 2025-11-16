@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
+import '../../data/repo/products_repository.dart';
 import '../../data/repo/recipe_service.dart';
 import '../../data/repo/recipes_repository.dart';
+import '../../domain/widgets/registry.dart';
 import '../editors/recipe_template_editor_dialog.dart';
 import '../widgets/icon_resolver.dart';
 
@@ -61,7 +63,7 @@ class RecipesPage extends ConsumerWidget {
                           child: Icon(icon, color: Colors.white),
                         ),
                         title: Text(r.name),
-                        subtitle: Text(r.id),
+                        subtitle: _RecipeTemplateSummary(recipeId: r.id),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -139,5 +141,75 @@ class RecipesPage extends ConsumerWidget {
     final name = nameCtrl.text.trim();
     if (id.isEmpty || name.isEmpty) return null;
     return MapEntry(id, name);
+  }
+}
+
+/// Shows component summary for a recipe template (products + nutrients)
+class _RecipeTemplateSummary extends ConsumerWidget {
+  const _RecipeTemplateSummary({required this.recipeId});
+  final String recipeId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recipesRepo = ref.watch(recipesRepositoryProvider);
+    final productsRepo = ref.watch(productsRepositoryProvider);
+    final registry = ref.watch(widgetRegistryProvider);
+
+    if (recipesRepo == null || productsRepo == null) {
+      return Text(recipeId);
+    }
+
+    return FutureBuilder<List<RecipeComponentDef>>(
+      future: recipesRepo.getComponents(recipeId),
+      builder: (ctx, snapshot) {
+        if (!snapshot.hasData) {
+          return Text(recipeId);
+        }
+
+        final components = snapshot.data!;
+        if (components.isEmpty) {
+          return Text('$recipeId • No components');
+        }
+
+        // Aggregate components
+        double totalProductGrams = 0.0;
+        final kindSummaries = <String, double>{};
+
+        for (final comp in components) {
+          if (comp.type == RecipeComponentType.product) {
+            totalProductGrams += (comp.grams ?? 0).toDouble();
+          } else if (comp.type == RecipeComponentType.kind) {
+            kindSummaries[comp.compId] = (kindSummaries[comp.compId] ?? 0.0) + (comp.amount ?? 0.0);
+          }
+        }
+
+        // Build summary
+        final parts = <String>[];
+        if (totalProductGrams > 0) {
+          final formatted = totalProductGrams < 1
+              ? totalProductGrams.toStringAsFixed(2)
+              : totalProductGrams.toStringAsFixed(0);
+          parts.add('${formatted}g');
+        }
+
+        // Add top kind amounts
+        if (kindSummaries.isNotEmpty) {
+          final sortedKinds = kindSummaries.entries.toList()
+            ..sort((a, b) => b.value.compareTo(a.value));
+          for (final entry in sortedKinds.take(2)) {
+            final kind = registry.byId(entry.key);
+            final kindName = kind?.displayName ?? entry.key;
+            final unit = kind?.unit ?? '';
+            final formatted = entry.value < 1
+                ? entry.value.toStringAsFixed(2)
+                : entry.value.toStringAsFixed(0);
+            parts.add('$kindName: $formatted$unit');
+          }
+        }
+
+        final summary = parts.isEmpty ? recipeId : parts.join(' • ');
+        return Text(summary);
+      },
+    );
   }
 }

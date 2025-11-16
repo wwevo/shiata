@@ -340,11 +340,12 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                                 ..sort((a, b) => b.value.compareTo(a.value));
                               for (final entry in sortedKinds.take(2)) {
                                 final k = registry.byId(entry.key);
+                                final kindName = k?.displayName ?? entry.key;
                                 final unit = k?.unit ?? '';
                                 final formatted = entry.value < 1
                                     ? entry.value.toStringAsFixed(2)
                                     : entry.value.toStringAsFixed(0);
-                                parts.add('$formatted$unit');
+                                parts.add('$kindName: $formatted$unit');
                               }
                             }
 

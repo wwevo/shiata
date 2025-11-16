@@ -91,11 +91,12 @@ class DayDetailsPanel extends ConsumerWidget {
           ..sort((a, b) => b.value.compareTo(a.value));
         for (final entry in sortedKinds.take(2)) {
           final kind = registry.byId(entry.key);
+          final kindName = kind?.displayName ?? entry.key;
           final unit = kind?.unit ?? '';
           final formatted = entry.value < 1
               ? entry.value.toStringAsFixed(2)
               : entry.value.toStringAsFixed(0);
-          parts.add('$formatted$unit');
+          parts.add('$kindName: $formatted$unit');
         }
       }
 

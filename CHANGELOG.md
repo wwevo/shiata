@@ -13,10 +13,11 @@
   - Values ≥ 1 show 0 decimal places (e.g., "100mg" instead of "100.00mg")
   - Applied consistently across calendar view, weekly overview, child rows, and search
 - **Recipe instances**: Now display component weight summaries with recursive aggregation
-  - Shows total product grams plus top 2 nutrient kinds with amounts
+  - Shows total product grams plus top 2 nutrient kinds with **labels**
   - **Recursive**: Nutrients from products within recipes are now included
-  - Format example: "Breakfast Smoothie • 250g • 30g • 500mg"
-  - Applied to calendar view and weekly overview (search shows name only for performance)
+  - Format example: "Breakfast Smoothie • 250g • Protein: 30g • Vitamin C: 500mg"
+  - Applied to calendar view, weekly overview, and recipe templates page
+  - Search shows name only (performance optimization)
 
 ### Changed
 - **Documentation**: Simplified claude.md from 119 to 66 lines
