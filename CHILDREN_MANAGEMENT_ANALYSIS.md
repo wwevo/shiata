@@ -342,19 +342,34 @@ Future<void> resetRecipeInstanceToTemplate(String entryId) async {
 - Updated `RecipeService.createRecipeEntry()` to populate `recipe_id` field (`recipe_service.dart:40`)
 - Updated `deleteRecipeTemplate()` to use new query method instead of JSON extraction (`recipe_service.dart:87`)
 
-### Phase 2: Core Services
-- [ ] Create `ProductHierarchyService`
-  - [ ] `getProductInstance()`
-  - [ ] `aggregateNutrients()`
-  - [ ] `resetToTemplate()`
-  - [ ] `propagateTemplateChange()`
-- [ ] Create `RecipeHierarchyService`
-  - [ ] `getRecipeInstance()`
-  - [ ] `aggregateNutrients()` (recursive!)
-  - [ ] `resetToTemplate()`
-  - [ ] `propagateTemplateChange()`
-- [ ] Create shared `NutrientSummary` class
+### Phase 2: Core Services ✅
+- [x] Create `ProductHierarchyService`
+  - [x] `getProductInstance()`
+  - [x] `aggregateNutrients()`
+  - [x] `resetToTemplate()`
+  - [x] `propagateTemplateChange()`
+- [x] Create `RecipeHierarchyService`
+  - [x] `getRecipeInstance()`
+  - [x] `aggregateNutrients()` (recursive!)
+  - [x] `resetToTemplate()`
+  - [x] `propagateTemplateChange()`
+- [x] Create shared `NutrientSummary` class
 - [ ] Unit tests for all methods
+
+**Implementation Notes**:
+- Created `NutrientSummary` class with unit normalization and formatting (`nutrient_summary.dart`)
+  - `getTopNutrients(n)`: Sort by normalized values
+  - `format(registry)`: Format with labels (e.g., "250g • Protein: 30g")
+  - `normalizeToGrams(value, unit)`: Convert mg/µg to grams for comparison
+- Created `ProductHierarchyService` (`product_hierarchy_service.dart`)
+  - Direct children aggregation only (no recursion)
+  - Reset static instances to template
+  - Propagate template changes to non-static instances
+- Created `RecipeHierarchyService` (`recipe_hierarchy_service.dart`)
+  - RECURSIVE aggregation through products
+  - Handles both kind and product children
+  - Reset and propagation logic for recipe instances
+  - Uses `ProductHierarchyService` for product hierarchy traversal
 
 ### Phase 3: Integrate Propagation
 - [ ] Hook into Product Template Editor
