@@ -131,9 +131,11 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
               final messenger = ScaffoldMessenger.of(context);
               // Restore old components and re-propagate
               await repo.setComponents(widget.productId, old);
+              if (!mounted) return;
               await svc.updateAllEntriesForProductToCurrentFormula(widget.productId);
               if (!mounted) return;
               await _load();
+              if (!mounted) return;
               messenger.showSnackBar(const SnackBar(content: Text('Reverted template changes')));
             },
           ),

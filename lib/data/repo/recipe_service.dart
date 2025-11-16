@@ -22,6 +22,7 @@ class RecipeService {
     Map<String, double>? kindOverrides,
     Map<String, int>? productGramOverrides,
     bool showParentInCalendar = true,
+    bool isStatic = false,
   }) async {
     final def = await recipes.getRecipe(recipeId);
     if (def == null) return null;
@@ -38,7 +39,7 @@ class RecipeService {
       showInCalendar: showParentInCalendar,
       schemaVersion: 1,
       recipeId: recipeId,
-      isStatic: true,
+      isStatic: isStatic,
     );
 
     // Create children

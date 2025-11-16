@@ -143,9 +143,11 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
               final messenger = ScaffoldMessenger.of(context);
               // Restore old components and re-propagate
               await repo.setComponents(widget.recipeId, old);
+              if (!mounted) return;
               await svc.propagateTemplateChange(widget.recipeId);
               if (!mounted) return;
               await _load();
+              if (!mounted) return;
               messenger.showSnackBar(const SnackBar(content: Text('Reverted template changes')));
             },
           ),

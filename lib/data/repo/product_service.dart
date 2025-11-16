@@ -130,7 +130,7 @@ class ProductService {
       // Update parent payload grams (keep as-is) and recreate children
       await entries.deleteChildrenOfParent(parent.id);
       for (final c in comps) {
-        final amount = (c.amountPerGram * grams) ~/ 100;
+        final amount = (c.amountPerGram * grams) / 100.0;
         await entries.create(
           widgetKind: c.kindId,
           targetAtLocal: DateTime.fromMillisecondsSinceEpoch(parent.targetAt, isUtc: true).toLocal(),
