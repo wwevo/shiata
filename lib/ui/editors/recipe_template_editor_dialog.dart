@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../data/repo/products_repository.dart';
+import '../../data/repo/recipe_hierarchy_service.dart';
 import '../../data/repo/recipes_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
@@ -111,9 +112,49 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
         ));
       }
     }
+    // Capture old components for Undo
+    final old = await repo.getComponents(widget.recipeId);
     await repo.setComponents(widget.recipeId, updatedComponents);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved recipe')));
+
+    // Ask to propagate to non-static instances
+    final svc = ref.read(recipeHierarchyServiceProvider);
+    final doProp = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Update existing entries?'),
+        content: const Text('Apply these changes to all non-static recipe instances?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('No')),
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Yes')),
+        ],
+      ),
+    );
+    if (doProp == true && svc != null) {
+      await svc.propagateTemplateChange(widget.recipeId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Updated existing recipe instances'),
+          action: SnackBarAction(
+            label: 'UNDO',
+            onPressed: () async {
+              // Capture messenger before any awaits to avoid using context across async gaps
+              final messenger = ScaffoldMessenger.of(context);
+              // Restore old components and re-propagate
+              await repo.setComponents(widget.recipeId, old);
+              await svc.propagateTemplateChange(widget.recipeId);
+              if (!mounted) return;
+              await _load();
+              messenger.showSnackBar(const SnackBar(content: Text('Reverted template changes')));
+            },
+          ),
+        ),
+      );
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved recipe template')));
+    }
     if (mounted) setState(() => _saving = false);
     if (closeAfter && mounted) {
       Navigator.of(context).pop();

@@ -371,12 +371,23 @@ Future<void> resetRecipeInstanceToTemplate(String entryId) async {
   - Reset and propagation logic for recipe instances
   - Uses `ProductHierarchyService` for product hierarchy traversal
 
-### Phase 3: Integrate Propagation
-- [ ] Hook into Product Template Editor
-  - On save: Call `propagateProductTemplateChange()`
-- [ ] Hook into Recipe Template Editor
-  - On save: Call `propagateRecipeTemplateChange()`
-- [ ] Add user feedback (e.g., "Updated 5 instances")
+### Phase 3: Integrate Propagation ✅
+- [x] Hook into Product Template Editor
+  - Already implemented using `ProductService.updateAllEntriesForProductToCurrentFormula()`
+  - Includes user confirmation and undo support
+- [x] Hook into Recipe Template Editor
+  - On save: Call `RecipeHierarchyService.propagateTemplateChange()`
+  - Added user confirmation dialog
+  - Added undo support with template restoration
+- [x] Add user feedback (e.g., "Updated existing recipe instances")
+
+**Implementation Notes**:
+- Product template editor already had propagation logic (using ProductService)
+- Added propagation to recipe template editor (`recipe_template_editor_dialog.dart:120-162`)
+  - User confirmation before propagation
+  - Undo support that restores old components and re-propagates
+  - Consistent UX with product editor
+- Both editors now support template change propagation to non-static instances
 
 ### Phase 4: Migrate Views
 - [ ] Replace manual aggregation in `weekly_overview_panel.dart`
