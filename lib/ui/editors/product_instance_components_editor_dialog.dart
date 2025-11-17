@@ -72,6 +72,11 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
 
   Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
     setState(() => _saving = true);
+
+    // Capture context-dependent objects BEFORE any async operations
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     final repo = ref.read(entriesRepositoryProvider);
     final registry = ref.read(widgetRegistryProvider);
     if (repo == null) {

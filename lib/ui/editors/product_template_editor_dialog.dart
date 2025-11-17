@@ -71,6 +71,11 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
 
   Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
     setState(() => _saving = true);
+
+    // Capture context-dependent objects BEFORE any async operations
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
     final repo = ref.read(productsRepositoryProvider);
     final svc = ref.read(productServiceProvider);
     if (repo == null) {
