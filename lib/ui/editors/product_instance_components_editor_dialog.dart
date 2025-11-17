@@ -134,9 +134,6 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
     _pendingDeletes.clear();
 
     if (!mounted) return;
-    // Capture context-dependent objects before using them
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
     messenger.showSnackBar(const SnackBar(content: Text('Updated components (instance is now Static)')));
     if (mounted) setState(() => _saving = false);
     if (closeAfter && mounted) {

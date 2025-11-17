@@ -107,9 +107,6 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
     await repo.setComponents(widget.productId, updatedComponents);
     if (!mounted) return;
     // Ask to propagate to non-static instances
-    // Capture context before async gap
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     final doProp = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

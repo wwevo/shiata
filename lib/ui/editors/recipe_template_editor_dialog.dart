@@ -118,9 +118,6 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
     if (!mounted) return;
 
     // Ask to propagate to non-static instances
-    // Capture context before async gap
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     final svc = ref.read(recipeHierarchyServiceProvider);
     final doProp = await showDialog<bool>(
       context: context,
