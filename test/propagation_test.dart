@@ -73,15 +73,24 @@ void main() {
     });
 
     test('Product template change: dynamic instance UPDATES, static instance UNCHANGED', () async {
+      print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('📋 TEST: Product Template Propagation (Dynamic vs Static)');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
 
       // Setup: Product template with 5mg vitamin C per 100g
+      print('🔧 SETUP PHASE');
+      print('   Creating product template: "banana"');
+      print('   Initial composition: 5mg vitamin C per 100g');
       await products.upsertProduct(ProductDef(id: 'banana', name: 'Banana', createdAt: now, updatedAt: now));
       await products.setComponents('banana', [
         ProductComponent(productId: 'banana', kindId: 'vitamin_c', amountPerGram: 5.0), // 5mg per 100g
       ]);
+      print('   ✓ Template created\n');
 
       // Create 2 instances: 1 dynamic, 1 static (both 100g)
+      print('   Creating 2 instances (both 100g):');
       final target = DateTime.now();
       final dynamicId = await productService.createProductEntry(
         productId: 'banana',
@@ -89,14 +98,19 @@ void main() {
         targetAtLocal: target,
         isStatic: false, // DYNAMIC
       );
+      print('   • Dynamic instance: $dynamicId');
+
       final staticId = await productService.createProductEntry(
         productId: 'banana',
         productGrams: 100,
         targetAtLocal: target,
         isStatic: true, // STATIC
       );
+      print('   • Static instance: $staticId');
+      print('   ✓ Instances created\n');
 
       // Verify initial values (both should have 5mg)
+      print('🔍 INITIAL STATE VERIFICATION');
       var dynamicChildren = await entries.listChildrenOfParent(dynamicId!);
       var staticChildren = await entries.listChildrenOfParent(staticId!);
       expect(dynamicChildren.length, 1);
@@ -104,26 +118,47 @@ void main() {
 
       var dynamicPayload = jsonDecode(dynamicChildren.first.payloadJson) as Map<String, dynamic>;
       var staticPayload = jsonDecode(staticChildren.first.payloadJson) as Map<String, dynamic>;
-      expect(dynamicPayload['amount'], 5.0); // 100g * 0.05 = 5mg
+
+      print('   Dynamic instance nutrient: ${dynamicPayload['amount']}mg vitamin C');
+      print('   Static instance nutrient:  ${staticPayload['amount']}mg vitamin C');
+      expect(dynamicPayload['amount'], 5.0); // 100g * 5.0/100 = 5mg
       expect(staticPayload['amount'], 5.0);
+      print('   ✓ Both instances have 5mg (as expected)\n');
 
       // Change template to 10mg per 100g
+      print('🔄 TEMPLATE CHANGE');
+      print('   Changing template: 5mg → 10mg per 100g');
       await products.setComponents('banana', [
         ProductComponent(productId: 'banana', kindId: 'vitamin_c', amountPerGram: 10.0), // 10mg per 100g
       ]);
+      print('   ✓ Template updated\n');
 
       // Propagate changes
+      print('✨ PROPAGATION');
+      print('   Calling propagateTemplateChange("banana")...');
       await productHierarchyService.propagateTemplateChange('banana');
+      print('   ✓ Propagation complete\n');
 
       // Verify: dynamic updated, static unchanged
+      print('🎯 FINAL STATE VERIFICATION');
       dynamicChildren = await entries.listChildrenOfParent(dynamicId);
       staticChildren = await entries.listChildrenOfParent(staticId);
 
       dynamicPayload = jsonDecode(dynamicChildren.first.payloadJson) as Map<String, dynamic>;
       staticPayload = jsonDecode(staticChildren.first.payloadJson) as Map<String, dynamic>;
 
+      print('   Dynamic instance nutrient: ${dynamicPayload['amount']}mg vitamin C');
+      print('   Static instance nutrient:  ${staticPayload['amount']}mg vitamin C\n');
+
+      print('📊 HYPOTHESIS vs ACTUAL:');
+      print('   Expected: Dynamic=10mg, Static=5mg');
+      print('   Actual:   Dynamic=${dynamicPayload['amount']}mg, Static=${staticPayload['amount']}mg\n');
+
       expect(dynamicPayload['amount'], 10.0, reason: 'Dynamic instance should update to 10mg');
       expect(staticPayload['amount'], 5.0, reason: 'Static instance should remain 5mg');
+
+      print('✅ TEST PASSED: Dynamic updated, static unchanged as expected');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
 
     test('Product template change: small values NOT NULLED (bug regression test)', () async {
