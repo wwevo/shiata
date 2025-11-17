@@ -26,6 +26,7 @@ import '../../data/repo/entries_repository.dart';
 import '../../data/repo/product_service.dart';
 import '../../data/repo/recipe_service.dart';
 import '../../domain/widgets/registry.dart';
+import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
 import '../editors/kind_instance_editor_dialog.dart';
 import '../editors/product_instance_editor_dialog.dart';
@@ -238,7 +239,7 @@ class EntryListItemFactory {
   }
 
   /// Extracts kind title with amount (displayName • amount unit)
-  static String _extractKindTitle(EntryRecord entry, Kind? kind) {
+  static String _extractKindTitle(EntryRecord entry, WidgetKind? kind) {
     String summary = '';
     try {
       final map = jsonDecode(entry.payloadJson) as Map<String, dynamic>;

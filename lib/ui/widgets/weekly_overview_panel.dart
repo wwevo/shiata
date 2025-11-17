@@ -8,7 +8,6 @@ import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../main_screen_providers.dart';
-import '../ux_config.dart';
 import 'entry_list_item_factory.dart';
 
 // Provider for selected kinds filter (which kinds to show in pie chart)
@@ -28,7 +27,6 @@ class WeeklyOverviewPanel extends ConsumerWidget {
     final searchQuery = ref.watch(searchQueryProvider);
     final registry = ref.watch(widgetRegistryProvider);
     final theme = Theme.of(context);
-    final uxConfig = ref.watch(uxConfigProvider);
 
     if (repo == null) {
       return const Center(child: Text('Repository not available'));
@@ -137,21 +135,20 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                     child: Wrap(
                       spacing: 8,
                       runSpacing: 4,
-                      children: uxConfig.kindsForChart
-                          .where((kindId) => availableKindIds.contains(kindId))
-                          .map((kindId) {
-                        final kind = registry.byId(kindId);
-                        final isSelected = selectedKinds.contains(kindId);
+                      children: registry.kinds
+                          .where((kind) => availableKindIds.contains(kind.id))
+                          .map((kind) {
+                        final isSelected = selectedKinds.contains(kind.id);
 
                         return FilterChip(
-                          label: Text(kind?.displayName ?? kindId),
+                          label: Text(kind.displayName),
                           selected: isSelected,
                           onSelected: (selected) {
                             final newSet = {...selectedKinds};
                             if (selected) {
-                              newSet.add(kindId);
+                              newSet.add(kind.id);
                             } else {
-                              newSet.remove(kindId);
+                              newSet.remove(kind.id);
                             }
                             ref.read(selectedKindsForChartProvider.notifier).state = newSet;
                           },

@@ -24,7 +24,7 @@ class DayDetailsPanel extends ConsumerWidget {
     }
 
     // Use context-aware search: search only the selected day
-    final entriesStream = searchService.searchEntriesForDay(selected, searchQuery);
+    final entriesStream = searchService.searchEntriesForDay(searchQuery, selected);
 
     return StreamBuilder<List<EntryRecord>>(
       stream: entriesStream,
