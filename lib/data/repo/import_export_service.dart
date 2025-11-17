@@ -20,6 +20,7 @@ class ImportResult {
     required this.componentsWritten,
     required this.warnings,
   });
+
   final int kindsUpserted;
   final int productsUpserted;
   final int recipesUpserted;
@@ -28,7 +29,14 @@ class ImportResult {
 }
 
 class ImportExportService {
-  ImportExportService({required this.db, required this.kinds, required this.products, required this.recipes, required this.entries});
+  ImportExportService({
+    required this.db,
+    required this.kinds,
+    required this.products,
+    required this.recipes,
+    required this.entries,
+  });
+
   final AppDb db;
   final KindsRepository kinds;
   final ProductsRepository products;
@@ -92,22 +100,26 @@ class ImportExportService {
       final color = colorVal is int
           ? colorVal
           : (colorVal is String && int.tryParse(colorVal) != null)
-              ? int.parse(colorVal)
-              : null;
+          ? int.parse(colorVal)
+          : null;
       final icon = (item['icon'] as String?)?.trim();
       final min = _asInt(item['min']) ?? 0;
       final max = _asInt(item['max']) ?? 0;
-      final defaultShow = item['defaultShowInCalendar'] == true || item['defaultShowInCalendar'] == 1;
-      await kinds.upsertKind(KindDef(
-        id: id,
-        name: name,
-        unit: unit,
-        color: color,
-        icon: (icon == null || icon.isEmpty) ? null : icon,
-        min: min,
-        max: max,
-        defaultShowInCalendar: defaultShow,
-      ));
+      final defaultShow =
+          item['defaultShowInCalendar'] == true ||
+          item['defaultShowInCalendar'] == 1;
+      await kinds.upsertKind(
+        KindDef(
+          id: id,
+          name: name,
+          unit: unit,
+          color: color,
+          icon: (icon == null || icon.isEmpty) ? null : icon,
+          min: min,
+          max: max,
+          defaultShowInCalendar: defaultShow,
+        ),
+      );
       kindsUpserted++;
     }
 
@@ -118,12 +130,9 @@ class ImportExportService {
       if (item is! Map) continue;
       final id = (item['id'] ?? '').toString().trim();
       final name = (item['name'] ?? '').toString().trim();
-      await products.upsertProduct(ProductDef(
-        id: id,
-        name: name,
-        createdAt: now,
-        updatedAt: now,
-      ));
+      await products.upsertProduct(
+        ProductDef(id: id, name: name, createdAt: now, updatedAt: now),
+      );
       productsUpserted++;
 
       final comps = <ProductComponent>[];
@@ -132,8 +141,16 @@ class ImportExportService {
         if (c is! Map) continue;
         final kindId = (c['kindId'] ?? '').toString().trim();
         final per100Raw = c['per100'];
-        final per100 = (per100Raw is num) ? per100Raw.toDouble() : double.tryParse(per100Raw?.toString() ?? '0') ?? 0.0;
-        comps.add(ProductComponent(productId: id, kindId: kindId, amountPerGram: per100));
+        final per100 = (per100Raw is num)
+            ? per100Raw.toDouble()
+            : double.tryParse(per100Raw?.toString() ?? '0') ?? 0.0;
+        comps.add(
+          ProductComponent(
+            productId: id,
+            kindId: kindId,
+            amountPerGram: per100,
+          ),
+        );
       }
       await products.setComponents(id, comps);
       componentsWritten += comps.length;
@@ -153,17 +170,19 @@ class ImportExportService {
       final color = colorVal is int
           ? colorVal
           : (colorVal is String && int.tryParse(colorVal) != null)
-              ? int.parse(colorVal)
-              : null;
-      await recipes.upsertRecipe(RecipeDef(
-        id: id,
-        name: name,
-        createdAt: createdAt,
-        updatedAt: updatedAt,
-        isActive: isActive,
-        icon: (icon == null || icon.isEmpty) ? null : icon,
-        color: color,
-      ));
+          ? int.parse(colorVal)
+          : null;
+      await recipes.upsertRecipe(
+        RecipeDef(
+          id: id,
+          name: name,
+          createdAt: createdAt,
+          updatedAt: updatedAt,
+          isActive: isActive,
+          icon: (icon == null || icon.isEmpty) ? null : icon,
+          color: color,
+        ),
+      );
       recipesUpserted++;
 
       final comps = <RecipeComponentDef>[];
@@ -174,11 +193,25 @@ class ImportExportService {
         final compId = (c['compId'] ?? '').toString().trim();
         if (type == 'kind') {
           final amountRaw = c['amount'];
-          final amount = (amountRaw is num) ? amountRaw.toDouble() : double.tryParse(amountRaw?.toString() ?? '0') ?? 0.0;
-          comps.add(RecipeComponentDef.kind(recipeId: id, compId: compId, amount: amount));
+          final amount = (amountRaw is num)
+              ? amountRaw.toDouble()
+              : double.tryParse(amountRaw?.toString() ?? '0') ?? 0.0;
+          comps.add(
+            RecipeComponentDef.kind(
+              recipeId: id,
+              compId: compId,
+              amount: amount,
+            ),
+          );
         } else if (type == 'product') {
           final gramsVal = _asInt(c['grams']) ?? 0;
-          comps.add(RecipeComponentDef.product(recipeId: id, compId: compId, grams: gramsVal));
+          comps.add(
+            RecipeComponentDef.product(
+              recipeId: id,
+              compId: compId,
+              grams: gramsVal,
+            ),
+          );
         }
       }
       await recipes.setComponents(id, comps);
@@ -273,11 +306,8 @@ class ImportExportService {
           'name': p.name,
           'components': [
             for (final c in comps)
-              {
-                'kindId': c.kindId,
-                'per100': c.amountPerGram,
-              }
-          ]
+              {'kindId': c.kindId, 'per100': c.amountPerGram},
+          ],
         });
       }
     }
@@ -302,8 +332,8 @@ class ImportExportService {
                 'compId': c.compId,
                 'amount': c.amount,
                 'grams': c.grams,
-              }
-          ]
+              },
+          ],
         });
       }
     }
@@ -338,7 +368,10 @@ class ImportExportService {
   }
 
   /// Save any bundle to a file. Returns the full path.
-  Future<String> saveBundleToFile(Map<String, Object?> bundle, {String fileName = 'export.json'}) async {
+  Future<String> saveBundleToFile(
+    Map<String, Object?> bundle, {
+    String fileName = 'export.json',
+  }) async {
     final encoder = const JsonEncoder.withIndent('  ');
     final text = encoder.convert(bundle);
     final dirPath = await _appDocsDirPath();
@@ -374,7 +407,11 @@ class ImportExportService {
 
   EntryRecord _entryFromMap(Map raw) {
     int asInt(Object? v) => _asInt(v) ?? 0;
-    bool asBool(Object? v) => (v is bool) ? v : (v is num) ? v != 0 : v == '1' || v == 'true';
+    bool asBool(Object? v) => (v is bool)
+        ? v
+        : (v is num)
+        ? v != 0
+        : v == '1' || v == 'true';
     return EntryRecord(
       id: (raw['id'] ?? '').toString(),
       widgetKind: (raw['widget_kind'] ?? '').toString(),
@@ -384,10 +421,17 @@ class ImportExportService {
       payloadJson: (raw['payload_json'] ?? '{}').toString(),
       schemaVersion: asInt(raw['schema_version']),
       updatedAt: asInt(raw['updated_at']),
-      sourceEventId: (raw['source_event_id'] as String?) ?? (raw['sourceEventId'] as String?),
-      sourceEntryId: (raw['source_entry_id'] as String?) ?? (raw['sourceEntryId'] as String?),
-      sourceWidgetKind: (raw['source_widget_kind'] as String?) ?? (raw['sourceWidgetKind'] as String?),
-      productId: (raw['product_id'] as String?) ?? (raw['productId'] as String?),
+      sourceEventId:
+          (raw['source_event_id'] as String?) ??
+          (raw['sourceEventId'] as String?),
+      sourceEntryId:
+          (raw['source_entry_id'] as String?) ??
+          (raw['sourceEntryId'] as String?),
+      sourceWidgetKind:
+          (raw['source_widget_kind'] as String?) ??
+          (raw['sourceWidgetKind'] as String?),
+      productId:
+          (raw['product_id'] as String?) ?? (raw['productId'] as String?),
       productGrams: _asInt(raw['product_grams']),
       isStatic: asBool(raw['is_static']),
     );
@@ -408,6 +452,14 @@ final importExportServiceProvider = Provider<ImportExportService?>((ref) {
   final pr = ref.watch(productsRepositoryProvider);
   final rr = ref.watch(recipesRepositoryProvider);
   final er = ref.watch(entriesRepositoryProvider);
-  if (db == null || kr == null || pr == null || rr == null || er == null) return null;
-  return ImportExportService(db: db, kinds: kr, products: pr, recipes: rr, entries: er);
+  if (db == null || kr == null || pr == null || rr == null || er == null) {
+    return null;
+  }
+  return ImportExportService(
+    db: db,
+    kinds: kr,
+    products: pr,
+    recipes: rr,
+    entries: er,
+  );
 });

@@ -55,7 +55,8 @@ class RecipeHierarchyService {
 
     for (final child in children) {
       if (child.widgetKind == 'product') {
-        final productHierarchy = await productHierarchyService?.getProductInstance(child.id);
+        final productHierarchy = await productHierarchyService
+            ?.getProductInstance(child.id);
         if (productHierarchy != null) {
           productChildren.add(productHierarchy);
         }
@@ -91,13 +92,15 @@ class RecipeHierarchyService {
         final amount = (payload['amount'] as num?)?.toDouble() ?? 0.0;
 
         // Sum original amounts
-        nutrientsByKind[entry.widgetKind] = (nutrientsByKind[entry.widgetKind] ?? 0.0) + amount;
+        nutrientsByKind[entry.widgetKind] =
+            (nutrientsByKind[entry.widgetKind] ?? 0.0) + amount;
 
         // Normalize for comparison
         final kind = registry.byId(entry.widgetKind);
         final unit = kind?.unit ?? '';
         final normalized = NutrientSummary.normalizeToGrams(amount, unit);
-        normalizedNutrients[entry.widgetKind] = (normalizedNutrients[entry.widgetKind] ?? 0.0) + normalized;
+        normalizedNutrients[entry.widgetKind] =
+            (normalizedNutrients[entry.widgetKind] ?? 0.0) + normalized;
       }
     }
 
@@ -107,7 +110,8 @@ class RecipeHierarchyService {
     // 2. Aggregate from product children (RECURSIVE)
     for (final productHierarchy in hierarchy.productChildren) {
       // Add product weight
-      totalProductGrams += productHierarchy.parent.productGrams?.toDouble() ?? 0.0;
+      totalProductGrams +=
+          productHierarchy.parent.productGrams?.toDouble() ?? 0.0;
 
       // Aggregate nutrients from product's children (grandchildren of recipe)
       aggregateFromEntries(productHierarchy.nutrientChildren);
@@ -138,7 +142,10 @@ class RecipeHierarchyService {
     await entries.deleteChildrenOfParent(recipeEntryId);
 
     // Recreate from template
-    final targetAt = DateTime.fromMillisecondsSinceEpoch(entry.targetAt, isUtc: true).toLocal();
+    final targetAt = DateTime.fromMillisecondsSinceEpoch(
+      entry.targetAt,
+      isUtc: true,
+    ).toLocal();
     final comps = await recipes.getComponents(entry.recipeId!);
 
     // Recreate children using recipe service logic
@@ -196,7 +203,10 @@ class RecipeHierarchyService {
         // Reset and recreate from template
         await entries.deleteChildrenOfParent(instance.id);
 
-        final targetAt = DateTime.fromMillisecondsSinceEpoch(instance.targetAt, isUtc: true).toLocal();
+        final targetAt = DateTime.fromMillisecondsSinceEpoch(
+          instance.targetAt,
+          isUtc: true,
+        ).toLocal();
         final comps = await recipes.getComponents(recipeId);
 
         for (final c in comps) {

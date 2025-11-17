@@ -22,11 +22,7 @@ class MyApp extends StatelessWidget {
       ),
       home: const DbLifecycleObserver(
         child: Scaffold(
-          body: SafeArea(
-            top: true,
-            bottom: false,
-            child: MainScreen(),
-          ),
+          body: SafeArea(top: true, bottom: false, child: MainScreen()),
           bottomNavigationBar: BottomControls(),
         ),
       ),

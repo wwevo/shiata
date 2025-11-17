@@ -8,7 +8,12 @@ import 'calendar_sheet.dart';
 
 // Hosts the top calendar sheet and overlaps it above the middle content using a Stack.
 class TopSheetHost extends StatefulWidget {
-  const TopSheetHost({super.key, required this.childBelow, required this.config});
+  const TopSheetHost({
+    super.key,
+    required this.childBelow,
+    required this.config,
+  });
+
   final Widget childBelow; // Middle panel under the sheet
   final UXConfig config;
 
@@ -16,22 +21,31 @@ class TopSheetHost extends StatefulWidget {
   State<TopSheetHost> createState() => TopSheetHostState();
 }
 
-class TopSheetHostState extends State<TopSheetHost> with SingleTickerProviderStateMixin {
+class TopSheetHostState extends State<TopSheetHost>
+    with SingleTickerProviderStateMixin {
   // Drag state for visual guidance & haptics.
   bool _isDragging = false;
   bool _hasCrossed = false; // crossed threshold upwards during current drag
 
   late final AnimationController _controller;
+
   // t in [0..1], 0=collapsed, 1=expanded
   double get t => _controller.value;
+
   double get _expanded => widget.config.topSheet.expandedHeight;
+
   double get _collapsed => widget.config.topSheet.collapsedHeight;
+
   double get height => lerpDouble(_collapsed, _expanded, t)!;
+
   bool get isExpanded => t >= 0.999;
+
   bool get isCollapsed => t <= 0.001;
 
   Thresholds get _thresholds => widget.config.thresholds;
+
   AnimationsConfig get _anim => widget.config.animations;
+
   HapticsConfig get _haptics => widget.config.haptics;
 
   @override
@@ -46,13 +60,19 @@ class TopSheetHostState extends State<TopSheetHost> with SingleTickerProviderSta
 
   void expand() {
     if (isExpanded) return;
-    if (_controller.isAnimating && _controller.status == AnimationStatus.forward) return;
+    if (_controller.isAnimating &&
+        _controller.status == AnimationStatus.forward) {
+      return;
+    }
     _controller.fling(velocity: 2.2);
   }
 
   void collapse() {
     if (isCollapsed) return;
-    if (_controller.isAnimating && _controller.status == AnimationStatus.reverse) return;
+    if (_controller.isAnimating &&
+        _controller.status == AnimationStatus.reverse) {
+      return;
+    }
     _controller.fling(velocity: -2.2);
   }
 
@@ -146,11 +166,19 @@ class TopSheetHostState extends State<TopSheetHost> with SingleTickerProviderSta
     // Slider-style settle: ignore velocity. Open only if the threshold is reached; otherwise close.
     if (t >= _thresholds.openKeepFraction) {
       if (!isExpanded) {
-        _controller.animateTo(1.0, duration: _anim.settleOpenDuration, curve: _anim.expandCurve);
+        _controller.animateTo(
+          1.0,
+          duration: _anim.settleOpenDuration,
+          curve: _anim.expandCurve,
+        );
       }
     } else {
       if (!isCollapsed) {
-        _controller.animateTo(0.0, duration: _anim.settleCloseDuration, curve: _anim.collapseCurve);
+        _controller.animateTo(
+          0.0,
+          duration: _anim.settleCloseDuration,
+          curve: _anim.collapseCurve,
+        );
       }
     }
     // Reset haptic gate for next drag sequence.
@@ -181,11 +209,11 @@ class TopSheetHostState extends State<TopSheetHost> with SingleTickerProviderSta
               height: height,
               child: RepaintBoundary(
                 child: CalendarSheet(
-                t: t,
-                config: widget.config,
-                isActive: _isDragging && t >= _thresholds.openKeepFraction,
-                onHandleTap: toggle,
-              ),
+                  t: t,
+                  config: widget.config,
+                  isActive: _isDragging && t >= _thresholds.openKeepFraction,
+                  onHandleTap: toggle,
+                ),
               ),
             ),
           ],

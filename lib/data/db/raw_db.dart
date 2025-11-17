@@ -20,19 +20,19 @@ class AppDb extends GeneratedDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) async {
-          // Create all objects
-          await ensureInitialized();
-        },
-        onUpgrade: (m, from, to) async {
-          // Apply lightweight migrations inside ensureInitialized
-          await ensureInitialized();
-        },
-        beforeOpen: (details) async {
-          // Ensure indexes and seeds exist
-          await ensureInitialized();
-        },
-      );
+    onCreate: (m) async {
+      // Create all objects
+      await ensureInitialized();
+    },
+    onUpgrade: (m, from, to) async {
+      // Apply lightweight migrations inside ensureInitialized
+      await ensureInitialized();
+    },
+    beforeOpen: (details) async {
+      // Ensure indexes and seeds exist
+      await ensureInitialized();
+    },
+  );
 
   /// Create tables if they don't exist and apply lightweight migrations.
   Future<void> ensureInitialized() async {
@@ -55,18 +55,28 @@ class AppDb extends GeneratedDatabase {
 
     // Lightweight column additions for 0.3.0 — check columns and add if missing
     final cols = await customSelect('PRAGMA table_info(entries);').get();
-    final colNames = cols.map((r) => (r.data['name'] as String).toLowerCase()).toSet();
+    final colNames = cols
+        .map((r) => (r.data['name'] as String).toLowerCase())
+        .toSet();
     if (!colNames.contains('product_id')) {
-      await customStatement('ALTER TABLE entries ADD COLUMN product_id TEXT NULL;');
+      await customStatement(
+        'ALTER TABLE entries ADD COLUMN product_id TEXT NULL;',
+      );
     }
     if (!colNames.contains('product_grams')) {
-      await customStatement('ALTER TABLE entries ADD COLUMN product_grams INTEGER NULL;');
+      await customStatement(
+        'ALTER TABLE entries ADD COLUMN product_grams INTEGER NULL;',
+      );
     }
     if (!colNames.contains('is_static')) {
-      await customStatement('ALTER TABLE entries ADD COLUMN is_static INTEGER NOT NULL DEFAULT 0;');
+      await customStatement(
+        'ALTER TABLE entries ADD COLUMN is_static INTEGER NOT NULL DEFAULT 0;',
+      );
     }
     if (!colNames.contains('recipe_id')) {
-      await customStatement('ALTER TABLE entries ADD COLUMN recipe_id TEXT NULL;');
+      await customStatement(
+        'ALTER TABLE entries ADD COLUMN recipe_id TEXT NULL;',
+      );
     }
 
     // kinds table (0.4.0)

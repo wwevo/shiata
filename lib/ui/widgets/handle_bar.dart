@@ -4,8 +4,10 @@ import '../ux_config.dart';
 
 class HandleBar extends StatelessWidget {
   const HandleBar({super.key, required this.isActive, required this.handle});
+
   final bool isActive;
   final HandleConfig handle;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);

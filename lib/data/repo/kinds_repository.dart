@@ -42,16 +42,18 @@ class KindsRepository {
   Future<List<Map<String, Object?>>> dumpKinds() async {
     final list = await listKinds();
     return list
-        .map((k) => {
-              'id': k.id,
-              'name': k.name,
-              'unit': k.unit,
-              'color': k.color,
-              'icon': k.icon,
-              'min': k.min,
-              'max': k.max,
-              'defaultShowInCalendar': k.defaultShowInCalendar,
-            })
+        .map(
+          (k) => {
+            'id': k.id,
+            'name': k.name,
+            'unit': k.unit,
+            'color': k.color,
+            'icon': k.icon,
+            'min': k.min,
+            'max': k.max,
+            'defaultShowInCalendar': k.defaultShowInCalendar,
+          },
+        )
         .toList();
   }
 
@@ -78,7 +80,10 @@ class KindsRepository {
     await _ready;
     // Consider FK in product_components; for now, allow cascade-like cleanup manually.
     await db.transaction(() async {
-      await db.customStatement('DELETE FROM product_components WHERE kind_id = ?;', [id]);
+      await db.customStatement(
+        'DELETE FROM product_components WHERE kind_id = ?;',
+        [id],
+      );
       await db.customStatement('DELETE FROM kinds WHERE id = ?;', [id]);
     });
     _notify();
@@ -86,11 +91,13 @@ class KindsRepository {
 
   Future<KindDef?> getKind(String id) async {
     await _ready;
-    final rows = await db.customSelect(
-      'SELECT * FROM kinds WHERE id = ? LIMIT 1;',
-      variables: [Variable.withString(id)],
-      readsFrom: const {},
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT * FROM kinds WHERE id = ? LIMIT 1;',
+          variables: [Variable.withString(id)],
+          readsFrom: const {},
+        )
+        .get();
     if (rows.isEmpty) return null;
     final d = rows.first.data;
     return KindDef(
@@ -107,10 +114,12 @@ class KindsRepository {
 
   Future<List<KindDef>> listKinds() async {
     await _ready;
-    final rows = await db.customSelect(
-      'SELECT * FROM kinds ORDER BY name ASC;',
-      readsFrom: const {},
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT * FROM kinds ORDER BY name ASC;',
+          readsFrom: const {},
+        )
+        .get();
     return rows.map((r) {
       final d = r.data;
       return KindDef(

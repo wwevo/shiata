@@ -11,7 +11,9 @@ import '../main_screen_providers.dart';
 import 'entry_list_item_factory.dart';
 
 // Provider for selected kinds filter (which kinds to show in pie chart)
-final selectedKindsForChartProvider = StateProvider<Set<String>>((_) => {'protein', 'fat', 'carbohydrate'});
+final selectedKindsForChartProvider = StateProvider<Set<String>>(
+  (_) => {'protein', 'fat', 'carbohydrate'},
+);
 
 /// Weekly overview panel showing:
 /// - Filter chips to select which kinds to include in pie chart
@@ -35,16 +37,28 @@ class WeeklyOverviewPanel extends ConsumerWidget {
     // Calculate date range: last 7 days (inclusive of today)
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final sevenDaysAgo = today.subtract(const Duration(days: 6)); // 7 days total including today
-    final tomorrow = today.add(const Duration(days: 1)); // End date is exclusive, so we need tomorrow to include today
+    final sevenDaysAgo = today.subtract(
+      const Duration(days: 6),
+    ); // 7 days total including today
+    final tomorrow = today.add(
+      const Duration(days: 1),
+    ); // End date is exclusive, so we need tomorrow to include today
 
     final selectedKinds = ref.watch(selectedKindsForChartProvider);
 
     // Use search service if query is present, otherwise use repository directly
     final Stream<dynamic> entriesStream =
         searchQuery.trim().isNotEmpty && searchService != null
-            ? searchService.searchEntriesInDateRange(searchQuery, sevenDaysAgo, tomorrow)
-            : repo.watchByDayRange(sevenDaysAgo, tomorrow, onlyShowInCalendar: false);
+        ? searchService.searchEntriesInDateRange(
+            searchQuery,
+            sevenDaysAgo,
+            tomorrow,
+          )
+        : repo.watchByDayRange(
+            sevenDaysAgo,
+            tomorrow,
+            onlyShowInCalendar: false,
+          );
 
     return StreamBuilder<dynamic>(
       stream: entriesStream,
@@ -62,8 +76,10 @@ class WeeklyOverviewPanel extends ConsumerWidget {
         }
 
         // Filter only parent entries (no children) for display list
-        final parentEntries = allEntries.where((e) => e.sourceEntryId == null).toList()
-          ..sort((a, b) => b.targetAt.compareTo(a.targetAt)); // Most recent first
+        final parentEntries =
+            allEntries.where((e) => e.sourceEntryId == null).toList()..sort(
+              (a, b) => b.targetAt.compareTo(a.targetAt),
+            ); // Most recent first
 
         // Build children map for nested entries
         final childrenByParent = <String, List<EntryRecord>>{};
@@ -81,7 +97,8 @@ class WeeklyOverviewPanel extends ConsumerWidget {
           try {
             final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
             final amount = (map['amount'] as num?)?.toDouble() ?? 0.0;
-            allAmounts[e.widgetKind] = (allAmounts[e.widgetKind] ?? 0.0) + amount;
+            allAmounts[e.widgetKind] =
+                (allAmounts[e.widgetKind] ?? 0.0) + amount;
           } catch (_) {}
         }
 
@@ -125,7 +142,9 @@ class WeeklyOverviewPanel extends ConsumerWidget {
           children: [
             // Chart and filter section
             Container(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.3,
+              ),
               child: Column(
                 children: [
                   const SizedBox(height: 12),
@@ -138,22 +157,29 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                       children: registry.kinds
                           .where((kind) => availableKindIds.contains(kind.id))
                           .map((kind) {
-                        final isSelected = selectedKinds.contains(kind.id);
+                            final isSelected = selectedKinds.contains(kind.id);
 
-                        return FilterChip(
-                          label: Text(kind.displayName),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            final newSet = {...selectedKinds};
-                            if (selected) {
-                              newSet.add(kind.id);
-                            } else {
-                              newSet.remove(kind.id);
-                            }
-                            ref.read(selectedKindsForChartProvider.notifier).state = newSet;
-                          },
-                        );
-                      }).toList(),
+                            return FilterChip(
+                              label: Text(kind.displayName),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                final newSet = {...selectedKinds};
+                                if (selected) {
+                                  newSet.add(kind.id);
+                                } else {
+                                  newSet.remove(kind.id);
+                                }
+                                ref
+                                        .read(
+                                          selectedKindsForChartProvider
+                                              .notifier,
+                                        )
+                                        .state =
+                                    newSet;
+                              },
+                            );
+                          })
+                          .toList(),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -166,14 +192,19 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                             ? 'Select nutrients above to see chart'
                             : 'No data for selected nutrients',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
                         ),
                         textAlign: TextAlign.center,
                       ),
                     )
                   else
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       child: Row(
                         children: [
                           // Pie chart
@@ -182,10 +213,15 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                             height: 140,
                             child: PieChart(
                               PieChartData(
-                                sections: normalizedAmounts.entries.map((entry) {
+                                sections: normalizedAmounts.entries.map((
+                                  entry,
+                                ) {
                                   final kind = registry.byId(entry.key);
-                                  final color = kind?.accentColor ?? theme.colorScheme.primary;
-                                  final percentage = (entry.value / total * 100);
+                                  final color =
+                                      kind?.accentColor ??
+                                      theme.colorScheme.primary;
+                                  final percentage =
+                                      (entry.value / total * 100);
 
                                   return PieChartSectionData(
                                     value: entry.value,
@@ -210,19 +246,26 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                             child: SingleChildScrollView(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
-                                children: normalizedAmounts.entries.map((entry) {
+                                children: normalizedAmounts.entries.map((
+                                  entry,
+                                ) {
                                   final kind = registry.byId(entry.key);
-                                  final color = kind?.accentColor ?? theme.colorScheme.primary;
+                                  final color =
+                                      kind?.accentColor ??
+                                      theme.colorScheme.primary;
                                   final unit = kind?.unit ?? '';
 
                                   // Display original value (not normalized)
-                                  final originalValue = selectedAmounts[entry.key]!;
+                                  final originalValue =
+                                      selectedAmounts[entry.key]!;
                                   final formattedValue = originalValue < 1
                                       ? originalValue.toStringAsFixed(2)
                                       : originalValue.toStringAsFixed(0);
 
                                   return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 4,
+                                    ),
                                     child: Row(
                                       children: [
                                         Container(
@@ -270,7 +313,9 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                       child: Text(
                         'No entries in the last 7 days',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
                         ),
                       ),
                     )

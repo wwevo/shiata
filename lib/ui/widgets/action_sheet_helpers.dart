@@ -5,7 +5,12 @@ import '../main_screen_providers.dart';
 import '../ux_config.dart';
 import 'create_action_sheet_content.dart';
 
-Future<void> _showSideCreateActionSheet(BuildContext context, WidgetRef ref, DateTime targetDate, {required bool fromRight}) async {
+Future<void> _showSideCreateActionSheet(
+  BuildContext context,
+  WidgetRef ref,
+  DateTime targetDate, {
+  required bool fromRight,
+}) async {
   final ux = ref.read(uxConfigProvider);
   final cfg = ux.sideSheet;
   final size = MediaQuery.of(context).size;
@@ -51,20 +56,29 @@ Future<void> _showSideCreateActionSheet(BuildContext context, WidgetRef ref, Dat
       );
     },
     transitionBuilder: (_, anim, _, child) {
-      final tween = Tween<Offset>(begin: Offset(fromRight ? 1 : -1, 0), end: Offset.zero).chain(CurveTween(curve: Curves.easeOutCubic));
+      final tween = Tween<Offset>(
+        begin: Offset(fromRight ? 1 : -1, 0),
+        end: Offset.zero,
+      ).chain(CurveTween(curve: Curves.easeOutCubic));
       return SlideTransition(position: anim.drive(tween), child: child);
     },
   );
 }
 
-Future<void> showCreateActionSheet(BuildContext context, WidgetRef ref, DateTime targetDate) async {
+Future<void> showCreateActionSheet(
+  BuildContext context,
+  WidgetRef ref,
+  DateTime targetDate,
+) async {
   final ux = ref.read(uxConfigProvider);
   final handed = ref.read(handednessProvider);
 
   ActionSheetPresentation mode = ux.actionSheetPresentation;
   if (mode == ActionSheetPresentation.auto) {
     final size = MediaQuery.of(context).size;
-    mode = size.width >= 600 ? ActionSheetPresentation.side : ActionSheetPresentation.bottom;
+    mode = size.width >= 600
+        ? ActionSheetPresentation.side
+        : ActionSheetPresentation.bottom;
   }
 
   if (mode == ActionSheetPresentation.bottom) {
@@ -84,5 +98,10 @@ Future<void> showCreateActionSheet(BuildContext context, WidgetRef ref, DateTime
   } else {
     fromRight = false;
   }
-  await _showSideCreateActionSheet(context, ref, targetDate, fromRight: fromRight);
+  await _showSideCreateActionSheet(
+    context,
+    ref,
+    targetDate,
+    fromRight: fromRight,
+  );
 }

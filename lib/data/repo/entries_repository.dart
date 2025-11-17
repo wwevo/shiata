@@ -42,22 +42,22 @@ class EntryRecord {
   final bool isStatic;
 
   Map<String, Object?> toDb() => {
-        'id': id,
-        'widget_kind': widgetKind,
-        'created_at': createdAt,
-        'target_at': targetAt,
-        'show_in_calendar': showInCalendar ? 1 : 0,
-        'payload_json': payloadJson,
-        'schema_version': schemaVersion,
-        'updated_at': updatedAt,
-        'source_event_id': sourceEventId,
-        'source_entry_id': sourceEntryId,
-        'source_widget_kind': sourceWidgetKind,
-        'product_id': productId,
-        'product_grams': productGrams,
-        'recipe_id': recipeId,
-        'is_static': isStatic ? 1 : 0,
-      };
+    'id': id,
+    'widget_kind': widgetKind,
+    'created_at': createdAt,
+    'target_at': targetAt,
+    'show_in_calendar': showInCalendar ? 1 : 0,
+    'payload_json': payloadJson,
+    'schema_version': schemaVersion,
+    'updated_at': updatedAt,
+    'source_event_id': sourceEventId,
+    'source_entry_id': sourceEntryId,
+    'source_widget_kind': sourceWidgetKind,
+    'product_id': productId,
+    'product_grams': productGrams,
+    'recipe_id': recipeId,
+    'is_static': isStatic ? 1 : 0,
+  };
 
   static EntryRecord fromDb(Map<String, Object?> row) {
     return EntryRecord(
@@ -94,18 +94,22 @@ class EntriesRepository {
   /// Dump all entries as raw DB rows for backup/export.
   Future<List<Map<String, Object?>>> dumpEntries() async {
     await _ready;
-    final rows = await db.customSelect('SELECT * FROM entries ORDER BY created_at ASC;').get();
+    final rows = await db
+        .customSelect('SELECT * FROM entries ORDER BY created_at ASC;')
+        .get();
     return rows.map((r) => r.data).toList(growable: false);
   }
 
   /// List entries that directly represent a kind (not children of a product and not product parents).
   Future<List<EntryRecord>> listDirectEntriesByKind(String kindId) async {
     await _ready;
-    final rows = await db.customSelect(
-      "SELECT * FROM entries WHERE widget_kind = ? AND source_entry_id IS NULL AND product_id IS NULL;",
-      variables: [Variable.withString(kindId)],
-      readsFrom: const {},
-    ).get();
+    final rows = await db
+        .customSelect(
+          "SELECT * FROM entries WHERE widget_kind = ? AND source_entry_id IS NULL AND product_id IS NULL;",
+          variables: [Variable.withString(kindId)],
+          readsFrom: const {},
+        )
+        .get();
     return rows.map((r) => EntryRecord.fromDb(r.data)).toList();
   }
 
@@ -130,7 +134,10 @@ class EntriesRepository {
         final map = rec.toDb();
         final cols = map.keys.join(', ');
         final placeholders = List.filled(map.length, '?').join(', ');
-        await db.customStatement('INSERT OR REPLACE INTO entries ($cols) VALUES ($placeholders);', map.values.toList());
+        await db.customStatement(
+          'INSERT OR REPLACE INTO entries ($cols) VALUES ($placeholders);',
+          map.values.toList(),
+        );
       }
     });
     _notify();
@@ -210,17 +217,21 @@ class EntriesRepository {
 
   Future<List<EntryRecord>> listChildrenOfParent(String parentEntryId) async {
     await _ready;
-    final rows = await db.customSelect(
-      'SELECT * FROM entries WHERE source_entry_id = ? ORDER BY widget_kind ASC;',
-      variables: [Variable.withString(parentEntryId)],
-      readsFrom: const {},
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT * FROM entries WHERE source_entry_id = ? ORDER BY widget_kind ASC;',
+          variables: [Variable.withString(parentEntryId)],
+          readsFrom: const {},
+        )
+        .get();
     return rows.map((r) => EntryRecord.fromDb(r.data)).toList();
   }
 
   Future<void> deleteChildrenOfParent(String parentEntryId) async {
     await _ready;
-    await db.customStatement('DELETE FROM entries WHERE source_entry_id = ?;', [parentEntryId]);
+    await db.customStatement('DELETE FROM entries WHERE source_entry_id = ?;', [
+      parentEntryId,
+    ]);
     _notify();
   }
 
@@ -245,31 +256,37 @@ class EntriesRepository {
 
   Future<List<EntryRecord>> listParentsByProductId(String productId) async {
     await _ready;
-    final rows = await db.customSelect(
-      "SELECT * FROM entries WHERE widget_kind = 'product' AND product_id = ?;",
-      variables: [Variable.withString(productId)],
-      readsFrom: const {},
-    ).get();
+    final rows = await db
+        .customSelect(
+          "SELECT * FROM entries WHERE widget_kind = 'product' AND product_id = ?;",
+          variables: [Variable.withString(productId)],
+          readsFrom: const {},
+        )
+        .get();
     return rows.map((r) => EntryRecord.fromDb(r.data)).toList();
   }
 
   Future<List<EntryRecord>> listParentsByRecipeId(String recipeId) async {
     await _ready;
-    final rows = await db.customSelect(
-      "SELECT * FROM entries WHERE widget_kind = 'recipe' AND recipe_id = ?;",
-      variables: [Variable.withString(recipeId)],
-      readsFrom: const {},
-    ).get();
+    final rows = await db
+        .customSelect(
+          "SELECT * FROM entries WHERE widget_kind = 'recipe' AND recipe_id = ?;",
+          variables: [Variable.withString(recipeId)],
+          readsFrom: const {},
+        )
+        .get();
     return rows.map((r) => EntryRecord.fromDb(r.data)).toList();
   }
 
   Future<EntryRecord?> getById(String id) async {
     await _ready;
-    final rows = await db.customSelect(
-      'SELECT * FROM entries WHERE id = ? LIMIT 1;',
-      variables: [Variable.withString(id)],
-      readsFrom: const {},
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT * FROM entries WHERE id = ? LIMIT 1;',
+          variables: [Variable.withString(id)],
+          readsFrom: const {},
+        )
+        .get();
     if (rows.isEmpty) return null;
     return EntryRecord.fromDb(rows.first.data);
   }
@@ -285,17 +302,22 @@ class EntriesRepository {
   (int, int) _localDayRangeUtc(DateTime localDate) {
     final start = DateTime(localDate.year, localDate.month, localDate.day);
     final end = start.add(const Duration(days: 1));
-    return (start.toUtc().millisecondsSinceEpoch, end.toUtc().millisecondsSinceEpoch);
+    return (
+      start.toUtc().millisecondsSinceEpoch,
+      end.toUtc().millisecondsSinceEpoch,
+    );
   }
 
   Stream<List<EntryRecord>> watchByDay(DateTime localDate) async* {
     Future<List<EntryRecord>> query() async {
       final (startUtc, endUtc) = _localDayRangeUtc(localDate);
-      final rows = await db.customSelect(
-        'SELECT * FROM entries WHERE target_at >= ? AND target_at < ? ORDER BY target_at ASC, widget_kind ASC;',
-        variables: [Variable.withInt(startUtc), Variable.withInt(endUtc)],
-        readsFrom: const {},
-      ).get();
+      final rows = await db
+          .customSelect(
+            'SELECT * FROM entries WHERE target_at >= ? AND target_at < ? ORDER BY target_at ASC, widget_kind ASC;',
+            variables: [Variable.withInt(startUtc), Variable.withInt(endUtc)],
+            readsFrom: const {},
+          )
+          .get();
       return rows.map((r) => EntryRecord.fromDb(r.data)).toList();
     }
 
@@ -305,22 +327,41 @@ class EntriesRepository {
     }
   }
 
-  Stream<Map<DateTime, List<EntryRecord>>> watchByDayRange(DateTime startLocal, DateTime endLocal, {bool onlyShowInCalendar = true}) async* {
+  Stream<Map<DateTime, List<EntryRecord>>> watchByDayRange(
+    DateTime startLocal,
+    DateTime endLocal, {
+    bool onlyShowInCalendar = true,
+  }) async* {
     Future<Map<DateTime, List<EntryRecord>>> query() async {
       // Convert to UTC bounds
-      final startUtc = DateTime(startLocal.year, startLocal.month, startLocal.day).toUtc().millisecondsSinceEpoch;
-      final endUtc = DateTime(endLocal.year, endLocal.month, endLocal.day).toUtc().millisecondsSinceEpoch;
-      final whereCalendar = onlyShowInCalendar ? 'AND show_in_calendar = 1' : '';
-      final rows = await db.customSelect(
-        'SELECT * FROM entries WHERE target_at >= ? AND target_at < ? $whereCalendar ORDER BY target_at ASC;',
-        variables: [Variable.withInt(startUtc), Variable.withInt(endUtc)],
-        readsFrom: const {},
-      ).get();
+      final startUtc = DateTime(
+        startLocal.year,
+        startLocal.month,
+        startLocal.day,
+      ).toUtc().millisecondsSinceEpoch;
+      final endUtc = DateTime(
+        endLocal.year,
+        endLocal.month,
+        endLocal.day,
+      ).toUtc().millisecondsSinceEpoch;
+      final whereCalendar = onlyShowInCalendar
+          ? 'AND show_in_calendar = 1'
+          : '';
+      final rows = await db
+          .customSelect(
+            'SELECT * FROM entries WHERE target_at >= ? AND target_at < ? $whereCalendar ORDER BY target_at ASC;',
+            variables: [Variable.withInt(startUtc), Variable.withInt(endUtc)],
+            readsFrom: const {},
+          )
+          .get();
       final list = rows.map((r) => EntryRecord.fromDb(r.data)).toList();
       // Group by local day
       final map = <DateTime, List<EntryRecord>>{};
       for (final rec in list) {
-        final local = DateTime.fromMillisecondsSinceEpoch(rec.targetAt, isUtc: true).toLocal();
+        final local = DateTime.fromMillisecondsSinceEpoch(
+          rec.targetAt,
+          isUtc: true,
+        ).toLocal();
         final dayKey = DateTime(local.year, local.month, local.day);
         (map[dayKey] ??= []).add(rec);
       }
@@ -339,11 +380,13 @@ class EntriesRepository {
       final q = queryText.trim();
       if (q.isEmpty) return <EntryRecord>[];
       final like = '%$q%';
-      final rows = await db.customSelect(
-        'SELECT * FROM entries WHERE widget_kind LIKE ? OR payload_json LIKE ? ORDER BY updated_at DESC LIMIT 200;',
-        variables: [Variable.withString(like), Variable.withString(like)],
-        readsFrom: const {},
-      ).get();
+      final rows = await db
+          .customSelect(
+            'SELECT * FROM entries WHERE widget_kind LIKE ? OR payload_json LIKE ? ORDER BY updated_at DESC LIMIT 200;',
+            variables: [Variable.withString(like), Variable.withString(like)],
+            readsFrom: const {},
+          )
+          .get();
       return rows.map((r) => EntryRecord.fromDb(r.data)).toList();
     }
 

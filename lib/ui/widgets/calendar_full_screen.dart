@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../ux_config.dart';
 import 'day_details_panel.dart';
 import 'month_calendar.dart';
-import '../main_screen_providers.dart';
-import '../ux_config.dart';
 
 /// Full-screen calendar view with month grid and day details below.
 /// DayDetailsPanel includes inline search filtering for the selected day.

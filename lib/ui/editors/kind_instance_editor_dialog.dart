@@ -22,10 +22,12 @@ class KindInstanceEditorDialog extends ConsumerStatefulWidget {
   final DateTime? initialTargetAt; // prefill for create
 
   @override
-  ConsumerState<KindInstanceEditorDialog> createState() => _KindInstanceEditorDialogState();
+  ConsumerState<KindInstanceEditorDialog> createState() =>
+      _KindInstanceEditorDialogState();
 }
 
-class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDialog> {
+class _KindInstanceEditorDialogState
+    extends ConsumerState<KindInstanceEditorDialog> {
   // State variables
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _amountController;
@@ -55,7 +57,10 @@ class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDia
           final amount = (map['amount'] as num?)?.toDouble() ?? 0.0;
           _amountController.text = fmtDouble(amount);
         } catch (_) {}
-        _targetAt = DateTime.fromMillisecondsSinceEpoch(rec.targetAt, isUtc: true).toLocal();
+        _targetAt = DateTime.fromMillisecondsSinceEpoch(
+          rec.targetAt,
+          isUtc: true,
+        ).toLocal();
         _showInCalendar = rec.showInCalendar;
       }
     }
@@ -88,7 +93,13 @@ class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDia
     if (time == null) return;
     if (!context.mounted) return;
     setState(() {
-      _targetAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _targetAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
     });
   }
 
@@ -96,9 +107,9 @@ class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDia
     if (!_formKey.currentState!.validate()) return;
     final repo = ref.read(entriesRepositoryProvider);
     if (repo == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Database not ready')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Database not ready')));
       return;
     }
     final amountToStore = parseDouble(_amountController.text) ?? 0.0;
@@ -106,7 +117,10 @@ class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDia
       if (widget.entryId != null) {
         await repo.update(widget.entryId!, {
           'target_at': _targetAt.toUtc().millisecondsSinceEpoch,
-          'payload_json': jsonEncode({'amount': amountToStore, 'unit': widget.kind.unit}),
+          'payload_json': jsonEncode({
+            'amount': amountToStore,
+            'unit': widget.kind.unit,
+          }),
           'show_in_calendar': _showInCalendar ? 1 : 0,
           'schema_version': 1,
         });
@@ -133,9 +147,9 @@ class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDia
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Save failed: $e')));
       }
     }
   }
@@ -146,102 +160,116 @@ class _KindInstanceEditorDialogState extends ConsumerState<KindInstanceEditorDia
     final isEdit = widget.entryId != null;
 
     return AlertDialog(
-      title: Text(isEdit
-          ? '${widget.kind.displayName} — Edit'
-          : '${widget.kind.displayName} — Create'),
+      title: Text(
+        isEdit
+            ? '${widget.kind.displayName} — Edit'
+            : '${widget.kind.displayName} — Create',
+      ),
       content: _loading
           ? const SizedBox(
-        width: 400,
-        height: 300,
-        child: Center(child: CircularProgressIndicator()),
-      )
+              width: 400,
+              height: 300,
+              child: Center(child: CircularProgressIndicator()),
+            )
           : SizedBox(
-        width: 400,
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Amount (${widget.kind.unit})', style: theme.textTheme.titleMedium),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _amountController,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          hintText: '0',
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                        validator: (v) {
-                          final val = parseDouble(v);
-                          if (val == null) return 'Enter a number';
-                          final min = widget.kind.minValue.toDouble();
-                          final max = widget.kind.maxValue.toDouble();
-                          if (val < min || val > max) {
-                            return 'Must be ${fmtDouble(min)}–${fmtDouble(max)}';
-                          }
-                          return null;
-                        },
+              width: 400,
+              child: SingleChildScrollView(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Amount (${widget.kind.unit})',
+                        style: theme.textTheme.titleMedium,
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      children: [
-                        IconButton(
-                          onPressed: () {
-                            final current = parseDouble(_amountController.text) ?? 0.0;
-                            final next = (current + 1.0).clamp(
-                              widget.kind.minValue.toDouble(),
-                              widget.kind.maxValue.toDouble(),
-                            );
-                            _amountController.text = fmtDouble(next);
-                          },
-                          icon: const Icon(Icons.add),
-                          tooltip: '+1',
-                        ),
-                        IconButton(
-                          onPressed: () {
-                            final current = parseDouble(_amountController.text) ?? 0.0;
-                            final next = (current - 1.0).clamp(
-                              widget.kind.minValue.toDouble(),
-                              widget.kind.maxValue.toDouble(),
-                            );
-                            _amountController.text = fmtDouble(next);
-                          },
-                          icon: const Icon(Icons.remove),
-                          tooltip: '-1',
-                        ),
-                      ],
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _amountController,
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                hintText: '0',
+                              ),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                    signed: true,
+                                  ),
+                              validator: (v) {
+                                final val = parseDouble(v);
+                                if (val == null) return 'Enter a number';
+                                final min = widget.kind.minValue.toDouble();
+                                final max = widget.kind.maxValue.toDouble();
+                                if (val < min || val > max) {
+                                  return 'Must be ${fmtDouble(min)}–${fmtDouble(max)}';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            children: [
+                              IconButton(
+                                onPressed: () {
+                                  final current =
+                                      parseDouble(_amountController.text) ??
+                                      0.0;
+                                  final next = (current + 1.0).clamp(
+                                    widget.kind.minValue.toDouble(),
+                                    widget.kind.maxValue.toDouble(),
+                                  );
+                                  _amountController.text = fmtDouble(next);
+                                },
+                                icon: const Icon(Icons.add),
+                                tooltip: '+1',
+                              ),
+                              IconButton(
+                                onPressed: () {
+                                  final current =
+                                      parseDouble(_amountController.text) ??
+                                      0.0;
+                                  final next = (current - 1.0).clamp(
+                                    widget.kind.minValue.toDouble(),
+                                    widget.kind.maxValue.toDouble(),
+                                  );
+                                  _amountController.text = fmtDouble(next);
+                                },
+                                icon: const Icon(Icons.remove),
+                                tooltip: '-1',
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text('When', style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => _pickDateTime(context),
+                        icon: const Icon(Icons.schedule),
+                        label: Text('${_targetAt.toLocal()}'),
+                      ),
+                      const SizedBox(height: 16),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: _showInCalendar,
+                        onChanged: (v) => setState(() => _showInCalendar = v),
+                        title: const Text('Show in calendar'),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 16),
-                Text('When', style: theme.textTheme.titleMedium),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () => _pickDateTime(context),
-                  icon: const Icon(Icons.schedule),
-                  label: Text('${_targetAt.toLocal()}'),
-                ),
-                const SizedBox(height: 16),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: _showInCalendar,
-                  onChanged: (v) => setState(() => _showInCalendar = v),
-                  title: const Text('Show in calendar'),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
       actions: editorDialogActions(
         context: context,
-        onSave: ({required closeAfter}) => _save(context, closeAfter: closeAfter),
+        onSave: ({required closeAfter}) =>
+            _save(context, closeAfter: closeAfter),
       ),
     );
   }

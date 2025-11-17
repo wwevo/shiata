@@ -16,16 +16,19 @@ class ProductTemplateEditorDialog extends ConsumerStatefulWidget {
   const ProductTemplateEditorDialog({
     super.key,
     required this.productId,
-    this.productName,  // for new products (if not in DB yet)
+    this.productName, // for new products (if not in DB yet)
   });
+
   final String productId;
   final String? productName;
 
   @override
-  ConsumerState<ProductTemplateEditorDialog> createState() => _ProductTemplateEditorDialogState();
+  ConsumerState<ProductTemplateEditorDialog> createState() =>
+      _ProductTemplateEditorDialogState();
 }
 
-class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEditorDialog> {
+class _ProductTemplateEditorDialogState
+    extends ConsumerState<ProductTemplateEditorDialog> {
   // State variables
   List<ProductComponent> _components = const [];
   bool _loading = true;
@@ -61,7 +64,9 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
         });
         // Initialize controllers for each component
         for (final c in comps) {
-          _controllers[c.kindId] = TextEditingController(text: fmtDouble(c.amountPerGram));
+          _controllers[c.kindId] = TextEditingController(
+            text: fmtDouble(c.amountPerGram),
+          );
         }
       }
     } else {
@@ -88,12 +93,14 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
     if (existing == null) {
       // Create new product first
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
-      await repo.upsertProduct(ProductDef(
-        id: widget.productId,
-        name: widget.productName ?? widget.productId,
-        createdAt: now,
-        updatedAt: now,
-      ));
+      await repo.upsertProduct(
+        ProductDef(
+          id: widget.productId,
+          name: widget.productName ?? widget.productId,
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
     }
 
     // Read values from controllers and update components
@@ -101,11 +108,13 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
     for (final c in _components) {
       final ctrl = _controllers[c.kindId];
       final amount = parseDouble(ctrl?.text) ?? 0.0;
-      updatedComponents.add(ProductComponent(
-        productId: widget.productId,
-        kindId: c.kindId,
-        amountPerGram: amount,
-      ));
+      updatedComponents.add(
+        ProductComponent(
+          productId: widget.productId,
+          kindId: c.kindId,
+          amountPerGram: amount,
+        ),
+      );
     }
     // Capture old components for Undo
     final old = await repo.getComponents(widget.productId);
@@ -116,10 +125,18 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Update existing entries?'),
-        content: const Text('Apply these changes to all non-static entries for this product?'),
+        content: const Text(
+          'Apply these changes to all non-static entries for this product?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('No')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Yes')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('No'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Yes'),
+          ),
         ],
       ),
     );
@@ -137,11 +154,15 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
               // Restore old components and re-propagate
               await repo.setComponents(widget.productId, old);
               if (!mounted) return;
-              await svc.updateAllEntriesForProductToCurrentFormula(widget.productId);
+              await svc.updateAllEntriesForProductToCurrentFormula(
+                widget.productId,
+              );
               if (!mounted) return;
               await _load();
               if (!mounted) return;
-              undoMessenger.showSnackBar(const SnackBar(content: Text('Reverted template changes')));
+              undoMessenger.showSnackBar(
+                const SnackBar(content: Text('Reverted template changes')),
+              );
             },
           ),
         ),
@@ -170,7 +191,11 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
       // Add new component with initial value 0
       _components = [
         ..._components,
-        ProductComponent(productId: widget.productId, kindId: picked.id, amountPerGram: 0.0),
+        ProductComponent(
+          productId: widget.productId,
+          kindId: picked.id,
+          amountPerGram: 0.0,
+        ),
       ];
       // Create controller for the new component
       _controllers[picked.id] = TextEditingController(text: '0');
@@ -193,78 +218,96 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('Edit: ${_productName.isEmpty ? widget.productId : _productName}'),
+      title: Text(
+        'Edit: ${_productName.isEmpty ? widget.productId : _productName}',
+      ),
       content: _loading
           ? const SizedBox(
-        width: 500,
-        height: 400,
-        child: Center(child: CircularProgressIndicator()),
-      )
+              width: 500,
+              height: 400,
+              child: Center(child: CircularProgressIndicator()),
+            )
           : SizedBox(
-        width: 500,
-        height: 400,
-        child: Column(
-          children: [
-            Expanded(
-              child: _components.isEmpty
-                  ? const Center(child: Text('No components yet'))
-                  : ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: _components.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (ctx, i) {
-                  final c = _components[i];
-                  final kind = ref.read(widgetRegistryProvider).byId(c.kindId);
-                  final unit = kind?.unit ?? '';
-                  final ctrl = _controllers[c.kindId]!;
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: kind?.accentColor ?? Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
-                      child: Icon(kind?.icon ?? Icons.circle, size: 18),
-                    ),
-                    title: Text(kind?.displayName ?? c.kindId),
-                    subtitle: Text(unit.isEmpty ? 'Per 100 g' : 'Per 100 g ($unit)'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 100,
-                          child: TextField(
-                            controller: ctrl,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(
-                              hintText: '0',
-                              isDense: true,
-                            ),
+              width: 500,
+              height: 400,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: _components.isEmpty
+                        ? const Center(child: Text('No components yet'))
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            itemCount: _components.length,
+                            separatorBuilder: (_, _) =>
+                                const Divider(height: 1),
+                            itemBuilder: (ctx, i) {
+                              final c = _components[i];
+                              final kind = ref
+                                  .read(widgetRegistryProvider)
+                                  .byId(c.kindId);
+                              final unit = kind?.unit ?? '';
+                              final ctrl = _controllers[c.kindId]!;
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor:
+                                      kind?.accentColor ??
+                                      Theme.of(context).colorScheme.primary,
+                                  foregroundColor: Colors.white,
+                                  child: Icon(
+                                    kind?.icon ?? Icons.circle,
+                                    size: 18,
+                                  ),
+                                ),
+                                title: Text(kind?.displayName ?? c.kindId),
+                                subtitle: Text(
+                                  unit.isEmpty
+                                      ? 'Per 100 g'
+                                      : 'Per 100 g ($unit)',
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 100,
+                                      child: TextField(
+                                        controller: ctrl,
+                                        keyboardType:
+                                            const TextInputType.numberWithOptions(
+                                              decimal: true,
+                                            ),
+                                        decoration: const InputDecoration(
+                                          hintText: '0',
+                                          isDense: true,
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Remove',
+                                      icon: const Icon(Icons.delete_outline),
+                                      onPressed: () => _removeAt(i),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
-                        ),
-                        IconButton(
-                          tooltip: 'Remove',
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () => _removeAt(i),
-                        ),
-                      ],
+                  ),
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: OutlinedButton.icon(
+                      onPressed: _loading ? null : _addComponent,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add nutrient'),
                     ),
-                  );
-                },
+                  ),
+                ],
               ),
             ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: OutlinedButton.icon(
-                onPressed: _loading ? null : _addComponent,
-                icon: const Icon(Icons.add),
-                label: const Text('Add nutrient'),
-              ),
-            ),
-          ],
-        ),
-      ),
       actions: editorDialogActions(
         context: context,
-        onSave: ({required closeAfter}) => _save(context, closeAfter: closeAfter),
+        onSave: ({required closeAfter}) =>
+            _save(context, closeAfter: closeAfter),
         isSaving: _saving,
       ),
     );
@@ -273,6 +316,7 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
 
 class _AddComponentDialog extends StatefulWidget {
   const _AddComponentDialog({required this.kinds});
+
   final List<WidgetKind> kinds;
 
   @override
@@ -297,7 +341,10 @@ class _AddComponentDialogState extends State<_AddComponentDialog> {
         onChanged: (v) => setState(() => _selected = v),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
           onPressed: () {
             final k = _selected;

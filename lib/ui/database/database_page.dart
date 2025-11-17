@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:convert';
 
 import '../../data/db/db_handle.dart';
 import '../../data/providers.dart';
+import '../../data/repo/entries_repository.dart';
 import '../../data/repo/import_export_service.dart';
 import '../../data/repo/products_repository.dart';
 import '../../data/repo/recipes_repository.dart';
-import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
-import '../widgets/icon_resolver.dart';
 import '../widgets/entry_list_item_factory.dart';
+import '../widgets/icon_resolver.dart';
 
 class DatabasePage extends ConsumerStatefulWidget {
   const DatabasePage({super.key});
@@ -29,9 +28,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Database'),
-      ),
+      appBar: AppBar(title: const Text('Database')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -126,7 +123,11 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                 });
               },
               child: kindsAsync.maybeWhen(
-                data: (kinds) => Text(_selectedKinds.length == kinds.length ? 'Deselect All' : 'Select All'),
+                data: (kinds) => Text(
+                  _selectedKinds.length == kinds.length
+                      ? 'Deselect All'
+                      : 'Select All',
+                ),
                 orElse: () => const Text('Select All'),
               ),
             ),
@@ -147,7 +148,10 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                 final color = Color(k.color ?? 0xFF607D8B);
                 final isSelected = _selectedKinds.contains(k.id);
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: color,
@@ -155,7 +159,9 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                       child: Icon(icon, color: Colors.white),
                     ),
                     title: Text(k.name),
-                    subtitle: Text('${k.unit}  •  min ${k.min}  •  max ${k.max}'),
+                    subtitle: Text(
+                      '${k.unit}  •  min ${k.min}  •  max ${k.max}',
+                    ),
                     trailing: Checkbox(
                       value: isSelected,
                       onChanged: (val) {
@@ -205,16 +211,24 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                 builder: (context, snapshot) {
                   final products = snapshot.data ?? [];
                   return TextButton(
-                    onPressed: products.isEmpty ? null : () {
-                      setState(() {
-                        if (_selectedProducts.length == products.length) {
-                          _selectedProducts.clear();
-                        } else {
-                          _selectedProducts.addAll(products.map((p) => p.id));
-                        }
-                      });
-                    },
-                    child: Text(_selectedProducts.length == products.length ? 'Deselect All' : 'Select All'),
+                    onPressed: products.isEmpty
+                        ? null
+                        : () {
+                            setState(() {
+                              if (_selectedProducts.length == products.length) {
+                                _selectedProducts.clear();
+                              } else {
+                                _selectedProducts.addAll(
+                                  products.map((p) => p.id),
+                                );
+                              }
+                            });
+                          },
+                    child: Text(
+                      _selectedProducts.length == products.length
+                          ? 'Deselect All'
+                          : 'Select All',
+                    ),
                   );
                 },
               ),
@@ -241,7 +255,10 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                 children: products.map((p) {
                   final isSelected = _selectedProducts.contains(p.id);
                   return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     child: ListTile(
                       leading: const CircleAvatar(
                         backgroundColor: Colors.purple,
@@ -291,16 +308,24 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                 builder: (context, snapshot) {
                   final recipes = snapshot.data ?? [];
                   return TextButton(
-                    onPressed: recipes.isEmpty ? null : () {
-                      setState(() {
-                        if (_selectedRecipes.length == recipes.length) {
-                          _selectedRecipes.clear();
-                        } else {
-                          _selectedRecipes.addAll(recipes.map((r) => r.id));
-                        }
-                      });
-                    },
-                    child: Text(_selectedRecipes.length == recipes.length ? 'Deselect All' : 'Select All'),
+                    onPressed: recipes.isEmpty
+                        ? null
+                        : () {
+                            setState(() {
+                              if (_selectedRecipes.length == recipes.length) {
+                                _selectedRecipes.clear();
+                              } else {
+                                _selectedRecipes.addAll(
+                                  recipes.map((r) => r.id),
+                                );
+                              }
+                            });
+                          },
+                    child: Text(
+                      _selectedRecipes.length == recipes.length
+                          ? 'Deselect All'
+                          : 'Select All',
+                    ),
                   );
                 },
               ),
@@ -325,11 +350,18 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
               }
               return Column(
                 children: recipes.map((r) {
-                  final icon = r.icon != null ? resolveIcon(r.icon, Icons.restaurant_menu) : Icons.restaurant_menu;
-                  final color = r.color != null ? Color(r.color!) : Colors.brown;
+                  final icon = r.icon != null
+                      ? resolveIcon(r.icon, Icons.restaurant_menu)
+                      : Icons.restaurant_menu;
+                  final color = r.color != null
+                      ? Color(r.color!)
+                      : Colors.brown;
                   final isSelected = _selectedRecipes.contains(r.id);
                   return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     child: ListTile(
                       leading: CircleAvatar(
                         backgroundColor: color,
@@ -390,20 +422,28 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                 builder: (context, snapshot) {
                   final entries = snapshot.data ?? [];
                   return TextButton(
-                    onPressed: entries.isEmpty ? null : () {
-                      setState(() {
-                        if (_selectedEntries.length == entries.length) {
-                          _selectedEntries.clear();
-                        } else {
-                          _selectedEntries.addAll(entries.map((e) => e.id));
-                          // Auto-select dependencies
-                          for (final entry in entries) {
-                            _autoSelectDependencies(entry);
-                          }
-                        }
-                      });
-                    },
-                    child: Text(_selectedEntries.length == entries.length ? 'Deselect All' : 'Select All'),
+                    onPressed: entries.isEmpty
+                        ? null
+                        : () {
+                            setState(() {
+                              if (_selectedEntries.length == entries.length) {
+                                _selectedEntries.clear();
+                              } else {
+                                _selectedEntries.addAll(
+                                  entries.map((e) => e.id),
+                                );
+                                // Auto-select dependencies
+                                for (final entry in entries) {
+                                  _autoSelectDependencies(entry);
+                                }
+                              }
+                            });
+                          },
+                    child: Text(
+                      _selectedEntries.length == entries.length
+                          ? 'Deselect All'
+                          : 'Select All',
+                    ),
                   );
                 },
               ),
@@ -444,7 +484,11 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
               }
 
               // Get only top-level entries (those without sourceEntryId)
-              final topLevelEntries = entries.where((e) => e.sourceEntryId == null || e.sourceEntryId!.isEmpty).toList();
+              final topLevelEntries = entries
+                  .where(
+                    (e) => e.sourceEntryId == null || e.sourceEntryId!.isEmpty,
+                  )
+                  .toList();
 
               // Sort by targetAt descending (newest first)
               topLevelEntries.sort((a, b) => b.targetAt.compareTo(a.targetAt));
@@ -469,7 +513,9 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                           if (selected) {
                             _selectedEntries.add(entryId);
                             // Auto-select dependencies
-                            final entry = entries.firstWhere((e) => e.id == entryId);
+                            final entry = entries.firstWhere(
+                              (e) => e.id == entryId,
+                            );
                             _autoSelectDependencies(entry);
                           } else {
                             _selectedEntries.remove(entryId);
@@ -482,7 +528,9 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                   ElevatedButton.icon(
                     icon: const Icon(Icons.download),
                     label: const Text('Export Selected Entries'),
-                    onPressed: _selectedEntries.isEmpty ? null : _exportSelected,
+                    onPressed: _selectedEntries.isEmpty
+                        ? null
+                        : _exportSelected,
                   ),
                 ],
               );
@@ -502,7 +550,9 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
 
   void _autoSelectDependencies(EntryRecord entry) {
     // Auto-select kinds
-    if (entry.productId == null && entry.recipeId == null && entry.sourceEntryId == null) {
+    if (entry.productId == null &&
+        entry.recipeId == null &&
+        entry.sourceEntryId == null) {
       // This is a direct kind entry
       _selectedKinds.add(entry.widgetKind);
     }
@@ -528,7 +578,10 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
     }
 
     try {
-      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
+      final timestamp = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .split('.')[0];
       final fileName = 'shiata_full_export_$timestamp.json';
       final path = await svc.backupToFile(fileName: fileName);
 
@@ -571,7 +624,10 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
         entryIds: _selectedEntries.toList(),
       );
 
-      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
+      final timestamp = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .split('.')[0];
       final fileName = 'shiata_selected_export_$timestamp.json';
 
       // Save to file
@@ -631,7 +687,10 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
               children: [
                 const Text(
                   'WARNING: This will WIPE all existing data and replace it with the imported data.',
-                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -689,7 +748,8 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
       final result = await svc.importBundle(controller.text);
       if (!mounted) return;
 
-      final msg = 'Imported:\n'
+      final msg =
+          'Imported:\n'
           '${result.kindsUpserted} kinds\n'
           '${result.productsUpserted} products\n'
           '${result.recipesUpserted} recipes\n'
@@ -786,8 +846,8 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }

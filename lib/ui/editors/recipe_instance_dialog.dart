@@ -10,15 +10,23 @@ import '../../utils/formatters.dart';
 import '../widgets/editor_dialog_actions.dart';
 
 class RecipeInstantiateDialog extends ConsumerStatefulWidget {
-  const RecipeInstantiateDialog({super.key, this.entryId, this.recipeId, this.initialTarget});
+  const RecipeInstantiateDialog({
+    super.key,
+    this.entryId,
+    this.recipeId,
+    this.initialTarget,
+  });
+
   final String? entryId; // if present → edit existing recipe instance
   final String? recipeId; // required for create, optional for edit
   final DateTime? initialTarget; // required for create, optional for edit
   @override
-  ConsumerState<RecipeInstantiateDialog> createState() => RecipeInstantiateDialogState();
+  ConsumerState<RecipeInstantiateDialog> createState() =>
+      RecipeInstantiateDialogState();
 }
 
-class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog> {
+class RecipeInstantiateDialogState
+    extends ConsumerState<RecipeInstantiateDialog> {
   // State variables
   String? _recipeId;
   String _recipeName = '';
@@ -70,7 +78,10 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
         _recipeName = payload['name'] as String? ?? '';
         _recipeId = entry.recipeId ?? payload['recipe_id'] as String?;
       } catch (_) {}
-      _targetAt = DateTime.fromMillisecondsSinceEpoch(entry.targetAt, isUtc: true).toLocal();
+      _targetAt = DateTime.fromMillisecondsSinceEpoch(
+        entry.targetAt,
+        isUtc: true,
+      ).toLocal();
       _isStatic = entry.isStatic;
 
       // Load children and populate controllers with their values
@@ -93,23 +104,36 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
           final typeStr = c.type.toString();
           if (typeStr.endsWith('kind')) {
             // Find the child entry for this kind
-            final childEntry = children.where((e) => e.widgetKind == c.compId).firstOrNull;
+            final childEntry = children
+                .where((e) => e.widgetKind == c.compId)
+                .firstOrNull;
             double currentAmount = c.amount ?? 0.0;
             if (childEntry != null) {
               try {
-                final childPayload = jsonDecode(childEntry.payloadJson) as Map<String, dynamic>;
-                currentAmount = (childPayload['amount'] as num?)?.toDouble() ?? currentAmount;
+                final childPayload =
+                    jsonDecode(childEntry.payloadJson) as Map<String, dynamic>;
+                currentAmount =
+                    (childPayload['amount'] as num?)?.toDouble() ??
+                    currentAmount;
               } catch (_) {}
             }
-            _kindCtrls[c.compId] = TextEditingController(text: fmtDouble(currentAmount));
+            _kindCtrls[c.compId] = TextEditingController(
+              text: fmtDouble(currentAmount),
+            );
           } else {
             // Find the product child (it's a parent entry with widgetKind == 'product')
-            final productChild = children.where((e) => e.widgetKind == 'product' && e.productId == c.compId).firstOrNull;
+            final productChild = children
+                .where(
+                  (e) => e.widgetKind == 'product' && e.productId == c.compId,
+                )
+                .firstOrNull;
             int currentGrams = c.grams ?? 0;
             if (productChild != null) {
               currentGrams = productChild.productGrams ?? currentGrams;
             }
-            _productCtrls[c.compId] = TextEditingController(text: currentGrams.toString());
+            _productCtrls[c.compId] = TextEditingController(
+              text: currentGrams.toString(),
+            );
           }
         }
 
@@ -150,9 +174,13 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
       for (final c in comps) {
         final typeStr = c.type.toString();
         if (typeStr.endsWith('kind')) {
-          _kindCtrls[c.compId] = TextEditingController(text: fmtDouble(c.amount ?? 0.0));
+          _kindCtrls[c.compId] = TextEditingController(
+            text: fmtDouble(c.amount ?? 0.0),
+          );
         } else {
-          _productCtrls[c.compId] = TextEditingController(text: (c.grams ?? 0).toString());
+          _productCtrls[c.compId] = TextEditingController(
+            text: (c.grams ?? 0).toString(),
+          );
         }
       }
     } else {
@@ -178,7 +206,13 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
     );
     if (time == null) return;
     setState(() {
-      _targetAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _targetAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
     });
   }
 
@@ -189,8 +223,10 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Reset to template?'),
-          content: const Text('Do you want to reset all values to the recipe template defaults?\n\n'
-              'This will overwrite any custom values you\'ve entered.'),
+          content: const Text(
+            'Do you want to reset all values to the recipe template defaults?\n\n'
+            'This will overwrite any custom values you\'ve entered.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
@@ -238,30 +274,44 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
         parentEntryId: widget.entryId!,
         targetAtLocal: _targetAt,
         kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
-        productGramOverrides: productOverrides.isEmpty ? null : productOverrides,
+        productGramOverrides: productOverrides.isEmpty
+            ? null
+            : productOverrides,
         isStatic: _isStatic,
       );
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('Updated ${_recipeName.isEmpty ? 'Recipe' : _recipeName}')),
+        SnackBar(
+          content: Text(
+            'Updated ${_recipeName.isEmpty ? 'Recipe' : _recipeName}',
+          ),
+        ),
       );
     } else {
       // Create new recipe instance
       if (_recipeId == null) {
-        messenger.showSnackBar(const SnackBar(content: Text('No recipe selected')));
+        messenger.showSnackBar(
+          const SnackBar(content: Text('No recipe selected')),
+        );
         return;
       }
       await svc.createRecipeEntry(
         recipeId: _recipeId!,
         targetAtLocal: _targetAt,
         kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
-        productGramOverrides: productOverrides.isEmpty ? null : productOverrides,
+        productGramOverrides: productOverrides.isEmpty
+            ? null
+            : productOverrides,
         showParentInCalendar: true,
         isStatic: _isStatic,
       );
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('Added ${_recipeName.isEmpty ? 'Recipe' : _recipeName}')),
+        SnackBar(
+          content: Text(
+            'Added ${_recipeName.isEmpty ? 'Recipe' : _recipeName}',
+          ),
+        ),
       );
     }
 
@@ -275,11 +325,17 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
     final registry = ref.watch(widgetRegistryProvider);
     final isEdit = widget.entryId != null;
     return AlertDialog(
-      title: Text(isEdit
-          ? '${_recipeName.isEmpty ? 'Recipe' : _recipeName} — Edit'
-          : 'Instantiate: ${_recipeName.isEmpty ? _recipeId ?? '' : _recipeName}'),
+      title: Text(
+        isEdit
+            ? '${_recipeName.isEmpty ? 'Recipe' : _recipeName} — Edit'
+            : 'Instantiate: ${_recipeName.isEmpty ? _recipeId ?? '' : _recipeName}',
+      ),
       content: _loading
-          ? const SizedBox(width: 480, height: 120, child: Center(child: CircularProgressIndicator()))
+          ? const SizedBox(
+              width: 480,
+              height: 120,
+              child: Center(child: CircularProgressIndicator()),
+            )
           : SizedBox(
               width: 520,
               child: SingleChildScrollView(
@@ -297,40 +353,49 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
                       contentPadding: EdgeInsets.zero,
                       value: _isStatic,
                       onChanged: _handleStaticToggle,
-                      title: const Text('Static (don\'t update if recipe template changes)'),
+                      title: const Text(
+                        'Static (don\'t update if recipe template changes)',
+                      ),
                     ),
                     const SizedBox(height: 12),
                     if (_components.isEmpty)
                       const Text('No components in this recipe yet')
                     else ...[
                       for (final c in _components)
-                        Builder(builder: (ctx) {
-                          final typeStr = c.type.toString();
-                          if (typeStr.endsWith('kind')) {
-                            final k = registry.byId(c.compId);
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: TextField(
-                                controller: _kindCtrls[c.compId],
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                                decoration: InputDecoration(
-                                  labelText: '${k?.displayName ?? c.compId} (${k?.unit ?? ''})',
+                        Builder(
+                          builder: (ctx) {
+                            final typeStr = c.type.toString();
+                            if (typeStr.endsWith('kind')) {
+                              final k = registry.byId(c.compId);
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: TextField(
+                                  controller: _kindCtrls[c.compId],
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                        signed: true,
+                                      ),
+                                  decoration: InputDecoration(
+                                    labelText:
+                                        '${k?.displayName ?? c.compId} (${k?.unit ?? ''})',
+                                  ),
                                 ),
-                              ),
-                            );
-                          } else {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: TextField(
-                                controller: _productCtrls[c.compId],
-                                keyboardType: TextInputType.number,
-                                decoration: InputDecoration(
-                                  labelText: 'Product: ${c.compId} (grams)',
+                              );
+                            } else {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: TextField(
+                                  controller: _productCtrls[c.compId],
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    labelText: 'Product: ${c.compId} (grams)',
+                                  ),
                                 ),
-                              ),
-                            );
-                          }
-                        }),
+                              );
+                            }
+                          },
+                        ),
                     ],
                   ],
                 ),
@@ -338,7 +403,8 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
             ),
       actions: editorDialogActions(
         context: context,
-        onSave: ({required closeAfter}) => _save(context, closeAfter: closeAfter),
+        onSave: ({required closeAfter}) =>
+            _save(context, closeAfter: closeAfter),
       ),
     );
   }

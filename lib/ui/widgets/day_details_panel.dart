@@ -24,7 +24,10 @@ class DayDetailsPanel extends ConsumerWidget {
     }
 
     // Use context-aware search: search only the selected day
-    final entriesStream = searchService.searchEntriesForDay(searchQuery, selected);
+    final entriesStream = searchService.searchEntriesForDay(
+      searchQuery,
+      selected,
+    );
 
     return StreamBuilder<List<EntryRecord>>(
       stream: entriesStream,
@@ -58,7 +61,8 @@ class DayDetailsPanel extends ConsumerWidget {
                     );
                     final addBtn = IconButton(
                       tooltip: 'Add',
-                      onPressed: () => showCreateActionSheet(context, ref, selected),
+                      onPressed: () =>
+                          showCreateActionSheet(context, ref, selected),
                       icon: const Icon(Icons.add_circle_outline),
                     );
                     return Row(
@@ -72,7 +76,9 @@ class DayDetailsPanel extends ConsumerWidget {
                 Text(
                   'No entries for this day yet',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
               ],
@@ -96,7 +102,8 @@ class DayDetailsPanel extends ConsumerWidget {
                   );
                   final addBtn = IconButton(
                     tooltip: 'Add',
-                    onPressed: () => showCreateActionSheet(context, ref, selected),
+                    onPressed: () =>
+                        showCreateActionSheet(context, ref, selected),
                     icon: const Icon(Icons.add_circle_outline),
                   );
                   return Row(

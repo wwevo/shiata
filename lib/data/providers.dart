@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/services/search_service.dart';
 import 'db/db_handle.dart';
 import 'db/raw_db.dart';
 import 'repo/entries_repository.dart';
 import 'repo/kinds_repository.dart';
 import 'repo/products_repository.dart';
 import 'repo/recipes_repository.dart';
-import '../domain/services/search_service.dart';
 
 /// Provides an [AppDb] instance when the low-level [QueryExecutor] is available.
 final appDbProvider = Provider<AppDb?>((ref) {

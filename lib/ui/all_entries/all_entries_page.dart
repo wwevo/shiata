@@ -26,9 +26,7 @@ class AllEntriesPage extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('All Entries'),
-      ),
+      appBar: AppBar(title: const Text('All Entries')),
       body: StreamBuilder<List<EntryRecord>>(
         stream: searchService.searchAllEntries(searchQuery),
         builder: (context, snapshot) {
@@ -68,18 +66,25 @@ class AllEntriesPage extends ConsumerWidget {
           }
 
           // Only show top-level entries (children are rendered recursively)
-          final topLevelEntries = entries.where((e) => e.sourceEntryId == null).toList();
+          final topLevelEntries = entries
+              .where((e) => e.sourceEntryId == null)
+              .toList();
 
           // Group by date for better organization
           final entriesByDate = <String, List<EntryRecord>>{};
           for (final entry in topLevelEntries) {
-            final local = DateTime.fromMillisecondsSinceEpoch(entry.targetAt, isUtc: true).toLocal();
-            final dateKey = '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
+            final local = DateTime.fromMillisecondsSinceEpoch(
+              entry.targetAt,
+              isUtc: true,
+            ).toLocal();
+            final dateKey =
+                '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
             (entriesByDate[dateKey] ??= []).add(entry);
           }
 
           // Sort dates descending (most recent first)
-          final sortedDates = entriesByDate.keys.toList()..sort((a, b) => b.compareTo(a));
+          final sortedDates = entriesByDate.keys.toList()
+            ..sort((a, b) => b.compareTo(a));
 
           return ListView.builder(
             itemCount: sortedDates.length,
@@ -96,20 +101,22 @@ class AllEntriesPage extends ConsumerWidget {
                     child: Text(
                       dateKey,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ),
                   // Entries for this date
-                  ...dateEntries.map((entry) => EntryListItemFactory.buildEntry(
-                        context: context,
-                        ref: ref,
-                        entry: entry,
-                        childrenByParent: childrenByParent,
-                        registry: registry,
-                        config: EntryListItemConfig.fullDateTime,
-                      )),
+                  ...dateEntries.map(
+                    (entry) => EntryListItemFactory.buildEntry(
+                      context: context,
+                      ref: ref,
+                      entry: entry,
+                      childrenByParent: childrenByParent,
+                      registry: registry,
+                      config: EntryListItemConfig.fullDateTime,
+                    ),
+                  ),
                 ],
               );
             },

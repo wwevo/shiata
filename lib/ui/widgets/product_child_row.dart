@@ -7,9 +7,15 @@ import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
 
 class ProductChildRow extends ConsumerWidget {
-  const ProductChildRow({super.key, required this.entry, required this.registry});
+  const ProductChildRow({
+    super.key,
+    required this.entry,
+    required this.registry,
+  });
+
   final EntryRecord entry;
   final WidgetRegistry registry;
+
   String _formatAmount(Map<String, dynamic> map) {
     double? amount = (map['amount'] as num?)?.toDouble();
     final unitFromPayload = map['unit'] as String?; // optional
@@ -27,7 +33,8 @@ class ProductChildRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final kind = registry.byId(entry.widgetKind);
-    final color = kind?.accentColor ?? Theme.of(context).colorScheme.onSurfaceVariant;
+    final color =
+        kind?.accentColor ?? Theme.of(context).colorScheme.onSurfaceVariant;
     final icon = kind?.icon ?? Icons.circle;
     String value = '—';
     try {
@@ -40,7 +47,11 @@ class ProductChildRow extends ConsumerWidget {
     return ListTile(
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 0),
-      leading: CircleAvatar(backgroundColor: color, foregroundColor: Colors.white, child: Icon(icon, size: 16)),
+      leading: CircleAvatar(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        child: Icon(icon, size: 16),
+      ),
       title: Text(kind?.displayName ?? entry.widgetKind),
       trailing: Text(value, style: Theme.of(context).textTheme.bodyMedium),
     );

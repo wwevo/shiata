@@ -50,8 +50,14 @@ class DbBackedKind extends WidgetKind {
         color: accentColor,
         run: (ctx, date) async {
           final now = DateTime.now();
-          final initial = DateTime(date.year, date.month, date.day, now.hour, now.minute);
-/*
+          final initial = DateTime(
+            date.year,
+            date.month,
+            date.day,
+            now.hour,
+            now.minute,
+          );
+          /*
           await Navigator.of(ctx).push(
             MaterialPageRoute(
               builder: (_) => KindInstanceEditorScreen(
@@ -64,13 +70,10 @@ class DbBackedKind extends WidgetKind {
           await showDialog(
             context: context,
             builder: (_) =>
-                KindInstanceEditorDialog(
-                  kind: this,
-                  initialTargetAt: initial,
-                ),
+                KindInstanceEditorDialog(kind: this, initialTargetAt: initial),
           );
         },
-      )
+      ),
     ];
   }
 }

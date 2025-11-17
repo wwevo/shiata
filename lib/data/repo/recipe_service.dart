@@ -8,7 +8,12 @@ import 'product_service.dart';
 import 'recipes_repository.dart';
 
 class RecipeService {
-  RecipeService({required this.entries, required this.recipes, required this.productService});
+  RecipeService({
+    required this.entries,
+    required this.recipes,
+    required this.productService,
+  });
+
   final EntriesRepository entries;
   final RecipesRepository recipes;
   final ProductService? productService;
@@ -32,10 +37,7 @@ class RecipeService {
     final parent = await entries.create(
       widgetKind: 'recipe',
       targetAtLocal: targetAtLocal,
-      payload: {
-        'recipe_id': recipeId,
-        'name': def.name,
-      },
+      payload: {'recipe_id': recipeId, 'name': def.name},
       showInCalendar: showParentInCalendar,
       schemaVersion: 1,
       recipeId: recipeId,
@@ -49,9 +51,7 @@ class RecipeService {
         await entries.create(
           widgetKind: c.compId,
           targetAtLocal: targetAtLocal,
-          payload: {
-            'amount': amount,
-          },
+          payload: {'amount': amount},
           showInCalendar: false,
           schemaVersion: 1,
           sourceEntryId: parent.id,
@@ -104,10 +104,7 @@ class RecipeService {
     final comps = await recipes.getComponents(recipeId);
 
     // 3. Update parent row
-    final payload = {
-      'recipe_id': recipeId,
-      'name': def.name,
-    };
+    final payload = {'recipe_id': recipeId, 'name': def.name};
     await entries.update(parentEntryId, {
       'payload_json': jsonEncode(payload),
       'target_at': targetAtLocal.toUtc().millisecondsSinceEpoch,
@@ -133,9 +130,7 @@ class RecipeService {
         await entries.create(
           widgetKind: c.compId,
           targetAtLocal: targetAtLocal,
-          payload: {
-            'amount': amount,
-          },
+          payload: {'amount': amount},
           showInCalendar: false,
           schemaVersion: 1,
           sourceEntryId: parentEntryId,

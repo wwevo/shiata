@@ -169,13 +169,15 @@ class EntryListItemFactory {
           IconButton(
             tooltip: 'Edit',
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () => _showEditDialog(context, entry, isProduct, isRecipe, registry),
+            onPressed: () =>
+                _showEditDialog(context, entry, isProduct, isRecipe, registry),
           ),
           // Delete button (for all entry types)
           IconButton(
             tooltip: 'Delete',
             icon: const Icon(Icons.delete_outline),
-            onPressed: () => _deleteEntry(context, ref, entry, isProduct, isRecipe),
+            onPressed: () =>
+                _deleteEntry(context, ref, entry, isProduct, isRecipe),
           ),
           // Edit components button (only for products)
           if (isProduct)
@@ -184,7 +186,8 @@ class EntryListItemFactory {
               icon: const Icon(Icons.tune),
               onPressed: () => showDialog(
                 context: context,
-                builder: (_) => InstanceComponentsEditorDialog(parentEntryId: entry.id),
+                builder: (_) =>
+                    InstanceComponentsEditorDialog(parentEntryId: entry.id),
               ),
             ),
           // Expand/collapse icon (if has children) or chevron (if no children)
@@ -248,18 +251,20 @@ class EntryListItemFactory {
             padding: const EdgeInsets.only(left: 52, right: 8, bottom: 8),
             child: Column(
               children: children
-                  .map((child) => buildEntry(
-                        context: context,
-                        ref: ref,
-                        entry: child,
-                        childrenByParent: childrenByParent,
-                        registry: registry,
-                        config: config,
-                        depth: depth + 1,
-                        displayMode: displayMode,
-                        selectedIds: selectedIds,
-                        onSelectionChanged: onSelectionChanged,
-                      ))
+                  .map(
+                    (child) => buildEntry(
+                      context: context,
+                      ref: ref,
+                      entry: child,
+                      childrenByParent: childrenByParent,
+                      registry: registry,
+                      config: config,
+                      depth: depth + 1,
+                      displayMode: displayMode,
+                      selectedIds: selectedIds,
+                      onSelectionChanged: onSelectionChanged,
+                    ),
+                  )
                   .toList(),
             ),
           ),
@@ -306,19 +311,23 @@ class EntryListItemFactory {
         for (final child in entries) {
           if (child.widgetKind == 'product') {
             try {
-              final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
+              final childMap =
+                  jsonDecode(child.payloadJson) as Map<String, dynamic>;
               final grams = (childMap['grams'] as num?)?.toDouble() ?? 0.0;
               totalProductGrams += grams;
             } catch (_) {}
             // Recursively aggregate nutrients from this product's children
-            final grandchildren = childrenByParent[child.id] ?? const <EntryRecord>[];
+            final grandchildren =
+                childrenByParent[child.id] ?? const <EntryRecord>[];
             aggregateNutrients(grandchildren);
           } else {
             // It's a kind - aggregate by kind
             try {
-              final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
+              final childMap =
+                  jsonDecode(child.payloadJson) as Map<String, dynamic>;
               final amount = (childMap['amount'] as num?)?.toDouble() ?? 0.0;
-              kindSummaries[child.widgetKind] = (kindSummaries[child.widgetKind] ?? 0.0) + amount;
+              kindSummaries[child.widgetKind] =
+                  (kindSummaries[child.widgetKind] ?? 0.0) + amount;
             } catch (_) {}
           }
         }
@@ -383,7 +392,11 @@ class EntryListItemFactory {
 
   /// Extracts kind title with amount (displayName • amount unit)
   /// For nested entries (depth > 0), only returns displayName (amount shown in trailing)
-  static String _extractKindTitle(EntryRecord entry, WidgetKind? kind, int depth) {
+  static String _extractKindTitle(
+    EntryRecord entry,
+    WidgetKind? kind,
+    int depth,
+  ) {
     final displayName = kind?.displayName ?? entry.widgetKind;
 
     // Nested entries show amount in trailing, not in title
@@ -408,13 +421,19 @@ class EntryListItemFactory {
   }
 
   /// Builds amount widget for nested kind entries (shown in trailing)
-  static Widget? _buildKindAmount(EntryRecord entry, WidgetRegistry registry, BuildContext context) {
+  static Widget? _buildKindAmount(
+    EntryRecord entry,
+    WidgetRegistry registry,
+    BuildContext context,
+  ) {
     try {
       final map = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
       double? amount = (map['amount'] as num?)?.toDouble();
       final unitFromPayload = map['unit'] as String?;
 
-      if (amount == null) return Text('—', style: Theme.of(context).textTheme.bodyMedium);
+      if (amount == null) {
+        return Text('—', style: Theme.of(context).textTheme.bodyMedium);
+      }
 
       final kind = registry.byId(entry.widgetKind);
       final unit = unitFromPayload ?? kind?.unit ?? '';
@@ -425,7 +444,10 @@ class EntryListItemFactory {
         // Only trim zeros after decimal point: "0.30" → "0.3", but keep "30" as "30"
         if (text.contains('.')) {
           text = text.replaceFirst(RegExp(r'0+$'), ''); // Remove trailing zeros
-          text = text.replaceFirst(RegExp(r'\.$'), '');  // Remove trailing decimal point
+          text = text.replaceFirst(
+            RegExp(r'\.$'),
+            '',
+          ); // Remove trailing decimal point
         }
       } else {
         // For amounts >= 1, show as integer: "30.0" → "30"
@@ -454,15 +476,19 @@ class EntryListItemFactory {
 
     // Date and time
     if (config.showDate && config.showTime) {
-      parts.add(Text(
-        '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')}  ${fmtTime(localTime)}',
-      ));
+      parts.add(
+        Text(
+          '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')}  ${fmtTime(localTime)}',
+        ),
+      );
     } else if (config.showTime) {
       parts.add(Text(fmtTime(localTime)));
     } else if (config.showDate) {
-      parts.add(Text(
-        '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')}',
-      ));
+      parts.add(
+        Text(
+          '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')}',
+        ),
+      );
     }
 
     // Static flag
@@ -470,16 +496,15 @@ class EntryListItemFactory {
       if (parts.isNotEmpty) {
         parts.add(const SizedBox(width: 8));
       }
-      parts.add(Icon(
-        Icons.lock,
-        size: 14,
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-      ));
+      parts.add(
+        Icon(
+          Icons.lock,
+          size: 14,
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+        ),
+      );
       parts.add(const SizedBox(width: 4));
-      parts.add(Text(
-        'Static',
-        style: Theme.of(context).textTheme.labelSmall,
-      ));
+      parts.add(Text('Static', style: Theme.of(context).textTheme.labelSmall));
     }
 
     return parts.isEmpty ? null : Row(children: parts);
@@ -508,7 +533,8 @@ class EntryListItemFactory {
       if (kind != null) {
         showDialog(
           context: context,
-          builder: (_) => KindInstanceEditorDialog(kind: kind, entryId: entry.id),
+          builder: (_) =>
+              KindInstanceEditorDialog(kind: kind, entryId: entry.id),
         );
       }
     }
@@ -535,8 +561,8 @@ class EntryListItemFactory {
           isProduct
               ? 'This will remove the product entry and its components. You can undo from the snackbar.'
               : isRecipe
-                  ? 'This will remove the recipe entry and its components. You can undo from the snackbar.'
-                  : 'This will remove the entry. You can undo from the snackbar.',
+              ? 'This will remove the recipe entry and its components. You can undo from the snackbar.'
+              : 'This will remove the entry. You can undo from the snackbar.',
         ),
         actions: [
           TextButton(

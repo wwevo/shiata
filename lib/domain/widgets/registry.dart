@@ -39,9 +39,9 @@ class WidgetRegistry {
 
   /// Aggregate all actions for a target date from all kinds.
   List<({WidgetKind kind, CreateAction action})> actionsForDate(
-      BuildContext context,
-      DateTime targetDate,
-      ) {
+    BuildContext context,
+    DateTime targetDate,
+  ) {
     final items = <({WidgetKind kind, CreateAction action})>[];
     for (final kind in _kinds.values) {
       final acts = kind.createActions(context, targetDate);

@@ -61,7 +61,11 @@ class KindsPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildKindsList(BuildContext context, WidgetRef ref, List<dynamic> kinds) {
+  Widget _buildKindsList(
+    BuildContext context,
+    WidgetRef ref,
+    List<dynamic> kinds,
+  ) {
     return ListView.builder(
       itemCount: kinds.length,
       itemBuilder: (ctx, i) {
@@ -78,7 +82,8 @@ class KindsPage extends ConsumerWidget {
             ),
             title: Text(k.name),
             subtitle: Text(
-                '${k.unit}  •  min ${k.min}  •  max ${k.max}${k.defaultShowInCalendar ? '  •  calendar' : ''}'),
+              '${k.unit}  •  min ${k.min}  •  max ${k.max}${k.defaultShowInCalendar ? '  •  calendar' : ''}',
+            ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -106,7 +111,10 @@ class KindsPage extends ConsumerWidget {
   }
 
   Future<void> _deleteKind(
-      BuildContext context, WidgetRef ref, dynamic k) async {
+    BuildContext context,
+    WidgetRef ref,
+    dynamic k,
+  ) async {
     final svc = ref.read(kindServiceProvider);
     if (svc == null) return;
     // Load usage
@@ -119,78 +127,88 @@ class KindsPage extends ConsumerWidget {
 
     bool removeFromProducts = usage.productsUsing.isNotEmpty;
     bool deleteDirectEntries = usage.directEntriesCount > 0;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) {
-        return StatefulBuilder(builder: (ctx, setState) {
-          return AlertDialog(
-            title: const Text('Delete kind'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('"${k.name}"'),
-                const SizedBox(height: 8),
-                if (usage.productsUsing.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                        'Used by ${usage.productsUsing.length} product(s): ${usage.productsUsing.map((p) => p.name).join(', ')}'),
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (_) {
+            return StatefulBuilder(
+              builder: (ctx, setState) {
+                return AlertDialog(
+                  title: const Text('Delete kind'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('"${k.name}"'),
+                      const SizedBox(height: 8),
+                      if (usage.productsUsing.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            'Used by ${usage.productsUsing.length} product(s): ${usage.productsUsing.map((p) => p.name).join(', ')}',
+                          ),
+                        ),
+                      if (usage.directEntriesCount > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            '${usage.directEntriesCount} direct calendar instance(s)',
+                          ),
+                        ),
+                      if (usage.productsUsing.isEmpty &&
+                          usage.directEntriesCount == 0)
+                        const Text('This kind is not used.'),
+                      const Divider(),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Remove from product templates and update existing entries',
+                        ),
+                        value: removeFromProducts,
+                        onChanged: (v) =>
+                            setState(() => removeFromProducts = v ?? false),
+                      ),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Delete direct calendar instances of this kind',
+                        ),
+                        value: deleteDirectEntries,
+                        onChanged: (v) =>
+                            setState(() => deleteDirectEntries = v ?? false),
+                      ),
+                      if ((usage.productsUsing.isNotEmpty ||
+                              usage.directEntriesCount > 0) &&
+                          !(removeFromProducts || deleteDirectEntries))
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: Text(
+                            'Select at least one option to proceed, because the kind is in use.',
+                            style: TextStyle(color: Colors.redAccent),
+                          ),
+                        ),
+                    ],
                   ),
-                if (usage.directEntriesCount > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                        '${usage.directEntriesCount} direct calendar instance(s)'),
-                  ),
-                if (usage.productsUsing.isEmpty &&
-                    usage.directEntriesCount == 0)
-                  const Text('This kind is not used.'),
-                const Divider(),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                      'Remove from product templates and update existing entries'),
-                  value: removeFromProducts,
-                  onChanged: (v) =>
-                      setState(() => removeFromProducts = v ?? false),
-                ),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                      'Delete direct calendar instances of this kind'),
-                  value: deleteDirectEntries,
-                  onChanged: (v) =>
-                      setState(() => deleteDirectEntries = v ?? false),
-                ),
-                if ((usage.productsUsing.isNotEmpty ||
-                        usage.directEntriesCount > 0) &&
-                    !(removeFromProducts || deleteDirectEntries))
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Text(
-                        'Select at least one option to proceed, because the kind is in use.',
-                        style: TextStyle(color: Colors.redAccent)),
-                  ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: const Text('Cancel')),
-              FilledButton(
-                onPressed: ((usage.productsUsing.isNotEmpty ||
-                            usage.directEntriesCount > 0) &&
-                        !(removeFromProducts || deleteDirectEntries))
-                    ? null
-                    : () => Navigator.of(ctx).pop(true),
-                child: const Text('Delete'),
-              ),
-            ],
-          );
-        });
-      },
-    ) ??
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                    FilledButton(
+                      onPressed:
+                          ((usage.productsUsing.isNotEmpty ||
+                                  usage.directEntriesCount > 0) &&
+                              !(removeFromProducts || deleteDirectEntries))
+                          ? null
+                          : () => Navigator.of(ctx).pop(true),
+                      child: const Text('Delete'),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        ) ??
         false;
     if (!confirmed) return;
     try {
@@ -211,8 +229,8 @@ class KindsPage extends ConsumerWidget {
                     await svc.undoKindDeletion(snap);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Reverted kind deletion')));
+                        const SnackBar(content: Text('Reverted kind deletion')),
+                      );
                     }
                   },
                 ),

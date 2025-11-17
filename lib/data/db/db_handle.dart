@@ -75,4 +75,6 @@ class DbHandle extends AsyncNotifier<QueryExecutor?> {
   }
 }
 
-final dbHandleProvider = AsyncNotifierProvider<DbHandle, QueryExecutor?>(DbHandle.new);
+final dbHandleProvider = AsyncNotifierProvider<DbHandle, QueryExecutor?>(
+  DbHandle.new,
+);

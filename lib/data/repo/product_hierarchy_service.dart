@@ -68,13 +68,15 @@ class ProductHierarchyService {
       final amount = (payload['amount'] as num?)?.toDouble() ?? 0.0;
 
       // Sum original amounts
-      nutrientsByKind[child.widgetKind] = (nutrientsByKind[child.widgetKind] ?? 0.0) + amount;
+      nutrientsByKind[child.widgetKind] =
+          (nutrientsByKind[child.widgetKind] ?? 0.0) + amount;
 
       // Normalize for comparison
       final kind = registry.byId(child.widgetKind);
       final unit = kind?.unit ?? '';
       final normalized = NutrientSummary.normalizeToGrams(amount, unit);
-      normalizedNutrients[child.widgetKind] = (normalizedNutrients[child.widgetKind] ?? 0.0) + normalized;
+      normalizedNutrients[child.widgetKind] =
+          (normalizedNutrients[child.widgetKind] ?? 0.0) + normalized;
     }
 
     final productGrams = hierarchy.parent.productGrams?.toDouble() ?? 0.0;
@@ -132,7 +134,9 @@ class ProductHierarchyService {
   }
 }
 
-final productHierarchyServiceProvider = Provider<ProductHierarchyService?>((ref) {
+final productHierarchyServiceProvider = Provider<ProductHierarchyService?>((
+  ref,
+) {
   final e = ref.watch(entriesRepositoryProvider);
   final p = ref.watch(productsRepositoryProvider);
   final ps = ref.watch(productServiceProvider);

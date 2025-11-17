@@ -9,11 +9,19 @@ import '../main_screen_providers.dart';
 import 'product_child_row.dart';
 
 class NestedProductParentRow extends ConsumerWidget {
-  const NestedProductParentRow({super.key, required this.entry, required this.registry, required this.children, required this.expandedSet});
+  const NestedProductParentRow({
+    super.key,
+    required this.entry,
+    required this.registry,
+    required this.children,
+    required this.expandedSet,
+  });
+
   final EntryRecord entry;
   final WidgetRegistry registry;
   final List<EntryRecord> children;
   final Set<String> expandedSet;
+
   String _productTitleFromPayload(EntryRecord e) {
     try {
       final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
@@ -46,7 +54,11 @@ class NestedProductParentRow extends ConsumerWidget {
             }
             ref.read(expandedProductsProvider.notifier).state = set;
           },
-          leading: const CircleAvatar(backgroundColor: Colors.purple, foregroundColor: Colors.white, child: Icon(Icons.shopping_basket, size: 16)),
+          leading: const CircleAvatar(
+            backgroundColor: Colors.purple,
+            foregroundColor: Colors.white,
+            child: Icon(Icons.shopping_basket, size: 16),
+          ),
           title: Text(_productTitleFromPayload(entry)),
           trailing: AnimatedRotation(
             turns: isExpanded ? 0.5 : 0.0,
@@ -59,7 +71,8 @@ class NestedProductParentRow extends ConsumerWidget {
             padding: const EdgeInsets.only(left: 52, right: 8, bottom: 8),
             child: Column(
               children: [
-                for (final c in children) ProductChildRow(entry: c, registry: registry),
+                for (final c in children)
+                  ProductChildRow(entry: c, registry: registry),
               ],
             ),
           ),

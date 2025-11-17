@@ -50,62 +50,78 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
           // When in other sections: return to calendar section (remembers last view)
           IconButton(
             tooltip: section == AppSection.calendar
-                ? (viewMode == ViewMode.overview ? 'Switch to Calendar' : 'Switch to Overview')
+                ? (viewMode == ViewMode.overview
+                      ? 'Switch to Calendar'
+                      : 'Switch to Overview')
                 : 'Go to Calendar',
             onPressed: () {
               if (section == AppSection.calendar) {
                 // Toggle between overview and calendar within calendar section
-                ref.read(viewModeProvider.notifier).state =
-                    viewMode == ViewMode.overview ? ViewMode.calendar : ViewMode.overview;
+                ref
+                    .read(viewModeProvider.notifier)
+                    .state = viewMode == ViewMode.overview
+                    ? ViewMode.calendar
+                    : ViewMode.overview;
               } else {
                 // Return to calendar section (uses current viewMode)
-                ref.read(currentSectionProvider.notifier).state = AppSection.calendar;
+                ref.read(currentSectionProvider.notifier).state =
+                    AppSection.calendar;
               }
             },
             icon: Icon(
-              viewMode == ViewMode.overview ? Icons.calendar_month : Icons.bar_chart,
+              viewMode == ViewMode.overview
+                  ? Icons.calendar_month
+                  : Icons.bar_chart,
             ),
           ),
           IconButton(
             tooltip: 'Swap handedness',
             onPressed: () {
-              ref.read(handednessProvider.notifier).state =
-                  handedness == Handedness.left ? Handedness.right : Handedness.left;
+              ref
+                  .read(handednessProvider.notifier)
+                  .state = handedness == Handedness.left
+                  ? Handedness.right
+                  : Handedness.left;
             },
             icon: const Icon(Icons.swap_horiz),
           ),
           IconButton(
             tooltip: 'Products',
             onPressed: () {
-              ref.read(currentSectionProvider.notifier).state = AppSection.products;
+              ref.read(currentSectionProvider.notifier).state =
+                  AppSection.products;
             },
             icon: const Icon(Icons.shopping_basket_outlined),
           ),
           IconButton(
             tooltip: 'Kinds',
             onPressed: () {
-              ref.read(currentSectionProvider.notifier).state = AppSection.kinds;
+              ref.read(currentSectionProvider.notifier).state =
+                  AppSection.kinds;
             },
             icon: const Icon(Icons.category_outlined),
           ),
           IconButton(
             tooltip: 'Recipes',
             onPressed: () {
-              ref.read(currentSectionProvider.notifier).state = AppSection.recipes;
+              ref.read(currentSectionProvider.notifier).state =
+                  AppSection.recipes;
             },
             icon: const Icon(Icons.restaurant_menu_outlined),
           ),
           IconButton(
             tooltip: 'All Entries',
             onPressed: () {
-              ref.read(currentSectionProvider.notifier).state = AppSection.allEntries;
+              ref.read(currentSectionProvider.notifier).state =
+                  AppSection.allEntries;
             },
             icon: const Icon(Icons.view_list),
           ),
           IconButton(
             tooltip: 'Database',
             onPressed: () {
-              ref.read(currentSectionProvider.notifier).state = AppSection.database;
+              ref.read(currentSectionProvider.notifier).state =
+                  AppSection.database;
             },
             icon: const Icon(Icons.storage),
           ),
@@ -131,8 +147,9 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
               ),
               onChanged: (q) {
                 ref.read(searchQueryProvider.notifier).state = q;
-                ref.read(middleModeProvider.notifier).state =
-                    q.trim().isEmpty ? MiddleMode.main : MiddleMode.search;
+                ref.read(middleModeProvider.notifier).state = q.trim().isEmpty
+                    ? MiddleMode.main
+                    : MiddleMode.search;
               },
             ),
           ),

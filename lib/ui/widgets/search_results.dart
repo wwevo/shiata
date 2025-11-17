@@ -9,6 +9,7 @@ import 'entry_list_item_factory.dart';
 
 class SearchResults extends ConsumerWidget {
   const SearchResults({super.key, required this.controller});
+
   final ScrollController controller;
 
   @override
@@ -51,7 +52,9 @@ class SearchResults extends ConsumerWidget {
         }
 
         // Only show top-level entries (children are rendered recursively)
-        final topLevelEntries = results.where((e) => e.sourceEntryId == null).toList();
+        final topLevelEntries = results
+            .where((e) => e.sourceEntryId == null)
+            .toList();
 
         return ListView.builder(
           controller: controller,

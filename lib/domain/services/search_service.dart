@@ -84,8 +84,12 @@ class SearchService {
 
       // Filter by widget_kind and payload_json content
       yield dayEntries.where((entry) {
-        final widgetKindMatch = entry.widgetKind.toLowerCase().contains(normalized);
-        final payloadMatch = entry.payloadJson.toLowerCase().contains(normalized);
+        final widgetKindMatch = entry.widgetKind.toLowerCase().contains(
+          normalized,
+        );
+        final payloadMatch = entry.payloadJson.toLowerCase().contains(
+          normalized,
+        );
         return widgetKindMatch || payloadMatch;
       }).toList();
     }
@@ -115,8 +119,12 @@ class SearchService {
 
       // Filter by content
       yield allEntries.where((entry) {
-        final widgetKindMatch = entry.widgetKind.toLowerCase().contains(normalized);
-        final payloadMatch = entry.payloadJson.toLowerCase().contains(normalized);
+        final widgetKindMatch = entry.widgetKind.toLowerCase().contains(
+          normalized,
+        );
+        final payloadMatch = entry.payloadJson.toLowerCase().contains(
+          normalized,
+        );
         return widgetKindMatch || payloadMatch;
       }).toList();
     }

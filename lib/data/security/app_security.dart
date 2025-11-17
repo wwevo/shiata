@@ -22,5 +22,6 @@ class AppSecurity {
 
   /// Returns true if we are in an environment where SQLCipher should be
   /// pre-bundled and explicitly loaded.
-  static bool get requiresExplicitSqlcipherLoad => Platform.isLinux || Platform.isWindows;
+  static bool get requiresExplicitSqlcipherLoad =>
+      Platform.isLinux || Platform.isWindows;
 }

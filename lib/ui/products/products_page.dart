@@ -71,11 +71,14 @@ class ProductTemplatesPage extends ConsumerWidget {
                   itemBuilder: (ctx, i) {
                     final p = list[i];
                     final icon = resolveIcon(p.icon, Icons.shopping_basket);
-                    final color =
-                        p.color != null ? Color(p.color!) : Colors.purple;
+                    final color = p.color != null
+                        ? Color(p.color!)
+                        : Colors.purple;
                     return Card(
                       margin: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       child: ListTile(
                         leading: CircleAvatar(
                           backgroundColor: color,
@@ -94,15 +97,15 @@ class ProductTemplatesPage extends ConsumerWidget {
                                 await showDialog(
                                   context: context,
                                   builder: (_) => ProductTemplateEditorDialog(
-                                      productId: p.id),
+                                    productId: p.id,
+                                  ),
                                 );
                               },
                             ),
                             IconButton(
                               tooltip: 'Delete',
                               icon: const Icon(Icons.delete_outline),
-                              onPressed: () =>
-                                  _deleteProduct(context, ref, p),
+                              onPressed: () => _deleteProduct(context, ref, p),
                             ),
                           ],
                         ),
@@ -116,21 +119,27 @@ class ProductTemplatesPage extends ConsumerWidget {
   }
 
   Future<void> _deleteProduct(
-      BuildContext context, WidgetRef ref, ProductDef product) async {
+    BuildContext context,
+    WidgetRef ref,
+    ProductDef product,
+  ) async {
     final messenger = ScaffoldMessenger.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete product?'),
         content: const Text(
-            'Instances will be converted: parent rows removed, nutrient entries kept.'),
+          'Instances will be converted: parent rows removed, nutrient entries kept.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Delete')),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -145,10 +154,12 @@ class ProductTemplatesPage extends ConsumerWidget {
   }
 
   Future<MapEntry<String, String>?> _askForIdAndName(
-      BuildContext context) async {
+    BuildContext context,
+  ) async {
     final idCtrl = TextEditingController();
     final nameCtrl = TextEditingController();
-    final ok = await showDialog<bool>(
+    final ok =
+        await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('New product'),
@@ -156,23 +167,29 @@ class ProductTemplatesPage extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
-                    controller: idCtrl,
-                    decoration: const InputDecoration(
-                        labelText: 'Id (stable, e.g., egg)')),
+                  controller: idCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Id (stable, e.g., egg)',
+                  ),
+                ),
                 const SizedBox(height: 8),
                 TextField(
-                    controller: nameCtrl,
-                    decoration:
-                        const InputDecoration(labelText: 'Name (display)')),
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Name (display)',
+                  ),
+                ),
               ],
             ),
             actions: [
               TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: const Text('Cancel')),
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel'),
+              ),
               FilledButton(
-                  onPressed: () => Navigator.of(ctx).pop(true),
-                  child: const Text('Create')),
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Create'),
+              ),
             ],
           ),
         ) ??

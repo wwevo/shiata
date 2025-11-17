@@ -14,6 +14,7 @@ class ProductDef {
     this.icon,
     this.color,
   });
+
   final String id;
   final String name;
   final int createdAt;
@@ -24,10 +25,16 @@ class ProductDef {
 }
 
 class ProductComponent {
-  ProductComponent({required this.productId, required this.kindId, required this.amountPerGram});
+  ProductComponent({
+    required this.productId,
+    required this.kindId,
+    required this.amountPerGram,
+  });
+
   final String productId;
   final String kindId;
-  final double amountPerGram; // amount per 1 g of product (double), using the kind's canonical unit
+  final double
+  amountPerGram; // amount per 1 g of product (double), using the kind's canonical unit
 }
 
 class ProductsRepository {
@@ -52,11 +59,8 @@ class ProductsRepository {
         'name': p.name,
         'components': [
           for (final c in comps)
-            {
-              'kindId': c.kindId,
-              'per100': c.amountPerGram,
-            }
-        ]
+            {'kindId': c.kindId, 'per100': c.amountPerGram},
+        ],
       });
     }
     return out;
@@ -65,11 +69,13 @@ class ProductsRepository {
   /// List products that reference a given kind via product_components.
   Future<List<ProductDef>> listProductsUsingKind(String kindId) async {
     await _ready;
-    final rows = await db.customSelect(
-      'SELECT p.* FROM products p INNER JOIN product_components pc ON pc.product_id = p.id WHERE pc.kind_id = ? GROUP BY p.id ORDER BY p.name ASC;',
-      variables: [Variable.withString(kindId)],
-      readsFrom: const {},
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT p.* FROM products p INNER JOIN product_components pc ON pc.product_id = p.id WHERE pc.kind_id = ? GROUP BY p.id ORDER BY p.name ASC;',
+          variables: [Variable.withString(kindId)],
+          readsFrom: const {},
+        )
+        .get();
     return rows.map((r) {
       final d = r.data;
       return ProductDef(
@@ -85,13 +91,17 @@ class ProductsRepository {
   }
 
   /// List all product_components rows that reference a given kind.
-  Future<List<ProductComponent>> listProductComponentsByKind(String kindId) async {
+  Future<List<ProductComponent>> listProductComponentsByKind(
+    String kindId,
+  ) async {
     await _ready;
-    final rows = await db.customSelect(
-      'SELECT * FROM product_components WHERE kind_id = ?;',
-      variables: [Variable.withString(kindId)],
-      readsFrom: const {},
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT * FROM product_components WHERE kind_id = ?;',
+          variables: [Variable.withString(kindId)],
+          readsFrom: const {},
+        )
+        .get();
     return rows.map((r) {
       final d = r.data;
       return ProductComponent(
@@ -107,18 +117,28 @@ class ProductsRepository {
     await db.customStatement(
       'INSERT INTO products (id, name, created_at, updated_at, is_active, icon, color) VALUES (?, ?, ?, ?, ?, ?, ?) '
       'ON CONFLICT(id) DO UPDATE SET name=excluded.name, updated_at=excluded.updated_at, is_active=excluded.is_active, icon=excluded.icon, color=excluded.color;',
-      [p.id, p.name, p.createdAt, p.updatedAt, p.isActive ? 1 : 0, p.icon, p.color],
+      [
+        p.id,
+        p.name,
+        p.createdAt,
+        p.updatedAt,
+        p.isActive ? 1 : 0,
+        p.icon,
+        p.color,
+      ],
     );
     _notify();
   }
 
   Future<ProductDef?> getProduct(String productId) async {
     await _ready;
-    final rows = await db.customSelect(
-      'SELECT * FROM products WHERE id = ? LIMIT 1;',
-      variables: [Variable.withString(productId)],
-      readsFrom: const {},
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT * FROM products WHERE id = ? LIMIT 1;',
+          variables: [Variable.withString(productId)],
+          readsFrom: const {},
+        )
+        .get();
     if (rows.isEmpty) return null;
     final r = rows.first.data;
     return ProductDef(
@@ -135,10 +155,12 @@ class ProductsRepository {
   Future<List<ProductDef>> listProducts({bool onlyActive = true}) async {
     await _ready;
     final where = onlyActive ? 'WHERE is_active = 1' : '';
-    final rows = await db.customSelect(
-      'SELECT * FROM products $where ORDER BY name ASC;',
-      readsFrom: const {},
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT * FROM products $where ORDER BY name ASC;',
+          readsFrom: const {},
+        )
+        .get();
     return rows.map((r) {
       final d = r.data;
       return ProductDef(
@@ -153,11 +175,17 @@ class ProductsRepository {
     }).toList();
   }
 
-  Future<void> setComponents(String productId, List<ProductComponent> components) async {
+  Future<void> setComponents(
+    String productId,
+    List<ProductComponent> components,
+  ) async {
     await _ready;
     await db.transaction(() async {
       // Remove existing
-      await db.customStatement('DELETE FROM product_components WHERE product_id = ?;', [productId]);
+      await db.customStatement(
+        'DELETE FROM product_components WHERE product_id = ?;',
+        [productId],
+      );
       // Insert new
       for (final c in components) {
         await db.customStatement(
@@ -172,19 +200,26 @@ class ProductsRepository {
   Future<void> deleteProduct(String productId) async {
     await _ready;
     await db.transaction(() async {
-      await db.customStatement('DELETE FROM product_components WHERE product_id = ?;', [productId]);
-      await db.customStatement('DELETE FROM products WHERE id = ?;', [productId]);
+      await db.customStatement(
+        'DELETE FROM product_components WHERE product_id = ?;',
+        [productId],
+      );
+      await db.customStatement('DELETE FROM products WHERE id = ?;', [
+        productId,
+      ]);
     });
     _notify();
   }
 
   Future<List<ProductComponent>> getComponents(String productId) async {
     await _ready;
-    final rows = await db.customSelect(
-      'SELECT * FROM product_components WHERE product_id = ? ORDER BY kind_id ASC;',
-      variables: [Variable.withString(productId)],
-      readsFrom: const {},
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT * FROM product_components WHERE product_id = ? ORDER BY kind_id ASC;',
+          variables: [Variable.withString(productId)],
+          readsFrom: const {},
+        )
+        .get();
     return rows.map((r) {
       final d = r.data;
       return ProductComponent(

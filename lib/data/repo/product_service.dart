@@ -8,6 +8,7 @@ import 'products_repository.dart';
 
 class ProductService {
   ProductService({required this.entries, required this.products});
+
   final EntriesRepository entries;
   final ProductsRepository products;
 
@@ -46,9 +47,7 @@ class ProductService {
       await entries.create(
         widgetKind: c.kindId,
         targetAtLocal: targetAtLocal,
-        payload: {
-          'amount': amount,
-        },
+        payload: {'amount': amount},
         showInCalendar: false,
         schemaVersion: 1,
         sourceEntryId: parent.id,
@@ -88,7 +87,10 @@ class ProductService {
       final amount = (c.amountPerGram * productGrams) / 100.0;
       await entries.create(
         widgetKind: c.kindId,
-        targetAtLocal: DateTime.fromMillisecondsSinceEpoch(parent.targetAt, isUtc: true).toLocal(),
+        targetAtLocal: DateTime.fromMillisecondsSinceEpoch(
+          parent.targetAt,
+          isUtc: true,
+        ).toLocal(),
         payload: {'amount': amount},
         showInCalendar: false,
         schemaVersion: 1,
@@ -120,7 +122,9 @@ class ProductService {
   }
 
   /// Recompute children for all non-static instances of a product using current template components.
-  Future<void> updateAllEntriesForProductToCurrentFormula(String productId) async {
+  Future<void> updateAllEntriesForProductToCurrentFormula(
+    String productId,
+  ) async {
     final parents = await entries.listParentsByProductId(productId);
     final comps = await products.getComponents(productId);
     for (final parent in parents) {
@@ -133,7 +137,10 @@ class ProductService {
         final amount = (c.amountPerGram * grams) / 100.0;
         await entries.create(
           widgetKind: c.kindId,
-          targetAtLocal: DateTime.fromMillisecondsSinceEpoch(parent.targetAt, isUtc: true).toLocal(),
+          targetAtLocal: DateTime.fromMillisecondsSinceEpoch(
+            parent.targetAt,
+            isUtc: true,
+          ).toLocal(),
           payload: {'amount': amount},
           showInCalendar: false,
           schemaVersion: 1,
