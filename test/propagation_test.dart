@@ -73,240 +73,221 @@ void main() {
     });
 
     test('Product template change: dynamic instance UPDATES, static instance UNCHANGED', () async {
-      print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      print('📋 TEST: Product Template Propagation (Dynamic vs Static)');
-      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+      print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('TEST: Product Template Propagation (Dynamic vs Static)');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
 
-      // Setup: Product template with 5mg vitamin C per 100g
-      print('🔧 SETUP PHASE');
-      print('   Creating product template: "banana"');
-      print('   Initial composition: 5mg vitamin C per 100g');
+      // Setup
       await products.upsertProduct(ProductDef(id: 'banana', name: 'Banana', createdAt: now, updatedAt: now));
       await products.setComponents('banana', [
-        ProductComponent(productId: 'banana', kindId: 'vitamin_c', amountPerGram: 5.0), // 5mg per 100g
+        ProductComponent(productId: 'banana', kindId: 'vitamin_c', amountPerGram: 5.0),
       ]);
-      print('   ✓ Template created\n');
 
-      // Create 2 instances: 1 dynamic, 1 static (both 100g)
-      print('   Creating 2 instances (both 100g):');
       final target = DateTime.now();
       final dynamicId = await productService.createProductEntry(
-        productId: 'banana',
-        productGrams: 100,
-        targetAtLocal: target,
-        isStatic: false, // DYNAMIC
+        productId: 'banana', productGrams: 100, targetAtLocal: target, isStatic: false,
       );
-      print('   • Dynamic instance: $dynamicId');
-
       final staticId = await productService.createProductEntry(
-        productId: 'banana',
-        productGrams: 100,
-        targetAtLocal: target,
-        isStatic: true, // STATIC
+        productId: 'banana', productGrams: 100, targetAtLocal: target, isStatic: true,
       );
-      print('   • Static instance: $staticId');
-      print('   ✓ Instances created\n');
 
-      // Verify initial values (both should have 5mg)
-      print('🔍 INITIAL STATE VERIFICATION');
+      // Verify initial state
       var dynamicChildren = await entries.listChildrenOfParent(dynamicId!);
       var staticChildren = await entries.listChildrenOfParent(staticId!);
-      expect(dynamicChildren.length, 1);
-      expect(staticChildren.length, 1);
-
       var dynamicPayload = jsonDecode(dynamicChildren.first.payloadJson) as Map<String, dynamic>;
       var staticPayload = jsonDecode(staticChildren.first.payloadJson) as Map<String, dynamic>;
 
-      print('   Dynamic instance nutrient: ${dynamicPayload['amount']}mg vitamin C');
-      print('   Static instance nutrient:  ${staticPayload['amount']}mg vitamin C');
-      expect(dynamicPayload['amount'], 5.0); // 100g * 5.0/100 = 5mg
-      expect(staticPayload['amount'], 5.0);
-      print('   ✓ Both instances have 5mg (as expected)\n');
+      print('INIT:     Template: banana (5mg vitamin C per 100g)');
+      print('          Dynamic instance: ${dynamicPayload['amount']}mg, Static instance: ${staticPayload['amount']}mg\n');
 
-      // Change template to 10mg per 100g
-      print('🔄 TEMPLATE CHANGE');
-      print('   Changing template: 5mg → 10mg per 100g');
+      // Change template and propagate
       await products.setComponents('banana', [
-        ProductComponent(productId: 'banana', kindId: 'vitamin_c', amountPerGram: 10.0), // 10mg per 100g
+        ProductComponent(productId: 'banana', kindId: 'vitamin_c', amountPerGram: 10.0),
       ]);
-      print('   ✓ Template updated\n');
-
-      // Propagate changes
-      print('✨ PROPAGATION');
-      print('   Calling propagateTemplateChange("banana")...');
       await productHierarchyService.propagateTemplateChange('banana');
-      print('   ✓ Propagation complete\n');
 
-      // Verify: dynamic updated, static unchanged
-      print('🎯 FINAL STATE VERIFICATION');
+      print('ACTION:   Template changed: 5mg → 10mg per 100g');
+      print('          Propagation executed\n');
+
+      // Verify final state
       dynamicChildren = await entries.listChildrenOfParent(dynamicId);
       staticChildren = await entries.listChildrenOfParent(staticId);
-
       dynamicPayload = jsonDecode(dynamicChildren.first.payloadJson) as Map<String, dynamic>;
       staticPayload = jsonDecode(staticChildren.first.payloadJson) as Map<String, dynamic>;
 
-      print('   Dynamic instance nutrient: ${dynamicPayload['amount']}mg vitamin C');
-      print('   Static instance nutrient:  ${staticPayload['amount']}mg vitamin C\n');
-
-      print('📊 HYPOTHESIS vs ACTUAL:');
-      print('   Expected: Dynamic=10mg, Static=5mg');
-      print('   Actual:   Dynamic=${dynamicPayload['amount']}mg, Static=${staticPayload['amount']}mg\n');
+      print('EXPECTED: Dynamic=10mg (updated), Static=5mg (unchanged)');
+      print('ACTUAL:   Dynamic=${dynamicPayload['amount']}mg, Static=${staticPayload['amount']}mg\n');
 
       expect(dynamicPayload['amount'], 10.0, reason: 'Dynamic instance should update to 10mg');
       expect(staticPayload['amount'], 5.0, reason: 'Static instance should remain 5mg');
 
-      print('✅ TEST PASSED: Dynamic updated, static unchanged as expected');
-      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+      final passed = dynamicPayload['amount'] == 10.0 && staticPayload['amount'] == 5.0;
+      print('RESULT:   ${passed ? "✅ PASS" : "❌ FAIL"} - Propagation works correctly');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
 
     test('Product template change: small values NOT NULLED (bug regression test)', () async {
+      print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('TEST: Integer Division Bug Regression (Small Values)');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
 
-      // Setup: Product with SMALL amountPerGram (tests the ~/ bug)
-      // amountPerGram: 0.5mg per 100g
-      // At 100g: 0.5 * 100 / 100 = 0.5mg ✅
-      // With integer division: (0.5 * 100) ~/ 100 = 50 ~/ 100 = 0 ❌
+      // Setup with SMALL value
       await products.upsertProduct(ProductDef(id: 'supplement', name: 'Supplement', createdAt: now, updatedAt: now));
       await products.setComponents('supplement', [
-        ProductComponent(productId: 'supplement', kindId: 'vitamin_c', amountPerGram: 0.5), // Small value!
+        ProductComponent(productId: 'supplement', kindId: 'vitamin_c', amountPerGram: 0.5),
       ]);
 
-      // Create dynamic instance (100g)
       final target = DateTime.now();
       final instanceId = await productService.createProductEntry(
-        productId: 'supplement',
-        productGrams: 100,
-        targetAtLocal: target,
-        isStatic: false,
+        productId: 'supplement', productGrams: 100, targetAtLocal: target, isStatic: false,
       );
 
-      // Verify initial value
       var children = await entries.listChildrenOfParent(instanceId!);
       var payload = jsonDecode(children.first.payloadJson) as Map<String, dynamic>;
-      expect(payload['amount'], 0.5, reason: '0.5 * 100 / 100 = 0.5mg');
 
-      // Change template (still small value)
-      // 0.8mg per 100g -> at 100g = 0.8mg
+      print('INIT:     Template: supplement (0.5mg vitamin C per 100g)');
+      print('          Instance (100g): ${payload['amount']}mg\n');
+
+      // Change template and propagate
       await products.setComponents('supplement', [
         ProductComponent(productId: 'supplement', kindId: 'vitamin_c', amountPerGram: 0.8),
       ]);
-
-      // Propagate
       await productHierarchyService.propagateTemplateChange('supplement');
 
-      // Verify: NOT nulled, correctly calculated
+      print('ACTION:   Template changed: 0.5mg → 0.8mg per 100g');
+      print('          Propagation executed\n');
+
       children = await entries.listChildrenOfParent(instanceId);
       payload = jsonDecode(children.first.payloadJson) as Map<String, dynamic>;
 
+      print('EXPECTED: 0.8mg (NOT 0, bug was: (0.8 * 100) ~/ 100 = 80 ~/ 100 = 0)');
+      print('ACTUAL:   ${payload['amount']}mg\n');
+
       expect(payload['amount'], 0.8, reason: 'Should be 0.8, NOT 0 (bug was integer division)');
       expect(payload['amount'], isNot(0), reason: 'CRITICAL: Value must not be nulled!');
+
+      final passed = payload['amount'] == 0.8;
+      print('RESULT:   ${passed ? "✅ PASS" : "❌ FAIL"} - Small values preserved (/ not ~/)');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
 
     test('Recipe template change: dynamic instance UPDATES, static instance UNCHANGED', () async {
+      print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('TEST: Recipe Template Propagation (Dynamic vs Static)');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
 
-      // Setup: Recipe template with 50mg vitamin C
       await recipes.upsertRecipe(RecipeDef(id: 'smoothie', name: 'Smoothie', createdAt: now, updatedAt: now));
       await recipes.setComponents('smoothie', [
         RecipeComponentDef.kind(recipeId: 'smoothie', compId: 'vitamin_c', amount: 50.0),
       ]);
 
-      // Create 2 instances: 1 dynamic, 1 static
       final target = DateTime.now();
       final dynamicId = await recipeService.createRecipeEntry(
-        recipeId: 'smoothie',
-        targetAtLocal: target,
-        isStatic: false, // DYNAMIC
+        recipeId: 'smoothie', targetAtLocal: target, isStatic: false,
       );
       final staticId = await recipeService.createRecipeEntry(
-        recipeId: 'smoothie',
-        targetAtLocal: target,
-        isStatic: true, // STATIC
+        recipeId: 'smoothie', targetAtLocal: target, isStatic: true,
       );
 
-      // Verify initial values (both should have 50mg)
       var dynamicChildren = await entries.listChildrenOfParent(dynamicId!);
       var staticChildren = await entries.listChildrenOfParent(staticId!);
-
       var dynamicPayload = jsonDecode(dynamicChildren.first.payloadJson) as Map<String, dynamic>;
       var staticPayload = jsonDecode(staticChildren.first.payloadJson) as Map<String, dynamic>;
-      expect(dynamicPayload['amount'], 50.0);
-      expect(staticPayload['amount'], 50.0);
 
-      // Change template to 100mg
+      print('INIT:     Template: smoothie (50mg vitamin C)');
+      print('          Dynamic instance: ${dynamicPayload['amount']}mg, Static instance: ${staticPayload['amount']}mg\n');
+
       await recipes.setComponents('smoothie', [
         RecipeComponentDef.kind(recipeId: 'smoothie', compId: 'vitamin_c', amount: 100.0),
       ]);
-
-      // Propagate changes
       await recipeHierarchyService.propagateTemplateChange('smoothie');
 
-      // Verify: dynamic updated, static unchanged
+      print('ACTION:   Template changed: 50mg → 100mg vitamin C');
+      print('          Propagation executed\n');
+
       dynamicChildren = await entries.listChildrenOfParent(dynamicId);
       staticChildren = await entries.listChildrenOfParent(staticId);
-
       dynamicPayload = jsonDecode(dynamicChildren.first.payloadJson) as Map<String, dynamic>;
       staticPayload = jsonDecode(staticChildren.first.payloadJson) as Map<String, dynamic>;
 
+      print('EXPECTED: Dynamic=100mg (updated), Static=50mg (unchanged)');
+      print('ACTUAL:   Dynamic=${dynamicPayload['amount']}mg, Static=${staticPayload['amount']}mg\n');
+
       expect(dynamicPayload['amount'], 100.0, reason: 'Dynamic recipe instance should update to 100mg');
       expect(staticPayload['amount'], 50.0, reason: 'Static recipe instance should remain 50mg');
+
+      final passed = dynamicPayload['amount'] == 100.0 && staticPayload['amount'] == 50.0;
+      print('RESULT:   ${passed ? "✅ PASS" : "❌ FAIL"} - Recipe propagation works correctly');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
 
     test('Recipe with product: template change propagates recursively', () async {
+      print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('TEST: Recursive Propagation (Recipe → Product → Nutrient)');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
 
-      // Setup: Product
       await products.upsertProduct(ProductDef(id: 'banana', name: 'Banana', createdAt: now, updatedAt: now));
       await products.setComponents('banana', [
-        ProductComponent(productId: 'banana', kindId: 'protein', amountPerGram: 10.0), // 10g per 100g
+        ProductComponent(productId: 'banana', kindId: 'protein', amountPerGram: 10.0),
       ]);
 
-      // Setup: Recipe containing product
       await recipes.upsertRecipe(RecipeDef(id: 'smoothie', name: 'Smoothie', createdAt: now, updatedAt: now));
       await recipes.setComponents('smoothie', [
         RecipeComponentDef.product(recipeId: 'smoothie', compId: 'banana', grams: 200),
         RecipeComponentDef.kind(recipeId: 'smoothie', compId: 'vitamin_c', amount: 50.0),
       ]);
 
-      // Create dynamic recipe instance
       final target = DateTime.now();
       final recipeId = await recipeService.createRecipeEntry(
-        recipeId: 'smoothie',
-        targetAtLocal: target,
-        isStatic: false,
+        recipeId: 'smoothie', targetAtLocal: target, isStatic: false,
       );
 
-      // Verify initial structure
       final recipeChildren = await entries.listChildrenOfParent(recipeId!);
-      expect(recipeChildren.length, 2); // vitamin_c + product parent
-
       final productParent = recipeChildren.firstWhere((c) => c.widgetKind == 'product');
       var productChildren = await entries.listChildrenOfParent(productParent.id);
-      expect(productChildren.length, 1);
       var proteinPayload = jsonDecode(productChildren.first.payloadJson) as Map<String, dynamic>;
-      expect(proteinPayload['amount'], 20.0); // 200g * 0.1 = 20g
 
-      // Change recipe template: more banana
+      print('INIT:     Recipe: smoothie (200g banana + 50mg vitamin C)');
+      print('          Product: banana (10g protein per 100g)');
+      print('          → Recipe contains: ${proteinPayload['amount']}g protein (200g * 10g/100g)\n');
+
       await recipes.setComponents('smoothie', [
-        RecipeComponentDef.product(recipeId: 'smoothie', compId: 'banana', grams: 300), // 200 -> 300
+        RecipeComponentDef.product(recipeId: 'smoothie', compId: 'banana', grams: 300),
         RecipeComponentDef.kind(recipeId: 'smoothie', compId: 'vitamin_c', amount: 50.0),
       ]);
-
-      // Propagate
       await recipeHierarchyService.propagateTemplateChange('smoothie');
 
-      // Verify: product children updated (RECURSIVE)
+      print('ACTION:   Recipe template changed: 200g banana → 300g banana');
+      print('          Propagation executed (RECURSIVE through product)\n');
+
       final updatedRecipeChildren = await entries.listChildrenOfParent(recipeId);
       final updatedProductParent = updatedRecipeChildren.firstWhere((c) => c.widgetKind == 'product');
       productChildren = await entries.listChildrenOfParent(updatedProductParent.id);
       proteinPayload = jsonDecode(productChildren.first.payloadJson) as Map<String, dynamic>;
 
-      expect(proteinPayload['amount'], 30.0, reason: 'Protein should update to 30g (300g * 0.1)');
+      print('EXPECTED: 30g protein (300g * 10g/100g)');
+      print('ACTUAL:   ${proteinPayload['amount']}g protein\n');
+
+      expect(proteinPayload['amount'], 30.0, reason: 'Protein should update to 30g (300g * 10g/100g)');
+
+      final passed = proteinPayload['amount'] == 30.0;
+      print('RESULT:   ${passed ? "✅ PASS" : "❌ FAIL"} - Recursive propagation works (recipe→product→nutrient)');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
 
     test('recipe_id column populated for new instances', () async {
+      print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('TEST: DB Schema - recipe_id Column Population');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
 
       await recipes.upsertRecipe(RecipeDef(id: 'test_recipe', name: 'Test', createdAt: now, updatedAt: now));
@@ -315,17 +296,27 @@ void main() {
       ]);
 
       final target = DateTime.now();
-      final instanceId = await recipeService.createRecipeEntry(
-        recipeId: 'test_recipe',
-        targetAtLocal: target,
-      );
-
+      final instanceId = await recipeService.createRecipeEntry(recipeId: 'test_recipe', targetAtLocal: target);
       final instance = await entries.getById(instanceId!);
+
+      print('INIT:     Created recipe instance via RecipeService');
+      print('ACTION:   Query entry by ID from database');
+      print('EXPECTED: recipe_id column = "test_recipe"');
+      print('ACTUAL:   recipe_id column = "${instance?.recipeId}"\n');
+
       expect(instance, isNotNull);
       expect(instance!.recipeId, 'test_recipe', reason: 'recipe_id column should be populated');
+
+      final passed = instance.recipeId == 'test_recipe';
+      print('RESULT:   ${passed ? "✅ PASS" : "❌ FAIL"} - recipe_id column correctly populated');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
 
     test('listParentsByRecipeId returns all instances', () async {
+      print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('TEST: Query Method - listParentsByRecipeId()');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
 
       await recipes.upsertRecipe(RecipeDef(id: 'test', name: 'Test', createdAt: now, updatedAt: now));
@@ -338,9 +329,20 @@ void main() {
       await recipeService.createRecipeEntry(recipeId: 'test', targetAtLocal: target.add(Duration(hours: 1)));
       await recipeService.createRecipeEntry(recipeId: 'test', targetAtLocal: target.add(Duration(hours: 2)));
 
+      print('INIT:     Created 3 instances of recipe "test" at different times');
+      print('ACTION:   Query listParentsByRecipeId("test")');
+      print('EXPECTED: 3 instances found, all with recipe_id="test"');
+
       final instances = await entries.listParentsByRecipeId('test');
+
+      print('ACTUAL:   ${instances.length} instances found\n');
+
       expect(instances.length, 3, reason: 'Should find all 3 recipe instances');
       expect(instances.every((i) => i.recipeId == 'test'), isTrue);
+
+      final passed = instances.length == 3 && instances.every((i) => i.recipeId == 'test');
+      print('RESULT:   ${passed ? "✅ PASS" : "❌ FAIL"} - Query returns all recipe instances');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
   });
 }

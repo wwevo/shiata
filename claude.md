@@ -60,6 +60,41 @@ Card(
 - **Units**: From kind metadata, never hardcode
 - **Unit Normalization**: Convert mg→g (÷1000), µg→g (÷1000000) for pie chart proportions
 
+## Testing
+
+**Tests are living documentation**: They must always reflect current behavior.
+
+### Test Maintenance (CRITICAL)
+- **WHEN**: Any service, repository, or business logic changes
+- **WHAT**: Update corresponding tests IMMEDIATELY
+- **WHY**: Broken tests = broken trust. Green tests that test wrong behavior are worse than no tests.
+
+### Test Format (Scientific Method)
+All tests must follow this structure:
+```dart
+print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+print('TEST: Description of what is being tested');
+print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+// Setup code...
+
+print('INIT:     What was created/initial state');
+print('ACTION:   What operation was performed');
+print('EXPECTED: What should happen');
+print('ACTUAL:   What actually happened\n');
+
+// Assertions...
+
+print('RESULT:   ✅ PASS or ❌ FAIL - Why it passed/failed');
+print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+```
+
+### Running Tests
+```bash
+flutter test test/propagation_test.dart  # Run specific test file
+flutter test                              # Run all tests
+```
+
 ## Version Management
 
 - Update `pubspec.yaml` version
