@@ -42,7 +42,7 @@ class SearchResults extends ConsumerWidget {
           );
         }
 
-        // Group entries for product/recipe children lookup
+        // Group entries for recursive rendering
         final childrenByParent = <String, List<EntryRecord>>{};
         for (final entry in results) {
           if (entry.sourceEntryId != null) {
@@ -50,40 +50,21 @@ class SearchResults extends ConsumerWidget {
           }
         }
 
+        // Only show top-level entries (children are rendered recursively)
+        final topLevelEntries = results.where((e) => e.sourceEntryId == null).toList();
+
         return ListView.builder(
           controller: controller,
-          itemCount: results.length,
+          itemCount: topLevelEntries.length,
           itemBuilder: (ctx, i) {
-            final entry = results[i];
-
-            // Use factory to build consistent list items
-            if (entry.widgetKind == 'product') {
-              return EntryListItemFactory.buildProductListItem(
-                context: context,
-                ref: ref,
-                entry: entry,
-                children: childrenByParent[entry.id] ?? [],
-                config: EntryListItemConfig.fullDateTime,
-              );
-            } else if (entry.widgetKind == 'recipe') {
-              return EntryListItemFactory.buildRecipeListItem(
-                context: context,
-                ref: ref,
-                entry: entry,
-                children: childrenByParent[entry.id] ?? [],
-                childrenByParent: childrenByParent,
-                registry: registry,
-                config: EntryListItemConfig.fullDateTime,
-              );
-            } else {
-              return EntryListItemFactory.buildKindListItem(
-                context: context,
-                ref: ref,
-                entry: entry,
-                registry: registry,
-                config: EntryListItemConfig.fullDateTime,
-              );
-            }
+            return EntryListItemFactory.buildEntry(
+              context: context,
+              ref: ref,
+              entry: topLevelEntries[i],
+              childrenByParent: childrenByParent,
+              registry: registry,
+              config: EntryListItemConfig.fullDateTime,
+            );
           },
         );
       },

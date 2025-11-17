@@ -36,5 +36,7 @@ final searchQueryProvider = StateProvider<String>((_) => '');
 
 // Expanded product parents in Day Details (by parent entry id)
 final expandedProductsProvider = StateProvider<Set<String>>((_) => <String>{});
+// Global expanded entries (for recursive list items across all pages)
+final expandedEntriesProvider = StateProvider<Set<String>>((_) => <String>{});
 // CAS: whether the Nutrients grid is expanded (session-scoped)
 final nutrientsExpandedProvider = StateProvider<bool>((_) => false);

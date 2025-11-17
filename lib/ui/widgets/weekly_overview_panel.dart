@@ -6,18 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
-import '../../data/repo/product_service.dart';
-import '../../data/repo/recipe_service.dart';
 import '../../domain/widgets/registry.dart';
-import '../../utils/formatters.dart';
-import '../editors/kind_instance_editor_dialog.dart';
-import '../editors/product_instance_components_editor_dialog.dart';
-import '../editors/product_instance_editor_dialog.dart';
-import '../editors/recipe_instance_dialog.dart';
 import '../main_screen_providers.dart';
 import '../ux_config.dart';
-import 'nested_product_parent_row.dart';
-import 'product_child_row.dart';
+import 'entry_list_item_factory.dart';
 
 // Provider for selected kinds filter (which kinds to show in pie chart)
 final selectedKindsForChartProvider = StateProvider<Set<String>>((_) => {'protein', 'fat', 'carbohydrate'});
@@ -51,7 +43,6 @@ class WeeklyOverviewPanel extends ConsumerWidget {
     final selectedKinds = ref.watch(selectedKindsForChartProvider);
 
     // Use search service if query is present, otherwise use repository directly
-    // Note: searchEntriesInDateRange returns a flat list, so we need to convert it to the expected format
     final Stream<dynamic> entriesStream =
         searchQuery.trim().isNotEmpty && searchService != null
             ? searchService.searchEntriesInDateRange(searchQuery, sevenDaysAgo, tomorrow)
@@ -98,159 +89,171 @@ class WeeklyOverviewPanel extends ConsumerWidget {
 
         // Only show filter chips for kinds that actually have data in the last 7 days
         final availableKindIds = allAmounts.keys.toSet();
-        final allKinds = registry.all
-            .where((k) => availableKindIds.contains(k.id))
-            .toList();
 
-        // Aggregate amounts for SELECTED kinds only (for the chart)
-        // Normalize to base units (g for weight) for proper proportions
-        final aggregated = <String, double>{};
-        final displayValues = <String, double>{}; // Keep original values for display
+        // Aggregate selected kinds for pie chart
+        final selectedAmounts = <String, double>{};
         for (final kindId in selectedKinds) {
           if (allAmounts.containsKey(kindId)) {
-            final originalValue = allAmounts[kindId]!;
-            displayValues[kindId] = originalValue;
-
-            // Normalize based on unit for proper proportions
-            final kind = registry.byId(kindId);
-            final unit = kind?.unit ?? '';
-            double normalizedValue = originalValue;
-
-            switch (unit) {
-              case 'mg':
-                normalizedValue = originalValue / 1000; // Convert mg to g
-                break;
-              case 'ug':
-              case 'µg':
-                normalizedValue = originalValue / 1000000; // Convert µg to g
-                break;
-              // 'g' and 'mL' and others stay as-is
-              default:
-                normalizedValue = originalValue;
-            }
-
-            aggregated[kindId] = normalizedValue;
+            selectedAmounts[kindId] = allAmounts[kindId]!;
           }
         }
 
-        final chartData = aggregated;
+        // Normalize values for pie chart (convert mg→g, µg→g)
+        final normalizedAmounts = <String, double>{};
+        for (final entry in selectedAmounts.entries) {
+          final kind = registry.byId(entry.key);
+          final unit = kind?.unit ?? '';
+          double normalized = entry.value;
+
+          // Normalize to grams for consistent pie chart proportions
+          switch (unit) {
+            case 'mg':
+              normalized = entry.value / 1000;
+              break;
+            case 'µg':
+              normalized = entry.value / 1000000;
+              break;
+            default:
+              normalized = entry.value;
+          }
+
+          normalizedAmounts[entry.key] = normalized;
+        }
+
+        final total = normalizedAmounts.values.fold(0.0, (sum, v) => sum + v);
 
         return Column(
-          key: ValueKey(selectedKinds.hashCode), // Force rebuild when filter changes
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Filter chips and pie chart section (combined height matches calendar)
+            // Chart and filter section
             Container(
-              height: uxConfig.topSheet.expandedHeight,
-              padding: const EdgeInsets.all(16),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Filter chips for kind selection
-                  if (allKinds.isNotEmpty)
-                    Wrap(
+                  const SizedBox(height: 12),
+                  // Filter chips
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Wrap(
                       spacing: 8,
-                      children: allKinds.map((kind) {
-                        final isSelected = selectedKinds.contains(kind.id);
+                      runSpacing: 4,
+                      children: uxConfig.kindsForChart
+                          .where((kindId) => availableKindIds.contains(kindId))
+                          .map((kindId) {
+                        final kind = registry.byId(kindId);
+                        final isSelected = selectedKinds.contains(kindId);
+
                         return FilterChip(
-                          label: Text(kind.displayName),
+                          label: Text(kind?.displayName ?? kindId),
                           selected: isSelected,
                           onSelected: (selected) {
                             final newSet = {...selectedKinds};
                             if (selected) {
-                              newSet.add(kind.id);
+                              newSet.add(kindId);
                             } else {
-                              newSet.remove(kind.id);
+                              newSet.remove(kindId);
                             }
                             ref.read(selectedKindsForChartProvider.notifier).state = newSet;
                           },
-                          avatar: CircleAvatar(
-                            backgroundColor: isSelected ? kind.accentColor : Colors.grey,
-                            radius: 8,
-                          ),
                         );
                       }).toList(),
                     ),
-                  if (allKinds.isNotEmpty) const SizedBox(height: 8),
-                  // Pie chart
-                  Expanded(
-                    child: chartData.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No data for last 7 days',
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                  const SizedBox(height: 12),
+                  // Pie chart or empty message
+                  if (normalizedAmounts.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        selectedKinds.isEmpty
+                            ? 'Select nutrients above to see chart'
+                            : 'No data for selected nutrients',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          // Pie chart
+                          SizedBox(
+                            width: 140,
+                            height: 140,
+                            child: PieChart(
+                              PieChartData(
+                                sections: normalizedAmounts.entries.map((entry) {
+                                  final kind = registry.byId(entry.key);
+                                  final color = kind?.accentColor ?? theme.colorScheme.primary;
+                                  final percentage = (entry.value / total * 100);
+
+                                  return PieChartSectionData(
+                                    value: entry.value,
+                                    title: '${percentage.toStringAsFixed(0)}%',
+                                    color: color,
+                                    radius: 50,
+                                    titleStyle: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.onPrimary,
+                                    ),
+                                  );
+                                }).toList(),
+                                sectionsSpace: 2,
+                                centerSpaceRadius: 0,
                               ),
                             ),
-                          )
-                        : Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: PieChart(
-                                  PieChartData(
-                                    sections: chartData.entries.map((entry) {
-                                      final kind = registry.byId(entry.key);
-                                      final color = kind?.accentColor ?? theme.colorScheme.primary;
-                                      return PieChartSectionData(
-                                        value: entry.value, // normalized value for proportions
-                                        title: '', // No label inside - using legend instead
-                                        color: color,
-                                        radius: 100,
-                                        titleStyle: const TextStyle(
-                                          fontSize: 0, // Hidden
-                                        ),
-                                      );
-                                    }).toList(),
-                                    sectionsSpace: 2,
-                                    centerSpaceRadius: 40,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                flex: 1,
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: chartData.entries.map((entry) {
-                                    final kind = registry.byId(entry.key);
-                                    final color = kind?.accentColor ?? theme.colorScheme.primary;
-                                    final unit = kind?.unit ?? '';
-                                    final displayValue = displayValues[entry.key] ?? entry.value;
-                                    // Format: show 2 decimals for values < 1, otherwise 0 decimals
-                                    final formattedValue = displayValue < 1
-                                        ? displayValue.toStringAsFixed(2)
-                                        : displayValue.toStringAsFixed(0);
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 4),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            width: 16,
-                                            height: 16,
-                                            decoration: BoxDecoration(
-                                              color: color,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              '${kind?.displayName ?? entry.key}: $formattedValue$unit',
-                                              style: theme.textTheme.bodyMedium,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ],
                           ),
-                  ),
+                          const SizedBox(width: 24),
+                          // Legend
+                          Expanded(
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: normalizedAmounts.entries.map((entry) {
+                                  final kind = registry.byId(entry.key);
+                                  final color = kind?.accentColor ?? theme.colorScheme.primary;
+                                  final unit = kind?.unit ?? '';
+
+                                  // Display original value (not normalized)
+                                  final originalValue = selectedAmounts[entry.key]!;
+                                  final formattedValue = originalValue < 1
+                                      ? originalValue.toStringAsFixed(2)
+                                      : originalValue.toStringAsFixed(0);
+
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 4),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 16,
+                                          height: 16,
+                                          decoration: BoxDecoration(
+                                            color: color,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            '${kind?.displayName ?? entry.key}: $formattedValue$unit',
+                                            style: theme.textTheme.bodyMedium,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -277,280 +280,13 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                   : ListView.builder(
                       itemCount: parentEntries.length,
                       itemBuilder: (ctx, i) {
-                        final e = parentEntries[i];
-                        final localTime = DateTime.fromMillisecondsSinceEpoch(
-                          e.targetAt,
-                          isUtc: true,
-                        ).toLocal();
-                        final kind = registry.byId(e.widgetKind);
-
-                        IconData icon;
-                        Color bg;
-                        if (e.widgetKind == 'product') {
-                          icon = Icons.shopping_basket;
-                          bg = Colors.purple;
-                        } else if (e.widgetKind == 'recipe') {
-                          icon = Icons.restaurant_menu;
-                          bg = Colors.brown;
-                        } else {
-                          icon = kind?.icon ?? Icons.circle;
-                          bg = kind?.accentColor ?? theme.colorScheme.primary;
-                        }
-
-                        final isRecipeParent = (e.widgetKind == 'recipe');
-                        final isProductParent = (e.widgetKind == 'product');
-                        final isParent = isRecipeParent || isProductParent;
-
-                        String title = kind?.displayName ?? e.widgetKind;
-                        String summary = '';
-
-                        try {
-                          final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
-
-                          // Extract name for products and recipes
-                          if (e.widgetKind == 'product') {
-                            title = (map['name'] as String?) ?? 'Product';
-                            final grams = (map['grams'] as num?)?.toInt();
-                            if (grams != null) summary = '$grams g';
-                          } else if (e.widgetKind == 'recipe') {
-                            title = (map['name'] as String?) ?? 'Recipe';
-
-                            // Sum up recipe component weights recursively
-                            final children = childrenByParent[e.id] ?? const <EntryRecord>[];
-                            double totalProductGrams = 0.0;
-                            final kindSummaries = <String, double>{};
-
-                            // Recursive helper to aggregate nutrients from nested products
-                            void aggregateNutrients(List<EntryRecord> entries) {
-                              for (final child in entries) {
-                                if (child.widgetKind == 'product') {
-                                  try {
-                                    final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
-                                    final grams = (childMap['grams'] as num?)?.toDouble() ?? 0.0;
-                                    totalProductGrams += grams;
-                                  } catch (_) {}
-                                  // Recursively aggregate nutrients from this product's children
-                                  final grandchildren = childrenByParent[child.id] ?? const <EntryRecord>[];
-                                  aggregateNutrients(grandchildren);
-                                } else {
-                                  try {
-                                    final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
-                                    final amount = (childMap['amount'] as num?)?.toDouble() ?? 0.0;
-                                    kindSummaries[child.widgetKind] = (kindSummaries[child.widgetKind] ?? 0.0) + amount;
-                                  } catch (_) {}
-                                }
-                              }
-                            }
-
-                            aggregateNutrients(children);
-
-                            // Build summary
-                            final parts = <String>[];
-                            if (totalProductGrams > 0) {
-                              final formatted = totalProductGrams < 1
-                                  ? totalProductGrams.toStringAsFixed(2)
-                                  : totalProductGrams.toStringAsFixed(0);
-                              parts.add('${formatted}g');
-                            }
-
-                            // Add top kind amounts (limit to avoid clutter)
-                            if (kindSummaries.isNotEmpty) {
-                              // Normalize values for sorting (convert all to grams for weight units)
-                              final normalizedForSort = <String, double>{};
-                              for (final entry in kindSummaries.entries) {
-                                final k = registry.byId(entry.key);
-                                final unit = k?.unit ?? '';
-                                double normalized = entry.value;
-                                switch (unit) {
-                                  case 'mg':
-                                    normalized = entry.value / 1000;
-                                    break;
-                                  case 'ug':
-                                  case 'µg':
-                                    normalized = entry.value / 1000000;
-                                    break;
-                                  default:
-                                    normalized = entry.value;
-                                }
-                                normalizedForSort[entry.key] = normalized;
-                              }
-
-                              // Sort by normalized values
-                              final sortedKinds = kindSummaries.entries.toList()
-                                ..sort((a, b) => (normalizedForSort[b.key] ?? 0.0).compareTo(normalizedForSort[a.key] ?? 0.0));
-
-                              for (final entry in sortedKinds.take(2)) {
-                                final k = registry.byId(entry.key);
-                                final kindName = k?.displayName ?? entry.key;
-                                final unit = k?.unit ?? '';
-                                final formatted = entry.value < 1
-                                    ? entry.value.toStringAsFixed(2)
-                                    : entry.value.toStringAsFixed(0);
-                                parts.add('$kindName: $formatted$unit');
-                              }
-                            }
-
-                            if (parts.isNotEmpty) {
-                              summary = parts.join(' • ');
-                            }
-                          } else {
-                            // For kinds, show amount with adaptive precision
-                            final amount = (map['amount'] as num?)?.toDouble();
-                            if (amount != null) {
-                              final unit = kind?.unit ?? '';
-                              summary = amount < 1
-                                  ? '${amount.toStringAsFixed(2)} $unit'
-                                  : '${amount.toStringAsFixed(0)} $unit';
-                            }
-                          }
-                        } catch (_) {}
-
-                        final expandedSet = ref.watch(expandedProductsProvider);
-                        final isExpanded = isParent && expandedSet.contains(e.id);
-
-                        Widget parentRow = Card(
-                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          child: ListTile(
-                            onTap: isParent ? () {
-                              final set = {...expandedSet};
-                              if (isExpanded) {
-                                set.remove(e.id);
-                              } else {
-                                set.add(e.id);
-                              }
-                              ref.read(expandedProductsProvider.notifier).state = set;
-                            } : null,
-                            leading: CircleAvatar(
-                              backgroundColor: bg,
-                              foregroundColor: Colors.white,
-                              child: Icon(icon, size: 18),
-                            ),
-                            title: Text(
-                              isProductParent || isRecipeParent
-                                ? '$title ${summary.isNotEmpty ? "• $summary" : ""}'
-                                : '$title ${summary.isNotEmpty ? "• $summary" : ""}',
-                              style: theme.textTheme.bodyLarge,
-                            ),
-                            subtitle: Row(
-                              children: [
-                                Text(
-                                  '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')} ${fmtTime(localTime)}',
-                                ),
-                                if (e.isStatic) ...[
-                                  const SizedBox(width: 8),
-                                  Icon(
-                                    Icons.lock,
-                                    size: 14,
-                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Static',
-                                    style: theme.textTheme.labelSmall,
-                                  ),
-                                ],
-                              ],
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (isProductParent)
-                                  IconButton(
-                                    tooltip: 'Edit',
-                                    icon: const Icon(Icons.edit_outlined),
-                                    onPressed: () async {
-                                      await showDialog(
-                                        context: ctx,
-                                        builder: (_) => ProductEditorDialog(entryId: e.id),
-                                      );
-                                    },
-                                  )
-                                else if (isRecipeParent)
-                                  IconButton(
-                                    tooltip: 'Edit',
-                                    icon: const Icon(Icons.edit_outlined),
-                                    onPressed: () async {
-                                      await showDialog(
-                                        context: ctx,
-                                        builder: (_) => RecipeInstantiateDialog(entryId: e.id),
-                                      );
-                                    },
-                                  )
-                                else
-                                  IconButton(
-                                    tooltip: 'Edit',
-                                    icon: const Icon(Icons.edit_outlined),
-                                    onPressed: () {
-                                      final k = registry.byId(e.widgetKind);
-                                      if (k != null) {
-                                        showDialog(
-                                          context: context,
-                                          builder: (_) => KindInstanceEditorDialog(kind: k, entryId: e.id),
-                                        );
-                                      }
-                                    },
-                                  ),
-                                IconButton(
-                                  tooltip: 'Delete',
-                                  icon: const Icon(Icons.delete_outline),
-                                  onPressed: () => _deleteEntry(context, ref, e, isProductParent, isRecipeParent, childrenByParent, repo),
-                                ),
-                                if (isProductParent)
-                                  IconButton(
-                                    tooltip: 'Edit components',
-                                    icon: const Icon(Icons.tune),
-                                    onPressed: () async {
-                                      await showDialog(
-                                        context: context,
-                                        builder: (_) => InstanceComponentsEditorDialog(parentEntryId: e.id),
-                                      );
-                                    },
-                                  ),
-                                if (isParent)
-                                  AnimatedRotation(
-                                    turns: isExpanded ? 0.5 : 0.0,
-                                    duration: const Duration(milliseconds: 120),
-                                    child: const Icon(Icons.expand_more),
-                                  )
-                                else
-                                  const Icon(Icons.chevron_right),
-                              ],
-                            ),
-                          ),
-                        );
-
-                        if (!isParent || !isExpanded) {
-                          return parentRow;
-                        }
-
-                        // Render expanded children under the parent
-                        final children = childrenByParent[e.id] ?? const <EntryRecord>[];
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            parentRow,
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                left: 52,
-                                right: 8,
-                                bottom: 8,
-                              ),
-                              child: Column(
-                                children: [
-                                  for (final c in children)
-                                    if (c.widgetKind == 'product')
-                                      NestedProductParentRow(
-                                        entry: c,
-                                        registry: registry,
-                                        children: childrenByParent[c.id] ?? const <EntryRecord>[],
-                                        expandedSet: ref.watch(expandedProductsProvider),
-                                      )
-                                    else
-                                      ProductChildRow(entry: c, registry: registry),
-                                ],
-                              ),
-                            ),
-                          ],
+                        return EntryListItemFactory.buildEntry(
+                          context: context,
+                          ref: ref,
+                          entry: parentEntries[i],
+                          childrenByParent: childrenByParent,
+                          registry: registry,
+                          config: EntryListItemConfig.fullDateTime,
                         );
                       },
                     ),
@@ -559,176 +295,5 @@ class WeeklyOverviewPanel extends ConsumerWidget {
         );
       },
     );
-  }
-
-  Future<void> _deleteEntry(
-    BuildContext context,
-    WidgetRef ref,
-    EntryRecord e,
-    bool isProductParent,
-    bool isRecipeParent,
-    Map<String, List<EntryRecord>> childrenByParent,
-    EntriesRepository repo,
-  ) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete entry?'),
-        content: Text(
-          isProductParent
-              ? 'This will remove the product entry and its components. You can undo from the snackbar.'
-              : 'This will remove the entry. You can undo from the snackbar.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true) return;
-
-    if (isProductParent) {
-      final original = e;
-      Map<String, Object?> parentPayload = const {};
-      String? productId;
-      int grams = 0;
-      bool staticFlag = false;
-      try {
-        final map = jsonDecode(original.payloadJson) as Map<String, dynamic>;
-        parentPayload = map;
-        productId = map['product_id'] as String?;
-        grams = (map['grams'] as num?)?.toInt() ?? 0;
-      } catch (_) {}
-      staticFlag = original.isStatic;
-      final targetLocal = DateTime.fromMillisecondsSinceEpoch(
-        original.targetAt,
-        isUtc: true,
-      ).toLocal();
-      final service = ref.read(productServiceProvider);
-      await ref.read(entriesRepositoryProvider)!.deleteChildrenOfParent(original.id);
-      await repo.delete(original.id);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Product deleted'),
-          action: SnackBarAction(
-            label: 'UNDO',
-            onPressed: () async {
-              try {
-                if (service != null && productId != null && grams > 0) {
-                  await service.createProductEntry(
-                    productId: productId,
-                    productGrams: grams,
-                    targetAtLocal: targetLocal,
-                    isStatic: staticFlag,
-                  );
-                } else {
-                  await repo.create(
-                    widgetKind: original.widgetKind,
-                    targetAtLocal: targetLocal,
-                    payload: parentPayload,
-                    showInCalendar: original.showInCalendar,
-                    schemaVersion: original.schemaVersion,
-                  );
-                }
-              } catch (_) {}
-            },
-          ),
-        ),
-      );
-    } else if (isRecipeParent) {
-      String recipeId = '';
-      try {
-        final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
-        recipeId = (map['recipe_id'] as String?) ?? '';
-      } catch (_) {}
-      final kindOverrides = <String, double>{};
-      final productOverrides = <String, int>{};
-      final directChildren = childrenByParent[e.id] ?? const <EntryRecord>[];
-      for (final c in directChildren) {
-        if (c.widgetKind == 'product') {
-          try {
-            final pm = jsonDecode(c.payloadJson) as Map<String, dynamic>;
-            final grams = (pm['grams'] as num?)?.toInt();
-            if (grams != null) {
-              productOverrides[(pm['product_id'] as String?) ?? c.id] = grams;
-            }
-          } catch (_) {}
-          await repo.deleteChildrenOfParent(c.id);
-          await repo.delete(c.id);
-        } else {
-          try {
-            final km = jsonDecode(c.payloadJson) as Map<String, dynamic>;
-            final amt = (km['amount'] as num?)?.toDouble();
-            if (amt != null) {
-              kindOverrides[c.widgetKind] = amt;
-            }
-          } catch (_) {}
-          await repo.delete(c.id);
-        }
-      }
-      final targetLocal = DateTime.fromMillisecondsSinceEpoch(
-        e.targetAt,
-        isUtc: true,
-      ).toLocal();
-      await repo.delete(e.id);
-      if (!context.mounted) return;
-      final recipeSvc = ref.read(recipeServiceProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Recipe deleted'),
-          action: SnackBarAction(
-            label: 'UNDO',
-            onPressed: () async {
-              try {
-                if (recipeSvc != null && recipeId.isNotEmpty) {
-                  await recipeSvc.createRecipeEntry(
-                    recipeId: recipeId,
-                    targetAtLocal: targetLocal,
-                    kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
-                    productGramOverrides: productOverrides.isEmpty ? null : productOverrides,
-                    showParentInCalendar: true,
-                  );
-                }
-              } catch (_) {}
-            },
-          ),
-        ),
-      );
-    } else {
-      final original = e;
-      await repo.delete(e.id);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Entry deleted'),
-          action: SnackBarAction(
-            label: 'UNDO',
-            onPressed: () async {
-              final local = DateTime.fromMillisecondsSinceEpoch(
-                original.targetAt,
-                isUtc: true,
-              ).toLocal();
-              try {
-                final payload = jsonDecode(original.payloadJson) as Map<String, Object?>;
-                await repo.create(
-                  widgetKind: original.widgetKind,
-                  targetAtLocal: local,
-                  payload: payload,
-                  showInCalendar: original.showInCalendar,
-                  schemaVersion: original.schemaVersion,
-                );
-              } catch (_) {}
-            },
-          ),
-        ),
-      );
-    }
   }
 }

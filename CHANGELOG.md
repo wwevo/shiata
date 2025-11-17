@@ -2,24 +2,35 @@
 
 ## [0.8.2] - 2025-11-17
 ### Added
-- **Centralized entry list item factory**: Single source of truth for consistent list items
-    - EntryListItemFactory with buildKindListItem(), buildProductListItem(), buildRecipeListItem()
+- **Recursive entry list item factory**: Universal solution for consistent, nestable list items
+    - Single buildEntry() method handles all entry types at arbitrary depth
+    - Expandable/collapsible behavior built-in for products and recipes
+    - Support for future nesting: recipes→recipes, products→products, etc.
+    - Global expandedEntriesProvider for unified expand state management
     - EntryListItemConfig for configurable metadata display (date, time, static flag)
-    - Consistent appearance across all pages (AllEntriesPage, SearchResults, Day Details, Weekly Overview)
 
 ### Changed
-- **AllEntriesPage**: Refactored to use factory (-261 lines, 70% reduction)
-- **SearchResults**: Refactored to use factory (-231 lines, 71% reduction)
-- **List item consistency**: All entry types now display identically across the app
-    - Unified date/time formatting
-    - Consistent metadata display (static flag, hidden indicator)
-    - Standard Card + ListTile + CircleAvatar pattern
+- **DayDetailsPanel**: Complete refactor using recursive factory (681→131 lines, 81% reduction)
+- **WeeklyOverviewPanel**: Complete refactor using recursive factory (735→300 lines, 59% reduction)
+- **AllEntriesPage**: Added date grouping with headers, uses recursive factory
+- **SearchResults**: Refactored to use recursive factory
+- **List item consistency**: All entry types display identically across ALL pages
+    - Day details: Time-only metadata (date implied by selected day)
+    - Weekly/Search/All Entries: Full date+time metadata
+    - Nested entries: Proper indentation and compact display
+    - Edit/delete buttons: Consistent placement and behavior
+
+### Fixed
+- Entry nesting now works consistently across all views
+- Expand/collapse state persists across page navigation
+- No more duplicate rendering logic for products and recipes
 
 ### Technical
-- Eliminated 492 lines of duplicated code
-- Factory pattern enables future customization from single location
-- Follows CLAUDE.md guidelines for consistency and maintainability
-- Context-aware metadata: Day details show only time, other pages show full date+time
+- Eliminated ~1000 lines of duplicated code across 4 pages
+- Depth-aware rendering with automatic indentation (52px per level)
+- Recursive children lookup via childrenByParent map
+- Follows CLAUDE.md patterns: Card + ListTile + CircleAvatar
+- Extensible architecture for future nesting scenarios
 
 ---
 

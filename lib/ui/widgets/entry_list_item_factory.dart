@@ -1,7 +1,13 @@
-/// Centralized factory for creating consistent entry list items across all app sections.
+/// Centralized recursive factory for creating consistent entry list items across all app sections.
 ///
 /// This factory ensures that all entry types (kinds, products, recipes) are displayed
 /// identically regardless of which page renders them (day details, weekly overview, search, etc.).
+///
+/// Key features:
+/// - Recursive rendering: supports arbitrary nesting depth (recipe→product→kind, future: recipe→recipe)
+/// - Expand/collapse: integrated expand state management via expandedEntriesProvider
+/// - Consistent appearance: same visual style, metadata, and interactions everywhere
+/// - Depth-aware: proper indentation and styling for nested items
 ///
 /// Benefits:
 /// - Single source of truth for list item appearance
@@ -31,13 +37,11 @@ class EntryListItemConfig {
   final bool showDate;
   final bool showTime;
   final bool showStaticFlag;
-  final bool showHiddenIndicator;
 
   const EntryListItemConfig({
     this.showDate = true,
     this.showTime = true,
     this.showStaticFlag = true,
-    this.showHiddenIndicator = false,
   });
 
   /// For day details: only time (date is implied by selected day)
@@ -54,19 +58,187 @@ class EntryListItemConfig {
 }
 
 class EntryListItemFactory {
-  /// Builds a list item for a kind entry
-  static Widget buildKindListItem({
+  /// Recursively builds a list item for any entry type with support for
+  /// arbitrary nesting depth and expand/collapse behavior.
+  ///
+  /// This single method handles:
+  /// - Simple kinds (leaf nodes)
+  /// - Products containing kinds (expandable)
+  /// - Recipes containing products and/or kinds (expandable, with nested expansion)
+  /// - Future: recipes containing recipes, products containing products, etc.
+  ///
+  /// Parameters:
+  /// - [depth]: Current nesting level (0 = top-level, 1+ = nested)
+  /// - [childrenByParent]: Map for looking up children of any entry
+  /// - [config]: Controls which metadata to display (date, time, static flag)
+  static Widget buildEntry({
     required BuildContext context,
     required WidgetRef ref,
     required EntryRecord entry,
+    required Map<String, List<EntryRecord>> childrenByParent,
     required WidgetRegistry registry,
     EntryListItemConfig config = const EntryListItemConfig(),
+    int depth = 0,
   }) {
-    final kind = registry.byId(entry.widgetKind);
-    final icon = kind?.icon ?? Icons.circle;
-    final color = kind?.accentColor ?? Theme.of(context).colorScheme.primary;
+    final children = childrenByParent[entry.id] ?? [];
+    final hasChildren = children.isNotEmpty;
 
-    // Extract amount from payload
+    // Extract entry-specific data
+    final isProduct = entry.widgetKind == 'product';
+    final isRecipe = entry.widgetKind == 'recipe';
+
+    // Determine color, icon, and title
+    final Color color;
+    final IconData icon;
+    final String title;
+
+    if (isProduct) {
+      color = Colors.purple;
+      icon = Icons.shopping_basket;
+      title = _extractProductTitle(entry);
+    } else if (isRecipe) {
+      color = Colors.brown;
+      icon = Icons.restaurant_menu;
+      title = _extractRecipeTitle(entry);
+    } else {
+      final kind = registry.byId(entry.widgetKind);
+      color = kind?.accentColor ?? Theme.of(context).colorScheme.primary;
+      icon = kind?.icon ?? Icons.circle;
+      title = _extractKindTitle(entry, kind);
+    }
+
+    final metadata = depth == 0 ? _buildMetadata(entry, config, context) : null;
+
+    // Check expand state
+    final expandedSet = ref.watch(expandedEntriesProvider);
+    final isExpanded = expandedSet.contains(entry.id);
+
+    // Build trailing widget based on context
+    final Widget? trailing;
+    if (hasChildren) {
+      // Expandable item: show expand/collapse icon
+      trailing = AnimatedRotation(
+        turns: isExpanded ? 0.5 : 0.0,
+        duration: const Duration(milliseconds: 120),
+        child: const Icon(Icons.expand_more),
+      );
+    } else if (depth > 0) {
+      // Nested leaf (kind under product/recipe): show amount
+      trailing = _buildKindAmount(entry, registry, context);
+    } else {
+      // Top-level leaf: show edit/delete buttons
+      trailing = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'Edit',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () => _showEditDialog(context, entry, isProduct, isRecipe, registry),
+          ),
+          IconButton(
+            tooltip: 'Delete',
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () => _deleteEntry(context, ref, entry, isProduct, isRecipe),
+          ),
+        ],
+      );
+    }
+
+    // Build the list tile
+    final listTile = ListTile(
+      dense: depth > 0,
+      contentPadding: EdgeInsets.only(
+        left: depth > 0 ? 0 : 12,
+        right: depth > 0 ? 0 : 12,
+      ),
+      onTap: hasChildren
+          ? () {
+              final set = {...expandedSet};
+              if (isExpanded) {
+                set.remove(entry.id);
+              } else {
+                set.add(entry.id);
+              }
+              ref.read(expandedEntriesProvider.notifier).state = set;
+            }
+          : null,
+      leading: CircleAvatar(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        child: Icon(icon, color: Colors.white, size: depth > 0 ? 16 : null),
+      ),
+      title: Text(title),
+      subtitle: metadata,
+      trailing: trailing,
+    );
+
+    // If no children, return simple item
+    if (!hasChildren) {
+      return depth == 0
+          ? Card(
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: listTile,
+            )
+          : listTile;
+    }
+
+    // If has children, return expandable item with recursive children
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        listTile,
+        if (isExpanded)
+          Padding(
+            padding: const EdgeInsets.only(left: 52, right: 8, bottom: 8),
+            child: Column(
+              children: children
+                  .map((child) => buildEntry(
+                        context: context,
+                        ref: ref,
+                        entry: child,
+                        childrenByParent: childrenByParent,
+                        registry: registry,
+                        config: config,
+                        depth: depth + 1,
+                      ))
+                  .toList(),
+            ),
+          ),
+      ],
+    );
+
+    return depth == 0
+        ? Card(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: content,
+          )
+        : content;
+  }
+
+  /// Extracts product title from payload (name • grams g)
+  static String _extractProductTitle(EntryRecord entry) {
+    try {
+      final map = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
+      final name = (map['name'] as String?) ?? 'Product';
+      final grams = (map['grams'] as num?)?.toInt();
+      return grams != null ? '$name • $grams g' : name;
+    } catch (_) {
+      return 'Product';
+    }
+  }
+
+  /// Extracts recipe title from payload
+  static String _extractRecipeTitle(EntryRecord entry) {
+    try {
+      final map = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
+      return (map['name'] as String?) ?? 'Recipe';
+    } catch (_) {
+      return 'Recipe';
+    }
+  }
+
+  /// Extracts kind title with amount (displayName • amount unit)
+  static String _extractKindTitle(EntryRecord entry, Kind? kind) {
     String summary = '';
     try {
       final map = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
@@ -79,149 +251,31 @@ class EntryListItemFactory {
       }
     } catch (_) {}
 
-    final metadata = _buildMetadata(entry, config, context);
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          child: Icon(icon, color: Colors.white),
-        ),
-        title: Text('${kind?.displayName ?? entry.widgetKind}${summary.isEmpty ? '' : ' • $summary'}'),
-        subtitle: metadata != null ? metadata : null,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              tooltip: 'Edit',
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () {
-                if (kind != null) {
-                  showDialog(
-                    context: context,
-                    builder: (_) =>
-                        KindInstanceEditorDialog(kind: kind, entryId: entry.id),
-                  );
-                }
-              },
-            ),
-            IconButton(
-              tooltip: 'Delete',
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => _deleteEntry(context, ref, entry, false, false),
-            ),
-          ],
-        ),
-      ),
-    );
+    final displayName = kind?.displayName ?? entry.widgetKind;
+    return summary.isEmpty ? displayName : '$displayName • $summary';
   }
 
-  /// Builds a list item for a product entry (with expand/collapse for children)
-  static Widget buildProductListItem({
-    required BuildContext context,
-    required WidgetRef ref,
-    required EntryRecord entry,
-    required List<EntryRecord> children,
-    EntryListItemConfig config = const EntryListItemConfig(),
-  }) {
-    // Extract name and grams from payload
-    String title = 'Product';
+  /// Builds amount widget for nested kind entries (shown in trailing)
+  static Widget? _buildKindAmount(EntryRecord entry, WidgetRegistry registry, BuildContext context) {
     try {
       final map = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
-      final name = (map['name'] as String?) ?? 'Product';
-      final grams = (map['grams'] as num?)?.toInt();
-      title = grams != null ? '$name • $grams g' : name;
-    } catch (_) {}
+      double? amount = (map['amount'] as num?)?.toDouble();
+      final unitFromPayload = map['unit'] as String?;
 
-    final metadata = _buildMetadata(entry, config, context);
+      if (amount == null) return Text('—', style: Theme.of(context).textTheme.bodyMedium);
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: Colors.purple,
-          foregroundColor: Colors.white,
-          child: Icon(Icons.shopping_basket, color: Colors.white),
-        ),
-        title: Text(title),
-        subtitle: metadata,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              tooltip: 'Edit',
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () async {
-                await showDialog(
-                  context: context,
-                  builder: (_) => ProductEditorDialog(entryId: entry.id),
-                );
-              },
-            ),
-            IconButton(
-              tooltip: 'Delete',
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => _deleteEntry(context, ref, entry, true, false),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+      final kind = registry.byId(entry.widgetKind);
+      final unit = unitFromPayload ?? kind?.unit ?? '';
 
-  /// Builds a list item for a recipe entry (with expand/collapse for children)
-  static Widget buildRecipeListItem({
-    required BuildContext context,
-    required WidgetRef ref,
-    required EntryRecord entry,
-    required List<EntryRecord> children,
-    required Map<String, List<EntryRecord>> childrenByParent,
-    required WidgetRegistry registry,
-    EntryListItemConfig config = const EntryListItemConfig(),
-  }) {
-    // Extract recipe name and build summary
-    String title = 'Recipe';
-    try {
-      final map = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
-      title = (map['name'] as String?) ?? 'Recipe';
-    } catch (_) {}
+      final text = amount < 1 ? amount.toStringAsFixed(2) : amount.toStringAsFixed(0);
+      // Trim trailing zeros
+      final trimmed = text.replaceFirst(RegExp(r'\.?0+$'), '');
+      final value = unit.isEmpty ? trimmed : '$trimmed $unit';
 
-    final metadata = _buildMetadata(entry, config, context);
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: Colors.brown,
-          foregroundColor: Colors.white,
-          child: Icon(Icons.restaurant_menu, color: Colors.white),
-        ),
-        title: Text(title),
-        subtitle: metadata,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              tooltip: 'Edit',
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () async {
-                await showDialog(
-                  context: context,
-                  builder: (_) => RecipeInstantiateDialog(entryId: entry.id),
-                );
-              },
-            ),
-            IconButton(
-              tooltip: 'Delete',
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => _deleteEntry(context, ref, entry, false, true),
-            ),
-          ],
-        ),
-      ),
-    );
+      return Text(value, style: Theme.of(context).textTheme.bodyMedium);
+    } catch (_) {
+      return Text('—', style: Theme.of(context).textTheme.bodyMedium);
+    }
   }
 
   /// Builds metadata row (date, time, static flag) based on configuration
@@ -267,20 +321,36 @@ class EntryListItemFactory {
       ));
     }
 
-    // Hidden indicator (for child entries)
-    if (config.showHiddenIndicator && !entry.showInCalendar) {
-      if (parts.isNotEmpty) {
-        parts.add(const SizedBox(width: 8));
-      }
-      parts.add(Text(
-        'Hidden',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-            ),
-      ));
-    }
-
     return parts.isEmpty ? null : Row(children: parts);
+  }
+
+  /// Shows appropriate edit dialog based on entry type
+  static void _showEditDialog(
+    BuildContext context,
+    EntryRecord entry,
+    bool isProduct,
+    bool isRecipe,
+    WidgetRegistry registry,
+  ) {
+    if (isProduct) {
+      showDialog(
+        context: context,
+        builder: (_) => ProductEditorDialog(entryId: entry.id),
+      );
+    } else if (isRecipe) {
+      showDialog(
+        context: context,
+        builder: (_) => RecipeInstantiateDialog(entryId: entry.id),
+      );
+    } else {
+      final kind = registry.byId(entry.widgetKind);
+      if (kind != null) {
+        showDialog(
+          context: context,
+          builder: (_) => KindInstanceEditorDialog(kind: kind, entryId: entry.id),
+        );
+      }
+    }
   }
 
   /// Handles entry deletion with undo support

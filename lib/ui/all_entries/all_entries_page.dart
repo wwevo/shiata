@@ -59,7 +59,7 @@ class AllEntriesPage extends ConsumerWidget {
             );
           }
 
-          // Group entries for product/recipe children lookup
+          // Group entries for recursive rendering
           final childrenByParent = <String, List<EntryRecord>>{};
           for (final entry in entries) {
             if (entry.sourceEntryId != null) {
@@ -67,39 +67,51 @@ class AllEntriesPage extends ConsumerWidget {
             }
           }
 
-          return ListView.builder(
-            itemCount: entries.length,
-            itemBuilder: (ctx, i) {
-              final entry = entries[i];
+          // Only show top-level entries (children are rendered recursively)
+          final topLevelEntries = entries.where((e) => e.sourceEntryId == null).toList();
 
-              // Use factory to build consistent list items
-              if (entry.widgetKind == 'product') {
-                return EntryListItemFactory.buildProductListItem(
-                  context: context,
-                  ref: ref,
-                  entry: entry,
-                  children: childrenByParent[entry.id] ?? [],
-                  config: EntryListItemConfig.fullDateTime,
-                );
-              } else if (entry.widgetKind == 'recipe') {
-                return EntryListItemFactory.buildRecipeListItem(
-                  context: context,
-                  ref: ref,
-                  entry: entry,
-                  children: childrenByParent[entry.id] ?? [],
-                  childrenByParent: childrenByParent,
-                  registry: registry,
-                  config: EntryListItemConfig.fullDateTime,
-                );
-              } else {
-                return EntryListItemFactory.buildKindListItem(
-                  context: context,
-                  ref: ref,
-                  entry: entry,
-                  registry: registry,
-                  config: EntryListItemConfig.fullDateTime,
-                );
-              }
+          // Group by date for better organization
+          final entriesByDate = <String, List<EntryRecord>>{};
+          for (final entry in topLevelEntries) {
+            final local = DateTime.fromMillisecondsSinceEpoch(entry.targetAt, isUtc: true).toLocal();
+            final dateKey = '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
+            (entriesByDate[dateKey] ??= []).add(entry);
+          }
+
+          // Sort dates descending (most recent first)
+          final sortedDates = entriesByDate.keys.toList()..sort((a, b) => b.compareTo(a));
+
+          return ListView.builder(
+            itemCount: sortedDates.length,
+            itemBuilder: (ctx, dateIndex) {
+              final dateKey = sortedDates[dateIndex];
+              final dateEntries = entriesByDate[dateKey]!;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Date header
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Text(
+                      dateKey,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                    ),
+                  ),
+                  // Entries for this date
+                  ...dateEntries.map((entry) => EntryListItemFactory.buildEntry(
+                        context: context,
+                        ref: ref,
+                        entry: entry,
+                        childrenByParent: childrenByParent,
+                        registry: registry,
+                        config: EntryListItemConfig.fullDateTime,
+                      )),
+                ],
+              );
             },
           );
         },
