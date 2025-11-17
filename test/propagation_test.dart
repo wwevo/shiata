@@ -11,6 +11,9 @@ import 'package:shiata/data/repo/recipe_service.dart';
 import 'package:shiata/data/repo/product_hierarchy_service.dart';
 import 'package:shiata/data/repo/recipe_hierarchy_service.dart';
 import 'package:shiata/domain/widgets/registry.dart';
+import 'package:shiata/domain/widgets/widget_kind.dart';
+import 'package:shiata/domain/widgets/kinds/db_backed_kind.dart';
+import 'package:flutter/material.dart';
 import 'dart:convert';
 
 void main() {
@@ -40,8 +43,13 @@ void main() {
       await kinds.upsertKind(KindDef(id: 'vitamin_c', name: 'Vitamin C', unit: 'mg', color: null, icon: null, min: 0, max: 100000, defaultShowInCalendar: false));
       await kinds.upsertKind(KindDef(id: 'protein', name: 'Protein', unit: 'g', color: null, icon: null, min: 0, max: 100000, defaultShowInCalendar: false));
 
+      // Build registry manually (like widgetRegistryProvider does)
       final kindsList = await kinds.listKinds();
-      registry = WidgetRegistry.fromKinds(kindsList);
+      final map = <String, WidgetKind>{};
+      for (final k in kindsList) {
+        map[k.id] = DbBackedKind(k, iconResolver: (name, fallback) => fallback);
+      }
+      registry = WidgetRegistry(map);
 
       productHierarchyService = ProductHierarchyService(
         entries: entries,
