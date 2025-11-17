@@ -1,5 +1,44 @@
 # CHANGELOG.md
 
+## [0.8.0] - 2025-11-17
+### Added
+- **Comprehensive search service**: Context-aware filtering across all app sections
+    - New centralized SearchService handles all search operations
+    - Inline search filtering on Kinds, Products, and Recipes pages
+    - Search query persists when switching between sections
+    - Empty query shows full unfiltered lists
+- **"All Entries" section**: New dedicated page to view and search all database entries
+    - Access via new bottom bar button (Icons.view_list)
+    - Lists all calendar entries with standard Card + ListTile pattern
+    - Full search support with entry details (date, time, static flag)
+    - Edit and delete operations with undo support
+- **Search field clear button**: X icon to quickly clear search query
+    - Appears dynamically when search query is not empty
+    - Single tap clears field and resets all filters
+
+### Changed
+- **Bottom navigation bar**: Extended with "All Entries" button (6th section)
+    - Order: Calendar, Handedness, Products, Kinds, Recipes, All Entries, Database
+    - Consistent icon style across all sections
+- **AppSection enum**: Added `allEntries` member
+- **Search UX**: Clear visual feedback when no results found
+    - Context-specific empty state messages (e.g., "No kinds found for 'protein'")
+    - Distinguishes between "no data" and "no search results"
+
+### Technical
+- SearchService architecture: Single source of truth for all search operations
+    - searchKinds(), searchProducts(), searchRecipes() for template filtering
+    - searchEntriesForDay(), searchEntriesInDateRange() for calendar filtering
+    - searchAllEntries() for global entry search
+- Inline filtering pattern: Each page uses SearchService for reactive filtering
+    - Stream-based updates ensure UI stays in sync with search query
+    - No separate search result screens, filters applied directly to page content
+- Bottom controls refactored to ConsumerStatefulWidget for TextEditingController management
+    - Bidirectional sync between controller and searchQueryProvider
+    - Prevents cursor jumps during external query updates
+
+---
+
 ## [0.7.9] - 2025-11-17
 ### Fixed
 - **All linter warnings eliminated**: Comprehensive cleanup for production-ready code
