@@ -32,6 +32,8 @@ class WeeklyOverviewPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repo = ref.watch(entriesRepositoryProvider);
+    final searchService = ref.watch(searchServiceProvider);
+    final searchQuery = ref.watch(searchQueryProvider);
     final registry = ref.watch(widgetRegistryProvider);
     final theme = Theme.of(context);
     final uxConfig = ref.watch(uxConfigProvider);
@@ -48,15 +50,26 @@ class WeeklyOverviewPanel extends ConsumerWidget {
 
     final selectedKinds = ref.watch(selectedKindsForChartProvider);
 
-    return StreamBuilder<Map<DateTime, List<EntryRecord>>>(
-      stream: repo.watchByDayRange(sevenDaysAgo, tomorrow, onlyShowInCalendar: false),
-      builder: (context, snapshot) {
-        final entriesMap = snapshot.data ?? const <DateTime, List<EntryRecord>>{};
+    // Use search service if query is present, otherwise use repository directly
+    // Note: searchEntriesInDateRange returns a flat list, so we need to convert it to the expected format
+    final Stream<dynamic> entriesStream =
+        searchQuery.trim().isNotEmpty && searchService != null
+            ? searchService.searchEntriesInDateRange(searchQuery, sevenDaysAgo, tomorrow)
+            : repo.watchByDayRange(sevenDaysAgo, tomorrow, onlyShowInCalendar: false);
 
-        // Flatten map to list
-        final allEntries = <EntryRecord>[];
-        for (final dayEntries in entriesMap.values) {
-          allEntries.addAll(dayEntries);
+    return StreamBuilder<dynamic>(
+      stream: entriesStream,
+      builder: (context, snapshot) {
+        // Handle both Map<DateTime, List<EntryRecord>> and List<EntryRecord>
+        List<EntryRecord> allEntries;
+        if (snapshot.data is Map<DateTime, List<EntryRecord>>) {
+          final entriesMap = snapshot.data as Map<DateTime, List<EntryRecord>>;
+          allEntries = [];
+          for (final dayEntries in entriesMap.values) {
+            allEntries.addAll(dayEntries);
+          }
+        } else {
+          allEntries = (snapshot.data as List<EntryRecord>?) ?? [];
         }
 
         // Filter only parent entries (no children) for display list

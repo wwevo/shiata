@@ -1,5 +1,34 @@
 # CHANGELOG.md
 
+## [0.8.1] - 2025-11-17
+### Added
+- **Calendar search**: Day-specific search filtering in CalendarFullScreen
+    - Search bar filters only entries for the currently selected day
+    - Uses searchEntriesForDay() for targeted results
+    - Maintains all day details panel functionality while searching
+- **Weekly overview search**: 7-day range search in WeeklyOverviewPanel
+    - Search bar filters entries from the last 7 days
+    - Uses searchEntriesInDateRange() for date-bound results
+    - Preserves pie chart and aggregation features during search
+
+### Changed
+- **CalendarFullScreen**: Removed global SearchResults, now always shows DayDetailsPanel
+    - Search filtering is integrated directly into day details
+    - Cleaner UI with consistent panel structure
+- **DayDetailsPanel**: Enhanced with inline search support
+    - Conditionally uses SearchService when query is present
+    - Falls back to standard repo.watchByDay() when no query
+- **WeeklyOverviewPanel**: Enhanced with inline search support
+    - Handles both Map and List stream types for flexibility
+    - Search results maintain proper parent-child hierarchy
+
+### Technical
+- Inline search pattern completed across all calendar views
+- SearchService integration in calendar components
+- Stream type polymorphism in WeeklyOverviewPanel for search compatibility
+
+---
+
 ## [0.8.0] - 2025-11-17
 ### Added
 - **Comprehensive search service**: Context-aware filtering across all app sections

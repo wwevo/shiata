@@ -137,7 +137,10 @@ class DayDetailsPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(selectedDayProvider);
     final repo = ref.watch(entriesRepositoryProvider);
+    final searchService = ref.watch(searchServiceProvider);
+    final searchQuery = ref.watch(searchQueryProvider);
     final registry = ref.watch(widgetRegistryProvider);
+
     if (selected == null || repo == null) {
       // Hint area
       return Padding(
@@ -156,8 +159,13 @@ class DayDetailsPanel extends ConsumerWidget {
       );
     }
 
+    // Use search service if query is present, otherwise use repository directly
+    final entriesStream = searchQuery.trim().isNotEmpty && searchService != null
+        ? searchService.searchEntriesForDay(searchQuery, selected)
+        : repo.watchByDay(selected);
+
     return StreamBuilder<List<EntryRecord>>(
-      stream: repo.watchByDay(selected),
+      stream: entriesStream,
       builder: (context, snapshot) {
         final all = snapshot.data ?? const <EntryRecord>[];
         // Parents/standalone are entries without a source; children have a source_entry_id
