@@ -1,5 +1,70 @@
 # CHANGELOG.md
 
+## [Unreleased] - 0.7.9
+### Changed
+- Upcoming bugfixes
+
+---
+
+## [0.7.8] - 2025-11-17
+### Added
+- **Recipe instance editing**: Complete CRUD support for recipe instances
+  - Edit button now available in day details, weekly overview, and search results
+  - Edit dialog loads current values from instance (kind amounts, product grams)
+  - Update operation recreates children from template with new overrides
+  - Supports toggling isStatic flag during edit
+- **Static/Dynamic toggle UI**: User control over template propagation
+  - Recipe instance dialog: Static toggle with reset dialog when switching static→dynamic
+  - Product instance dialog: Enhanced existing toggle with reset dialog
+  - Reset dialogs offer to reload template defaults when making instances dynamic
+  - User can cancel toggle or keep current values
+- **Visual indicators for static instances**: 🔒 "Static" badge in all views
+  - Day details panel: Lock icon + "Static" label in entry subtitle
+  - Weekly overview: Same indicator pattern
+  - Search results: Same indicator pattern
+  - Consistent styling (14px icon, 60% opacity, labelSmall text)
+- **Template-instance propagation system**: Centralized children management
+  - DB schema: Added `recipe_id` column to entries table with index for fast queries
+  - ProductHierarchyService: Manages product instance hierarchies and propagation
+  - RecipeHierarchyService: Manages recipe instance hierarchies with recursive aggregation
+  - Propagation hooks in template editors with undo support
+- **Scientific test methodology**: All tests now show complete data flow
+  - Format: INIT → ACTION → EXPECTED → ACTUAL → RESULT
+  - 8 comprehensive tests covering template propagation, static instances, recursive aggregation
+  - Tests validate recipe_id column, listParentsByRecipeId query, instance editing
+
+### Fixed
+- **Integer division bug**: Product instances were nulling small nutrient values
+  - Changed `~/` to `/` in ProductService (line 133: `amountPerGram * grams / 100.0`)
+  - Prevents vitamins/minerals from being rounded to zero (e.g., 0.05mg now preserved)
+- **Widget lifecycle crashes**: Undo operations were accessing disposed widgets
+  - Added mounted checks after all async operations in template editors
+  - Prevents "Looking up a deactivated widget's ancestor" errors
+- **Recipe instances always static**: isStatic was hardcoded to `true`
+  - RecipeService now accepts `isStatic` parameter (defaults to false)
+  - Template propagation now works correctly for recipe instances
+
+### Changed
+- **RecipeService**: Added `updateRecipeInstance()` method
+  - Updates parent entry (targetAt, isStatic, payload)
+  - Deletes ALL old children including nested product hierarchies
+  - Recreates children from template with new kind/product overrides
+  - Properly cascades product deletion through ProductService
+- **RecipeInstantiateDialog**: Enhanced for both create and edit modes
+  - Optional `entryId` parameter triggers edit mode
+  - `_loadExisting()` populates controllers with current instance values
+  - Loads kind amounts from child payloads, product grams from productGrams column
+  - Dialog title adapts: "Edit" vs "Instantiate"
+  - Different snackbar messages for create vs update
+
+### Technical
+- Added `dart:convert` import to RecipeService for jsonEncode
+- Recipe instance dialog now requires `entryId`, `recipeId`, and `initialTarget` to all be optional
+- Edit buttons added to 3 views with proper imports of RecipeInstantiateDialog
+- Tests expanded from 6 to 8 with new recipe editing coverage
+
+---
+
 ## [0.7.7] - 2025-11-16
 ### Fixed
 - **Pie chart proportions**: Fixed incorrect proportions when mixing different units
