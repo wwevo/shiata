@@ -13,6 +13,7 @@ import '../../utils/formatters.dart';
 import '../editors/kind_instance_editor_dialog.dart';
 import '../editors/product_instance_components_editor_dialog.dart';
 import '../editors/product_instance_editor_dialog.dart';
+import '../editors/recipe_instance_dialog.dart';
 import '../main_screen_providers.dart';
 import '../ux_config.dart';
 import 'nested_product_parent_row.dart';
@@ -446,7 +447,18 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                                       );
                                     },
                                   )
-                                else if (!isRecipeParent)
+                                else if (isRecipeParent)
+                                  IconButton(
+                                    tooltip: 'Edit',
+                                    icon: const Icon(Icons.edit_outlined),
+                                    onPressed: () async {
+                                      await showDialog(
+                                        context: ctx,
+                                        builder: (_) => RecipeInstantiateDialog(entryId: e.id),
+                                      );
+                                    },
+                                  )
+                                else
                                   IconButton(
                                     tooltip: 'Edit',
                                     icon: const Icon(Icons.edit_outlined),

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,15 +10,17 @@ import '../../utils/formatters.dart';
 import '../widgets/editor_dialog_actions.dart';
 
 class RecipeInstantiateDialog extends ConsumerStatefulWidget {
-  const RecipeInstantiateDialog({super.key, required this.recipeId, required this.initialTarget});
-  final String recipeId;
-  final DateTime initialTarget;
+  const RecipeInstantiateDialog({super.key, this.entryId, this.recipeId, this.initialTarget});
+  final String? entryId; // if present → edit existing recipe instance
+  final String? recipeId; // required for create, optional for edit
+  final DateTime? initialTarget; // required for create, optional for edit
   @override
   ConsumerState<RecipeInstantiateDialog> createState() => RecipeInstantiateDialogState();
 }
 
 class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog> {
   // State variables
+  String? _recipeId;
   String _recipeName = '';
   DateTime _targetAt = DateTime.now();
   bool _loading = true;
@@ -28,8 +32,15 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
   @override
   void initState() {
     super.initState();
-    _targetAt = widget.initialTarget;
-    _load();
+    _recipeId = widget.recipeId;
+    if (widget.initialTarget != null) {
+      _targetAt = widget.initialTarget!;
+    }
+    if (widget.entryId != null) {
+      _loadExisting();
+    } else {
+      _load();
+    }
   }
 
   @override
@@ -43,11 +54,81 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
     super.dispose();
   }
 
+  Future<void> _loadExisting() async {
+    setState(() => _loading = true);
+    final entries = ref.read(entriesRepositoryProvider);
+    final recipesRepo = ref.read(recipesRepositoryProvider);
+    if (entries == null || recipesRepo == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+
+    final entry = await entries.getById(widget.entryId!);
+    if (entry != null) {
+      try {
+        final payload = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
+        _recipeName = payload['name'] as String? ?? '';
+        _recipeId = entry.recipeId ?? payload['recipe_id'] as String?;
+      } catch (_) {}
+      _targetAt = DateTime.fromMillisecondsSinceEpoch(entry.targetAt, isUtc: true).toLocal();
+      _isStatic = entry.isStatic;
+
+      // Load children and populate controllers with their values
+      if (_recipeId != null) {
+        final children = await entries.listChildrenOfParent(widget.entryId!);
+        final comps = await recipesRepo.getComponents(_recipeId!);
+
+        // Clear old controllers
+        for (final ctrl in _kindCtrls.values) {
+          ctrl.dispose();
+        }
+        for (final ctrl in _productCtrls.values) {
+          ctrl.dispose();
+        }
+        _kindCtrls.clear();
+        _productCtrls.clear();
+
+        // Initialize controllers with current values from children
+        for (final c in comps) {
+          final typeStr = c.type.toString();
+          if (typeStr.endsWith('kind')) {
+            // Find the child entry for this kind
+            final childEntry = children.where((e) => e.widgetKind == c.compId).firstOrNull;
+            double currentAmount = c.amount ?? 0.0;
+            if (childEntry != null) {
+              try {
+                final childPayload = jsonDecode(childEntry.payloadJson) as Map<String, dynamic>;
+                currentAmount = (childPayload['amount'] as num?)?.toDouble() ?? currentAmount;
+              } catch (_) {}
+            }
+            _kindCtrls[c.compId] = TextEditingController(text: fmtDouble(currentAmount));
+          } else {
+            // Find the product child (it's a parent entry with widgetKind == 'product')
+            final productChild = children.where((e) => e.widgetKind == 'product' && e.productId == c.compId).firstOrNull;
+            int currentGrams = c.grams ?? 0;
+            if (productChild != null) {
+              currentGrams = productChild.productGrams ?? currentGrams;
+            }
+            _productCtrls[c.compId] = TextEditingController(text: currentGrams.toString());
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            _components = comps;
+            _loading = false;
+          });
+        }
+      }
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
   Future<void> _load() async {
     final repo = ref.read(recipesRepositoryProvider);
-    if (repo != null) {
-      final def = await repo.getRecipe(widget.recipeId);
-      final comps = await repo.getComponents(widget.recipeId);
+    if (repo != null && _recipeId != null) {
+      final def = await repo.getRecipe(_recipeId!);
+      final comps = await repo.getComponents(_recipeId!);
       if (mounted) {
         setState(() {
           _recipeName = def?.name ?? '';
@@ -55,7 +136,17 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
           _loading = false;
         });
       }
-      // Initialize controllers
+      // Clear old controllers
+      for (final ctrl in _kindCtrls.values) {
+        ctrl.dispose();
+      }
+      for (final ctrl in _productCtrls.values) {
+        ctrl.dispose();
+      }
+      _kindCtrls.clear();
+      _productCtrls.clear();
+
+      // Initialize controllers with template defaults
       for (final c in comps) {
         final typeStr = c.type.toString();
         if (typeStr.endsWith('kind')) {
@@ -125,6 +216,7 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
   Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
     final svc = ref.read(recipeServiceProvider);
     if (svc == null) return;
+
     final kindOverrides = <String, double>{};
     final productOverrides = <String, int>{};
     _kindCtrls.forEach((k, v) {
@@ -135,14 +227,40 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
       final g = int.tryParse(v.text.trim());
       if (g != null) productOverrides[k] = g;
     });
-    await svc.createRecipeEntry(
-      recipeId: widget.recipeId,
-      targetAtLocal: _targetAt,
-      kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
-      productGramOverrides: productOverrides.isEmpty ? null : productOverrides,
-      showParentInCalendar: true,
-      isStatic: _isStatic,
-    );
+
+    if (widget.entryId != null) {
+      // Edit existing recipe instance
+      await svc.updateRecipeInstance(
+        parentEntryId: widget.entryId!,
+        targetAtLocal: _targetAt,
+        kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
+        productGramOverrides: productOverrides.isEmpty ? null : productOverrides,
+        isStatic: _isStatic,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Updated ${_recipeName.isEmpty ? 'Recipe' : _recipeName}')),
+      );
+    } else {
+      // Create new recipe instance
+      if (_recipeId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No recipe selected')));
+        return;
+      }
+      await svc.createRecipeEntry(
+        recipeId: _recipeId!,
+        targetAtLocal: _targetAt,
+        kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
+        productGramOverrides: productOverrides.isEmpty ? null : productOverrides,
+        showParentInCalendar: true,
+        isStatic: _isStatic,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Added ${_recipeName.isEmpty ? 'Recipe' : _recipeName}')),
+      );
+    }
+
     if (closeAfter && mounted) {
       Navigator.of(context).pop();
     }
@@ -151,8 +269,11 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
   @override
   Widget build(BuildContext context) {
     final registry = ref.watch(widgetRegistryProvider);
+    final isEdit = widget.entryId != null;
     return AlertDialog(
-      title: Text('Instantiate: ${_recipeName.isEmpty ? widget.recipeId : _recipeName}'),
+      title: Text(isEdit
+          ? '${_recipeName.isEmpty ? 'Recipe' : _recipeName} — Edit'
+          : 'Instantiate: ${_recipeName.isEmpty ? _recipeId ?? '' : _recipeName}'),
       content: _loading
           ? const SizedBox(width: 480, height: 120, child: Center(child: CircularProgressIndicator()))
           : SizedBox(

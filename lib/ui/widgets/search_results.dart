@@ -11,6 +11,7 @@ import '../../domain/widgets/registry.dart';
 import '../../utils/formatters.dart';
 import '../editors/kind_instance_editor_dialog.dart';
 import '../editors/product_instance_editor_dialog.dart';
+import '../editors/recipe_instance_dialog.dart';
 import '../main_screen_providers.dart';
 
 class SearchResults extends ConsumerWidget {
@@ -134,7 +135,18 @@ class SearchResults extends ConsumerWidget {
                           );
                         },
                       )
-                    else if (!isRecipe)
+                    else if (isRecipe)
+                      IconButton(
+                        tooltip: 'Edit',
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: () async {
+                          await showDialog(
+                            context: context,
+                            builder: (_) => RecipeInstantiateDialog(entryId: e.id),
+                          );
+                        },
+                      )
+                    else
                       IconButton(
                         tooltip: 'Edit',
                         icon: const Icon(Icons.edit_outlined),
