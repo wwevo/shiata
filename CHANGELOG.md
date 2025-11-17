@@ -1,5 +1,28 @@
 # CHANGELOG.md
 
+## [0.8.2] - 2025-11-17
+### Added
+- **Centralized entry list item factory**: Single source of truth for consistent list items
+    - EntryListItemFactory with buildKindListItem(), buildProductListItem(), buildRecipeListItem()
+    - EntryListItemConfig for configurable metadata display (date, time, static flag)
+    - Consistent appearance across all pages (AllEntriesPage, SearchResults, Day Details, Weekly Overview)
+
+### Changed
+- **AllEntriesPage**: Refactored to use factory (-261 lines, 70% reduction)
+- **SearchResults**: Refactored to use factory (-231 lines, 71% reduction)
+- **List item consistency**: All entry types now display identically across the app
+    - Unified date/time formatting
+    - Consistent metadata display (static flag, hidden indicator)
+    - Standard Card + ListTile + CircleAvatar pattern
+
+### Technical
+- Eliminated 492 lines of duplicated code
+- Factory pattern enables future customization from single location
+- Follows CLAUDE.md guidelines for consistency and maintainability
+- Context-aware metadata: Day details show only time, other pages show full date+time
+
+---
+
 ## [0.8.1] - 2025-11-17
 ### Added
 - **Calendar search**: Day-specific search filtering in CalendarFullScreen
