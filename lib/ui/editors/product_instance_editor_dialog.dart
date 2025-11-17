@@ -99,6 +99,34 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
     });
   }
 
+  Future<void> _handleStaticToggle(bool newValue) async {
+    // If switching from static to dynamic, warn about recomputation
+    if (_isStatic && !newValue) {
+      final shouldContinue = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Reset to template?'),
+          content: const Text('Switching to dynamic will recompute all nutrients from the product template when you save.\n\n'
+              'Any custom nutrient values will be replaced with template values.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldContinue != true) return;
+    }
+
+    setState(() => _isStatic = newValue);
+  }
+
   Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
     if (!_formKey.currentState!.validate()) return;
     final grams = int.tryParse(_gramsController.text) ?? widget.defaultGrams;
@@ -230,7 +258,7 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   value: _isStatic,
-                  onChanged: (v) => setState(() => _isStatic = v),
+                  onChanged: _handleStaticToggle,
                   title: const Text('Static (don\'t update if product changes)'),
                 ),
               ],

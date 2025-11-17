@@ -333,6 +333,21 @@ class DayDetailsPanel extends ConsumerWidget {
                             style: Theme.of(context).textTheme.labelSmall,
                           ),
                         ],
+                        if (e.isStatic) ...[
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.lock,
+                            size: 14,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Static',
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ],
                       ],
                     ),
                     trailing: Row(

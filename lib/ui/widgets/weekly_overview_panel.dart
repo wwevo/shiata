@@ -412,8 +412,25 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                                 : '$title ${summary.isNotEmpty ? "• $summary" : ""}',
                               style: theme.textTheme.bodyLarge,
                             ),
-                            subtitle: Text(
-                              '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')} ${fmtTime(localTime)}',
+                            subtitle: Row(
+                              children: [
+                                Text(
+                                  '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')} ${fmtTime(localTime)}',
+                                ),
+                                if (e.isStatic) ...[
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    Icons.lock,
+                                    size: 14,
+                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Static',
+                                    style: theme.textTheme.labelSmall,
+                                  ),
+                                ],
+                              ],
                             ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,

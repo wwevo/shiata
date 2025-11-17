@@ -100,8 +100,25 @@ class SearchResults extends ConsumerWidget {
                   child: Icon(icon, size: 18),
                 ),
                 title: Text('$title${summary.isEmpty ? '' : ' • $summary'}'),
-                subtitle: Text(
-                  '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')}  ${fmtTime(localTime)}',
+                subtitle: Row(
+                  children: [
+                    Text(
+                      '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')}  ${fmtTime(localTime)}',
+                    ),
+                    if (e.isStatic) ...[
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.lock,
+                        size: 14,
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Static',
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                    ],
+                  ],
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,

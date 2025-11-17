@@ -20,6 +20,7 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
   String _recipeName = '';
   DateTime _targetAt = DateTime.now();
   bool _loading = true;
+  bool _isStatic = false;
   List<dynamic> _components = const [];
   final Map<String, TextEditingController> _kindCtrls = {};
   final Map<String, TextEditingController> _productCtrls = {};
@@ -90,6 +91,37 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
     });
   }
 
+  Future<void> _handleStaticToggle(bool newValue) async {
+    // If switching from static to dynamic, offer to reset to template values
+    if (_isStatic && !newValue) {
+      final shouldReset = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Reset to template?'),
+          content: const Text('Do you want to reset all values to the recipe template defaults?\n\n'
+              'This will overwrite any custom values you\'ve entered.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Keep values'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Reset'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldReset == true) {
+        // Reload template values
+        await _load();
+      }
+    }
+
+    setState(() => _isStatic = newValue);
+  }
+
   Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
     final svc = ref.read(recipeServiceProvider);
     if (svc == null) return;
@@ -109,6 +141,7 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
       kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
       productGramOverrides: productOverrides.isEmpty ? null : productOverrides,
       showParentInCalendar: true,
+      isStatic: _isStatic,
     );
     if (closeAfter && mounted) {
       Navigator.of(context).pop();
@@ -133,6 +166,13 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
                       onPressed: () => _pickDateTime(context),
                       icon: const Icon(Icons.schedule),
                       label: Text('${_targetAt.toLocal()}'),
+                    ),
+                    const SizedBox(height: 16),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _isStatic,
+                      onChanged: _handleStaticToggle,
+                      title: const Text('Static (don\'t update if recipe template changes)'),
                     ),
                     const SizedBox(height: 12),
                     if (_components.isEmpty)
