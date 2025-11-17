@@ -95,6 +95,143 @@ flutter test test/propagation_test.dart  # Run specific test file
 flutter test                              # Run all tests
 ```
 
+## Code Quality & Linter Best Practices
+
+### BuildContext Async Gaps (CRITICAL)
+**Problem**: Using `BuildContext` after `await` causes warnings and potential bugs if widget is unmounted.
+
+**Solutions**:
+1. **Capture context-dependent objects BEFORE any await**:
+```dart
+Future<void> _save() async {
+  // ✅ Capture FIRST, before any await
+  final messenger = ScaffoldMessenger.of(context);
+  final navigator = Navigator.of(context);
+
+  await someAsyncOperation();
+
+  // ✅ Use captured objects after await
+  if (!mounted) return;
+  messenger.showSnackBar(SnackBar(content: Text('Saved')));
+  navigator.pop();
+}
+```
+
+2. **Use `context.mounted` when context is used immediately**:
+```dart
+await someAsyncOperation();
+if (!context.mounted) return;  // ✅ Related check
+await showDialog(context: context, ...);  // ✅ Safe to use
+```
+
+**Anti-patterns**:
+```dart
+// ❌ BAD: Capturing after await
+await someAsyncOperation();
+if (!mounted) return;  // Unrelated check
+ScaffoldMessenger.of(context).showSnackBar(...);  // Warning!
+
+// ❌ BAD: Using mounted instead of context.mounted
+if (!mounted) return;  // Unrelated to context
+await showDialog(context: context, ...);  // Warning!
+```
+
+### Deprecated Flutter APIs
+**DropdownButtonFormField.value** (deprecated in Flutter 3.33+):
+```dart
+// ❌ BAD: Using deprecated 'value' parameter
+DropdownButtonFormField<String>(
+  value: _selected,
+  onChanged: (v) => setState(() => _selected = v),
+  decoration: InputDecoration(labelText: 'Select'),
+)
+
+// ✅ GOOD: Use DropdownButton with state management
+DropdownButton<String>(
+  value: _selected,
+  hint: Text('Select'),
+  isExpanded: true,
+  onChanged: (v) => setState(() => _selected = v),
+)
+```
+
+### Unused Variables & Imports
+**Always investigate before removing**:
+- Check if variable was planned for future use (see TODOs, comments)
+- If truly unused, remove it
+- For return values: Consider if they should be used for user feedback
+
+**Example - Making variables useful**:
+```dart
+// ❌ Before: unused variable
+int updatedCount = 0;
+for (final item in items) {
+  await update(item);
+  updatedCount++;
+}
+// TODO: Show user feedback
+
+// ✅ After: return for user feedback
+Future<int> updateItems() async {
+  int updatedCount = 0;
+  for (final item in items) {
+    await update(item);
+    updatedCount++;
+  }
+  return updatedCount;  // Now useful!
+}
+```
+
+### Type Checks & Null Safety
+```dart
+// ❌ BAD: Unnecessary type check
+if (value is dynamic) { ... }  // Always true
+
+// ❌ BAD: Dead null-aware operator
+final unit = kind.unit ?? '';  // If kind.unit is non-nullable
+
+// ✅ GOOD: Remove unnecessary operations
+if (value != null) { ... }     // Only check what's actually nullable
+final unit = kind?.unit ?? '';  // Use ?. if kind itself is nullable
+```
+
+### Code Style
+```dart
+// ❌ BAD: Multiple unnecessary underscores
+separatorBuilder: (_, __) => Divider()
+
+// ✅ GOOD: Meaningful or single underscore
+separatorBuilder: (context, index) => Divider()
+// or if truly unused:
+separatorBuilder: (_, __) => Divider()  // But prefer meaningful names
+```
+
+### Library Documentation
+```dart
+// ❌ BAD: Dangling doc comment
+/// This is a utility library.
+///
+/// It contains helper functions.
+
+import 'package:flutter/material.dart';
+
+// ✅ GOOD: Add library directive
+/// This is a utility library.
+///
+/// It contains helper functions.
+library;
+
+import 'package:flutter/material.dart';
+```
+
+### Pre-commit Checklist
+Before committing, ensure:
+- [ ] Run `flutter analyze` - zero warnings
+- [ ] Check all `context` usage after `await`
+- [ ] No unused imports or variables (or documented why kept)
+- [ ] No deprecated API usage
+- [ ] All mounted checks use `context.mounted` when context follows
+
 ## Version Management
 
 - Update `pubspec.yaml` version
