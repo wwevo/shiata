@@ -113,6 +113,10 @@ class KindsPage extends ConsumerWidget {
     final usage = await svc.getUsage(k.id);
     if (usage == null) return; // kind not found
     if (!context.mounted) return;
+
+    // Capture context-dependent objects BEFORE any await
+    final messenger = ScaffoldMessenger.of(context);
+
     bool removeFromProducts = usage.productsUsing.isNotEmpty;
     bool deleteDirectEntries = usage.directEntriesCount > 0;
     final confirmed = await showDialog<bool>(
@@ -189,7 +193,6 @@ class KindsPage extends ConsumerWidget {
     ) ??
         false;
     if (!confirmed) return;
-    final messenger = ScaffoldMessenger.of(context);
     try {
       final snap = await svc.deleteKindWithSideEffects(
         kindId: k.id,

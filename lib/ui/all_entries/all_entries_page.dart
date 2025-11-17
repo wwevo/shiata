@@ -26,9 +26,9 @@ class AllEntriesPage extends ConsumerWidget {
     final searchQuery = ref.watch(searchQueryProvider);
 
     if (searchService == null || repo == null) {
-      return const Scaffold(
-        appBar: AppBar(title: Text('All Entries')),
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        appBar: AppBar(title: const Text('All Entries')),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
