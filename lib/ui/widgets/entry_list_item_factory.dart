@@ -29,6 +29,7 @@ import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
 import '../editors/kind_instance_editor_dialog.dart';
+import '../editors/product_instance_components_editor_dialog.dart';
 import '../editors/product_instance_editor_dialog.dart';
 import '../editors/recipe_instance_dialog.dart';
 import '../main_screen_providers.dart';
@@ -100,12 +101,14 @@ class EntryListItemFactory {
     } else if (isRecipe) {
       color = Colors.brown;
       icon = Icons.restaurant_menu;
-      title = _extractRecipeTitle(entry);
+      title = _extractRecipeTitle(entry, children, childrenByParent, registry);
     } else {
       final kind = registry.byId(entry.widgetKind);
       color = kind?.accentColor ?? Theme.of(context).colorScheme.primary;
       icon = kind?.icon ?? Icons.circle;
-      title = _extractKindTitle(entry, kind);
+      // For nested entries (depth > 0), only show display name without amount
+      // For top-level entries (depth == 0), show display name with amount
+      title = _extractKindTitle(entry, kind, depth);
     }
 
     final metadata = depth == 0 ? _buildMetadata(entry, config, context) : null;
@@ -114,33 +117,47 @@ class EntryListItemFactory {
     final expandedSet = ref.watch(expandedEntriesProvider);
     final isExpanded = expandedSet.contains(entry.id);
 
-    // Build trailing widget based on context
+    // Build trailing widget based on depth and entry type
     final Widget? trailing;
-    if (hasChildren) {
-      // Expandable item: show expand/collapse icon
-      trailing = AnimatedRotation(
-        turns: isExpanded ? 0.5 : 0.0,
-        duration: const Duration(milliseconds: 120),
-        child: const Icon(Icons.expand_more),
-      );
-    } else if (depth > 0) {
-      // Nested leaf (kind under product/recipe): show amount
+    if (depth > 0) {
+      // Nested entries: show amount for kinds
       trailing = _buildKindAmount(entry, registry, context);
     } else {
-      // Top-level leaf: show edit/delete buttons
+      // Top-level entries: show action buttons
       trailing = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Edit button (for all entry types)
           IconButton(
             tooltip: 'Edit',
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => _showEditDialog(context, entry, isProduct, isRecipe, registry),
           ),
+          // Delete button (for all entry types)
           IconButton(
             tooltip: 'Delete',
             icon: const Icon(Icons.delete_outline),
             onPressed: () => _deleteEntry(context, ref, entry, isProduct, isRecipe),
           ),
+          // Edit components button (only for products)
+          if (isProduct)
+            IconButton(
+              tooltip: 'Edit components',
+              icon: const Icon(Icons.tune),
+              onPressed: () => showDialog(
+                context: context,
+                builder: (_) => InstanceComponentsEditorDialog(parentEntryId: entry.id),
+              ),
+            ),
+          // Expand/collapse icon (if has children) or chevron (if no children)
+          if (hasChildren)
+            AnimatedRotation(
+              turns: isExpanded ? 0.5 : 0.0,
+              duration: const Duration(milliseconds: 120),
+              child: const Icon(Icons.expand_more),
+            )
+          else
+            const Icon(Icons.chevron_right),
         ],
       );
     }
@@ -229,17 +246,111 @@ class EntryListItemFactory {
   }
 
   /// Extracts recipe title from payload
-  static String _extractRecipeTitle(EntryRecord entry) {
+  static String _extractRecipeTitle(
+    EntryRecord entry,
+    List<EntryRecord> children,
+    Map<String, List<EntryRecord>> childrenByParent,
+    WidgetRegistry registry,
+  ) {
     try {
       final map = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
-      return (map['name'] as String?) ?? 'Recipe';
+      final name = (map['name'] as String?) ?? 'Recipe';
+
+      // Sum up component weights recursively
+      double totalProductGrams = 0.0;
+      final kindSummaries = <String, double>{};
+
+      // Recursive helper to aggregate nutrients from nested products
+      void aggregateNutrients(List<EntryRecord> entries) {
+        for (final child in entries) {
+          if (child.widgetKind == 'product') {
+            try {
+              final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
+              final grams = (childMap['grams'] as num?)?.toDouble() ?? 0.0;
+              totalProductGrams += grams;
+            } catch (_) {}
+            // Recursively aggregate nutrients from this product's children
+            final grandchildren = childrenByParent[child.id] ?? const <EntryRecord>[];
+            aggregateNutrients(grandchildren);
+          } else {
+            // It's a kind - aggregate by kind
+            try {
+              final childMap = jsonDecode(child.payloadJson) as Map<String, dynamic>;
+              final amount = (childMap['amount'] as num?)?.toDouble() ?? 0.0;
+              kindSummaries[child.widgetKind] = (kindSummaries[child.widgetKind] ?? 0.0) + amount;
+            } catch (_) {}
+          }
+        }
+      }
+
+      aggregateNutrients(children);
+
+      // Build summary string
+      final parts = <String>[];
+      if (totalProductGrams > 0) {
+        final formatted = totalProductGrams < 1
+            ? totalProductGrams.toStringAsFixed(2)
+            : totalProductGrams.toStringAsFixed(0);
+        parts.add('${formatted}g');
+      }
+
+      // Add top kind amounts (limit to avoid clutter)
+      if (kindSummaries.isNotEmpty) {
+        // Normalize values for sorting (convert all to grams for weight units)
+        final normalizedForSort = <String, double>{};
+        for (final entry in kindSummaries.entries) {
+          final k = registry.byId(entry.key);
+          final unit = k?.unit ?? '';
+          double normalized = entry.value;
+          switch (unit) {
+            case 'mg':
+              normalized = entry.value / 1000;
+              break;
+            case 'µg':
+              normalized = entry.value / 1000000;
+              break;
+            default:
+              normalized = entry.value;
+          }
+          normalizedForSort[entry.key] = normalized;
+        }
+
+        // Sort by normalized amount descending
+        final sorted = normalizedForSort.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+
+        // Show top 2 kinds
+        for (int i = 0; i < sorted.length && i < 2; i++) {
+          final kindId = sorted[i].key;
+          final kind = registry.byId(kindId);
+          final rawAmount = kindSummaries[kindId]!;
+          final unit = kind?.unit ?? '';
+
+          final formatted = rawAmount < 1
+              ? rawAmount.toStringAsFixed(2)
+              : rawAmount.toStringAsFixed(0);
+          final kindLabel = kind?.displayName ?? kindId;
+          parts.add('$formatted$unit $kindLabel');
+        }
+      }
+
+      return parts.isEmpty ? name : '$name • ${parts.join(' • ')}';
     } catch (_) {
       return 'Recipe';
     }
   }
 
   /// Extracts kind title with amount (displayName • amount unit)
-  static String _extractKindTitle(EntryRecord entry, WidgetKind? kind) {
+  /// For nested entries (depth > 0), only returns displayName (amount shown in trailing)
+  static String _extractKindTitle(EntryRecord entry, WidgetKind? kind, int depth) {
+    final displayName = kind?.displayName ?? entry.widgetKind;
+
+    // Nested entries show amount in trailing, not in title
+    if (depth > 0) {
+      return displayName;
+    }
+
+    // Top-level entries show amount in title
     String summary = '';
     try {
       final map = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
@@ -252,7 +363,6 @@ class EntryListItemFactory {
       }
     } catch (_) {}
 
-    final displayName = kind?.displayName ?? entry.widgetKind;
     return summary.isEmpty ? displayName : '$displayName • $summary';
   }
 
@@ -268,10 +378,19 @@ class EntryListItemFactory {
       final kind = registry.byId(entry.widgetKind);
       final unit = unitFromPayload ?? kind?.unit ?? '';
 
-      final text = amount < 1 ? amount.toStringAsFixed(2) : amount.toStringAsFixed(0);
-      // Trim trailing zeros
-      final trimmed = text.replaceFirst(RegExp(r'\.?0+$'), '');
-      final value = unit.isEmpty ? trimmed : '$trimmed $unit';
+      String text;
+      if (amount < 1) {
+        text = amount.toStringAsFixed(2);
+        // Only trim zeros after decimal point: "0.30" → "0.3", but keep "30" as "30"
+        if (text.contains('.')) {
+          text = text.replaceFirst(RegExp(r'0+$'), ''); // Remove trailing zeros
+          text = text.replaceFirst(RegExp(r'\.$'), '');  // Remove trailing decimal point
+        }
+      } else {
+        // For amounts >= 1, show as integer: "30.0" → "30"
+        text = amount.toStringAsFixed(0);
+      }
+      final value = unit.isEmpty ? text : '$text $unit';
 
       return Text(value, style: Theme.of(context).textTheme.bodyMedium);
     } catch (_) {
