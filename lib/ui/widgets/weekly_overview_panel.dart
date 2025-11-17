@@ -173,26 +173,19 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                         : Row(
                             children: [
                               Expanded(
+                                flex: 2,
                                 child: PieChart(
                                   PieChartData(
                                     sections: chartData.entries.map((entry) {
                                       final kind = registry.byId(entry.key);
                                       final color = kind?.accentColor ?? theme.colorScheme.primary;
-                                      final unit = kind?.unit ?? '';
-                                      final displayValue = displayValues[entry.key] ?? entry.value;
-                                      // Format: show 2 decimals for values < 1, otherwise 0 decimals
-                                      final formattedValue = displayValue < 1
-                                          ? displayValue.toStringAsFixed(2)
-                                          : displayValue.toStringAsFixed(0);
                                       return PieChartSectionData(
                                         value: entry.value, // normalized value for proportions
-                                        title: '$formattedValue$unit', // original value for display
+                                        title: '', // No label inside - using legend instead
                                         color: color,
                                         radius: 100,
                                         titleStyle: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
+                                          fontSize: 0, // Hidden
                                         ),
                                       );
                                     }).toList(),
@@ -202,33 +195,45 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                                 ),
                               ),
                               const SizedBox(width: 16),
-                              Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: chartData.entries.map((entry) {
-                                  final kind = registry.byId(entry.key);
-                                  final color = kind?.accentColor ?? theme.colorScheme.primary;
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 4),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 16,
-                                          height: 16,
-                                          decoration: BoxDecoration(
-                                            color: color,
-                                            shape: BoxShape.circle,
+                              Expanded(
+                                flex: 1,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: chartData.entries.map((entry) {
+                                    final kind = registry.byId(entry.key);
+                                    final color = kind?.accentColor ?? theme.colorScheme.primary;
+                                    final unit = kind?.unit ?? '';
+                                    final displayValue = displayValues[entry.key] ?? entry.value;
+                                    // Format: show 2 decimals for values < 1, otherwise 0 decimals
+                                    final formattedValue = displayValue < 1
+                                        ? displayValue.toStringAsFixed(2)
+                                        : displayValue.toStringAsFixed(0);
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 4),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 16,
+                                            height: 16,
+                                            decoration: BoxDecoration(
+                                              color: color,
+                                              shape: BoxShape.circle,
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          kind?.displayName ?? entry.key,
-                                          style: theme.textTheme.bodyMedium,
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              '${kind?.displayName ?? entry.key}: $formattedValue$unit',
+                                              style: theme.textTheme.bodyMedium,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
                               ),
                             ],
                           ),

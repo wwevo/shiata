@@ -167,7 +167,7 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
       firstDate: DateTime.now().subtract(const Duration(days: 3650)),
       lastDate: DateTime.now().add(const Duration(days: 3650)),
     );
-    if (date == null) return;
+    if (date == null || !context.mounted) return;
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_targetAt),
@@ -228,6 +228,10 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
       if (g != null) productOverrides[k] = g;
     });
 
+    // Capture context-dependent objects before async gaps
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     if (widget.entryId != null) {
       // Edit existing recipe instance
       await svc.updateRecipeInstance(
@@ -238,13 +242,13 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
         isStatic: _isStatic,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('Updated ${_recipeName.isEmpty ? 'Recipe' : _recipeName}')),
       );
     } else {
       // Create new recipe instance
       if (_recipeId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No recipe selected')));
+        messenger.showSnackBar(const SnackBar(content: Text('No recipe selected')));
         return;
       }
       await svc.createRecipeEntry(
@@ -256,13 +260,13 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
         isStatic: _isStatic,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('Added ${_recipeName.isEmpty ? 'Recipe' : _recipeName}')),
       );
     }
 
     if (closeAfter && mounted) {
-      Navigator.of(context).pop();
+      navigator.pop();
     }
   }
 

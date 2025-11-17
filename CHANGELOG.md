@@ -3,42 +3,42 @@
 ## [0.7.9] - 2025-11-17
 ### Fixed
 - **All linter warnings eliminated**: Comprehensive cleanup for production-ready code
-  - **BuildContext async gaps** (15+ instances): Captured ScaffoldMessenger/Navigator before async operations
-  - **Unnecessary type checks**: Removed redundant `is dynamic` checks and simplified type assertions
-  - **Unused imports** (5 files): Cleaned up drift, dart:convert, and repository imports
-  - **Unused local variables** (8 instances): Removed or repurposed unused variables across dialogs
-  - **Deprecated APIs** (4 instances): Replaced DropdownButtonFormField with DropdownButton
-  - **Dead code**: Removed unreachable null coalescing and impossible null checks
-  - **Code style**: Fixed unnecessary multiple underscores, added library directive for formatters
+    - **BuildContext async gaps** (15+ instances): Captured ScaffoldMessenger/Navigator before async operations
+    - **Unnecessary type checks**: Removed redundant `is dynamic` checks and simplified type assertions
+    - **Unused imports** (5 files): Cleaned up drift, dart:convert, and repository imports
+    - **Unused local variables** (8 instances): Removed or repurposed unused variables across dialogs
+    - **Deprecated APIs** (4 instances): Replaced DropdownButtonFormField with DropdownButton
+    - **Dead code**: Removed unreachable null coalescing and impossible null checks
+    - **Code style**: Fixed unnecessary multiple underscores, added library directive for formatters
 - **Pie chart readability**: Labels moved outside sections for better visibility
-  - Legend on right side shows full information: "Name: 123.45unit"
-  - Flex ratio (2:1) for better space distribution
-  - Works better with many small pie sections
+    - Legend on right side shows full information: "Name: 123.45unit"
+    - Flex ratio (2:1) for better space distribution
+    - Works better with many small pie sections
 - **Export page usability**: Enhanced category selection controls
-  - Added "Select All" / "Deselect All" buttons for Kinds, Products, and Recipes
-  - "Include All" / "Exclude All" button for Calendar Entries
-  - Consistent UI pattern across all export categories
+    - Added "Select All" / "Deselect All" buttons for Kinds, Products, and Recipes
+    - "Include All" / "Exclude All" button for Calendar Entries
+    - Consistent UI pattern across all export categories
 - **Recipe instance static flag**: Simplified toggle behavior
-  - Static flag now directly controlled by user toggle
-  - Removed automatic static conversion logic
-  - Clear user control over template propagation
+    - Static flag now directly controlled by user toggle
+    - Removed automatic static conversion logic
+    - Clear user control over template propagation
 
 ### Changed
 - **Code quality documentation**: Extended claude.md with linter best practices
-  - BuildContext async gap patterns and anti-patterns
-  - Deprecated API replacement guidelines (DropdownButtonFormField → DropdownButton)
-  - Type checks and null safety patterns
-  - Unused variable investigation strategy
-  - Pre-commit checklist for zero-warning code
+    - BuildContext async gap patterns and anti-patterns
+    - Deprecated API replacement guidelines (DropdownButtonFormField → DropdownButton)
+    - Type checks and null safety patterns
+    - Unused variable investigation strategy
+    - Pre-commit checklist for zero-warning code
 - **Mounted checks**: Converted `mounted` to `context.mounted` where context is used after check
-  - Makes mounted checks 'related' to context usage for linter compliance
-  - Applied consistently across all editor dialogs
+    - Makes mounted checks 'related' to context usage for linter compliance
+    - Applied consistently across all editor dialogs
 
 ### Technical
 - ProductHierarchyService/RecipeHierarchyService: Made propagateTemplateChange return int
-  - Provides user feedback statistics about propagation operations
+    - Provides user feedback statistics about propagation operations
 - Editor dialogs: Context captures moved to function start (before any async operations)
-  - Ensures proper context lifetime handling across async boundaries
+    - Ensures proper context lifetime handling across async boundaries
 - All code now passes `flutter analyze` with zero warnings/info messages
 
 ---
@@ -46,53 +46,53 @@
 ## [0.7.8] - 2025-11-17
 ### Added
 - **Recipe instance editing**: Complete CRUD support for recipe instances
-  - Edit button now available in day details, weekly overview, and search results
-  - Edit dialog loads current values from instance (kind amounts, product grams)
-  - Update operation recreates children from template with new overrides
-  - Supports toggling isStatic flag during edit
+    - Edit button now available in day details, weekly overview, and search results
+    - Edit dialog loads current values from instance (kind amounts, product grams)
+    - Update operation recreates children from template with new overrides
+    - Supports toggling isStatic flag during edit
 - **Static/Dynamic toggle UI**: User control over template propagation
-  - Recipe instance dialog: Static toggle with reset dialog when switching static→dynamic
-  - Product instance dialog: Enhanced existing toggle with reset dialog
-  - Reset dialogs offer to reload template defaults when making instances dynamic
-  - User can cancel toggle or keep current values
+    - Recipe instance dialog: Static toggle with reset dialog when switching static→dynamic
+    - Product instance dialog: Enhanced existing toggle with reset dialog
+    - Reset dialogs offer to reload template defaults when making instances dynamic
+    - User can cancel toggle or keep current values
 - **Visual indicators for static instances**: 🔒 "Static" badge in all views
-  - Day details panel: Lock icon + "Static" label in entry subtitle
-  - Weekly overview: Same indicator pattern
-  - Search results: Same indicator pattern
-  - Consistent styling (14px icon, 60% opacity, labelSmall text)
+    - Day details panel: Lock icon + "Static" label in entry subtitle
+    - Weekly overview: Same indicator pattern
+    - Search results: Same indicator pattern
+    - Consistent styling (14px icon, 60% opacity, labelSmall text)
 - **Template-instance propagation system**: Centralized children management
-  - DB schema: Added `recipe_id` column to entries table with index for fast queries
-  - ProductHierarchyService: Manages product instance hierarchies and propagation
-  - RecipeHierarchyService: Manages recipe instance hierarchies with recursive aggregation
-  - Propagation hooks in template editors with undo support
+    - DB schema: Added `recipe_id` column to entries table with index for fast queries
+    - ProductHierarchyService: Manages product instance hierarchies and propagation
+    - RecipeHierarchyService: Manages recipe instance hierarchies with recursive aggregation
+    - Propagation hooks in template editors with undo support
 - **Scientific test methodology**: All tests now show complete data flow
-  - Format: INIT → ACTION → EXPECTED → ACTUAL → RESULT
-  - 8 comprehensive tests covering template propagation, static instances, recursive aggregation
-  - Tests validate recipe_id column, listParentsByRecipeId query, instance editing
+    - Format: INIT → ACTION → EXPECTED → ACTUAL → RESULT
+    - 8 comprehensive tests covering template propagation, static instances, recursive aggregation
+    - Tests validate recipe_id column, listParentsByRecipeId query, instance editing
 
 ### Fixed
 - **Integer division bug**: Product instances were nulling small nutrient values
-  - Changed `~/` to `/` in ProductService (line 133: `amountPerGram * grams / 100.0`)
-  - Prevents vitamins/minerals from being rounded to zero (e.g., 0.05mg now preserved)
+    - Changed `~/` to `/` in ProductService (line 133: `amountPerGram * grams / 100.0`)
+    - Prevents vitamins/minerals from being rounded to zero (e.g., 0.05mg now preserved)
 - **Widget lifecycle crashes**: Undo operations were accessing disposed widgets
-  - Added mounted checks after all async operations in template editors
-  - Prevents "Looking up a deactivated widget's ancestor" errors
+    - Added mounted checks after all async operations in template editors
+    - Prevents "Looking up a deactivated widget's ancestor" errors
 - **Recipe instances always static**: isStatic was hardcoded to `true`
-  - RecipeService now accepts `isStatic` parameter (defaults to false)
-  - Template propagation now works correctly for recipe instances
+    - RecipeService now accepts `isStatic` parameter (defaults to false)
+    - Template propagation now works correctly for recipe instances
 
 ### Changed
 - **RecipeService**: Added `updateRecipeInstance()` method
-  - Updates parent entry (targetAt, isStatic, payload)
-  - Deletes ALL old children including nested product hierarchies
-  - Recreates children from template with new kind/product overrides
-  - Properly cascades product deletion through ProductService
+    - Updates parent entry (targetAt, isStatic, payload)
+    - Deletes ALL old children including nested product hierarchies
+    - Recreates children from template with new kind/product overrides
+    - Properly cascades product deletion through ProductService
 - **RecipeInstantiateDialog**: Enhanced for both create and edit modes
-  - Optional `entryId` parameter triggers edit mode
-  - `_loadExisting()` populates controllers with current instance values
-  - Loads kind amounts from child payloads, product grams from productGrams column
-  - Dialog title adapts: "Edit" vs "Instantiate"
-  - Different snackbar messages for create vs update
+    - Optional `entryId` parameter triggers edit mode
+    - `_loadExisting()` populates controllers with current instance values
+    - Loads kind amounts from child payloads, product grams from productGrams column
+    - Dialog title adapts: "Edit" vs "Instantiate"
+    - Different snackbar messages for create vs update
 
 ### Technical
 - Added `dart:convert` import to RecipeService for jsonEncode
@@ -105,64 +105,64 @@
 ## [0.7.7] - 2025-11-16
 ### Fixed
 - **Pie chart proportions**: Fixed incorrect proportions when mixing different units
-  - Weight units now normalized to grams for accurate proportions (mg÷1000, µg÷1000000)
-  - Display values still show original units (e.g., "500mg" instead of "0.5g")
-  - Prevents visual distortion when comparing nutrients with different scales
+    - Weight units now normalized to grams for accurate proportions (mg÷1000, µg÷1000000)
+    - Display values still show original units (e.g., "500mg" instead of "0.5g")
+    - Prevents visual distortion when comparing nutrients with different scales
 - **Calendar view**: Fixed missing values for nutrient kinds in day details
-  - Kind entries now display amount with unit (previously showed only "—")
+    - Kind entries now display amount with unit (previously showed only "—")
 - **Number formatting**: Adaptive precision for small values
-  - Values < 1 now show 2 decimal places (e.g., "0.50mg" instead of "0mg")
-  - Values ≥ 1 show 0 decimal places (e.g., "100mg" instead of "100.00mg")
-  - Applied consistently across calendar view, weekly overview, child rows, and search
+    - Values < 1 now show 2 decimal places (e.g., "0.50mg" instead of "0mg")
+    - Values ≥ 1 show 0 decimal places (e.g., "100mg" instead of "100.00mg")
+    - Applied consistently across calendar view, weekly overview, child rows, and search
 - **Recipe instances**: Now display component weight summaries with recursive aggregation
-  - Shows total product grams plus top 2 nutrient kinds with **labels**
-  - **Recursive**: Nutrients from products within recipes are now included
-  - **Unit-aware sorting**: Top nutrients sorted by normalized values (10g > 100mg)
-  - Format example: "Breakfast Smoothie • 250g • Protein: 30g • Vitamin C: 500mg"
-  - Applied to calendar view, weekly overview, and recipe templates page
-  - Search shows name only (performance optimization)
+    - Shows total product grams plus top 2 nutrient kinds with **labels**
+    - **Recursive**: Nutrients from products within recipes are now included
+    - **Unit-aware sorting**: Top nutrients sorted by normalized values (10g > 100mg)
+    - Format example: "Breakfast Smoothie • 250g • Protein: 30g • Vitamin C: 500mg"
+    - Applied to calendar view, weekly overview, and recipe templates page
+    - Search shows name only (performance optimization)
 - **Weekly overview**: Fixed recipe summaries not displaying
-  - Recipe instances now show component weights (was showing only name)
+    - Recipe instances now show component weights (was showing only name)
 
 ### Changed
 - **Documentation**: Simplified claude.md from 119 to 66 lines
-  - Removed redundant sections (workflow, testing checklist, common pitfalls)
-  - Focused on core patterns and architecture essentials
-  - Added unit normalization pattern documentation
+    - Removed redundant sections (workflow, testing checklist, common pitfalls)
+    - Focused on core patterns and architecture essentials
+    - Added unit normalization pattern documentation
 
 ## [0.7.6] - 2025-11-15
 ### Code Quality & Architecture
 - **Pattern compliance audit**: Comprehensive review and harmonization of all editor dialogs
-  - Unified inline editing pattern across all template editors
-  - Consistent transient state management (changes only committed on explicit Save)
-  - Save-based creation pattern: Products/Recipes now created on Save instead of before opening editor
-  - Fixed: Cancel now properly reverts all changes without leaving orphaned data
+    - Unified inline editing pattern across all template editors
+    - Consistent transient state management (changes only committed on explicit Save)
+    - Save-based creation pattern: Products/Recipes now created on Save instead of before opening editor
+    - Fixed: Cancel now properly reverts all changes without leaving orphaned data
 
 ### Fixed
 - **Product instance components editor**: Critical fix for immediate database writes
-  - Now uses transient local state like other editors
-  - Add/Delete operations no longer write to DB until Save is clicked
-  - Cancel button now correctly reverts all pending changes
-  - Added missing Delete button for component removal
+    - Now uses transient local state like other editors
+    - Add/Delete operations no longer write to DB until Save is clicked
+    - Cancel button now correctly reverts all pending changes
+    - Added missing Delete button for component removal
 
 ### Changed
 - **Recipe template editor**: Switched from popup-based to inline editing
-  - Consistent with product template editor UX
-  - Values now editable directly in list items (faster workflow)
-  - Simplified Add dialogs to only select component (amount set inline)
+    - Consistent with product template editor UX
+    - Values now editable directly in list items (faster workflow)
+    - Simplified Add dialogs to only select component (amount set inline)
 - **Product/Recipe creation**: No longer creates empty templates before editor opens
-  - Template created on first Save instead
-  - Prevents orphaned empty entries if user clicks Cancel
-  - Cleaner separation: user action (Save) triggers database write
+    - Template created on first Save instead
+    - Prevents orphaned empty entries if user clicks Cancel
+    - Cleaner separation: user action (Save) triggers database write
 
 ### Technical
 - **Code cleanup**: Removed 5 obsolete editor screens (1061 lines of dead code)
-  - Deleted: `product_instance_editor.dart`, `kind_instance_editor.dart`
-  - Deleted: `product_instance_components_editor.dart`, `product_template_editor.dart`, `recipe_template_editor.dart`
-  - All functionality consolidated into `*_dialog.dart` variants
+    - Deleted: `product_instance_editor.dart`, `kind_instance_editor.dart`
+    - Deleted: `product_instance_components_editor.dart`, `product_template_editor.dart`, `recipe_template_editor.dart`
+    - All functionality consolidated into `*_dialog.dart` variants
 - **Centralized formatters**: Created `lib/utils/formatters.dart`
-  - Eliminated duplication of `fmtDouble`, `parseDouble`, `fmtTime` across 11+ files
-  - Single source of truth for number/time formatting
+    - Eliminated duplication of `fmtDouble`, `parseDouble`, `fmtTime` across 11+ files
+    - Single source of truth for number/time formatting
 - **Repository consistency**: Added missing `dispose()` method to `ProductsRepository`
 
 ---
@@ -170,25 +170,25 @@
 ## [0.7.5] - 2025-11-15
 ### Changed
 - **Universal actions-on-the-side pattern**: All list pages now use explicit Edit/Delete buttons instead of clickable list items
-  - Kinds page: Edit/Delete buttons (already correct)
-  - Products page: Edit/Delete buttons (already correct)
-  - Recipes page: Edit/Delete buttons (already correct)
-  - Day details panel: Added Edit button for kind entries, removed clickable behavior
-  - Weekly overview panel: Added Edit button for kind entries, removed clickable behavior
-  - Search results: Added Edit/Delete buttons, removed clickable behavior
-  - Database page: Checkboxes for selection (appropriate pattern)
+    - Kinds page: Edit/Delete buttons (already correct)
+    - Products page: Edit/Delete buttons (already correct)
+    - Recipes page: Edit/Delete buttons (already correct)
+    - Day details panel: Added Edit button for kind entries, removed clickable behavior
+    - Weekly overview panel: Added Edit button for kind entries, removed clickable behavior
+    - Search results: Added Edit/Delete buttons, removed clickable behavior
+    - Database page: Checkboxes for selection (appropriate pattern)
 - **Weekly overview collapsible views**: Products and recipes now expand to show child entries
-  - Matches day details panel behavior with AnimatedRotation chevron
-  - onTap only handles expand/collapse for parent items (products/recipes)
-  - Kind entries have no onTap handler
+    - Matches day details panel behavior with AnimatedRotation chevron
+    - onTap only handles expand/collapse for parent items (products/recipes)
+    - Kind entries have no onTap handler
 - **Pie chart height balance**: Chart section now exactly matches calendar height (420px)
-  - Filter chips included within the fixed height container
-  - Pie chart uses Expanded to fill remaining space after chips
+    - Filter chips included within the fixed height container
+    - Pie chart uses Expanded to fill remaining space after chips
 
 ### Technical
 - Created shared icon resolver helper in `lib/ui/widgets/icon_resolver.dart`
-  - Eliminated ~120 lines of duplicate code across kinds/recipes/database pages
-  - Centralized icon resolution for consistency
+    - Eliminated ~120 lines of duplicate code across kinds/recipes/database pages
+    - Centralized icon resolution for consistency
 - Standardized all list items: Card + CircleAvatar + ListView.builder throughout
 
 ---
@@ -196,30 +196,30 @@
 ## [0.7.0] - 2025-11-15
 ### Added
 - **Database Management Page**: New centralized database section accessible from bottom navigation
-  - Full database export/import operations with JSON support
-  - Quick backup/restore to single-slot file
-  - Database wipe functionality with double confirmation
-  - All operations now include recipes in addition to kinds, products, and entries
+    - Full database export/import operations with JSON support
+    - Quick backup/restore to single-slot file
+    - Database wipe functionality with double confirmation
+    - All operations now include recipes in addition to kinds, products, and entries
 - **Database section navigation**: New "Database" button in bottom navigation bar (storage icon)
-  - Added `database` to `AppSection` enum
-  - Integrated with existing section-based navigation
+    - Added `database` to `AppSection` enum
+    - Integrated with existing section-based navigation
 
 ### Changed
 - **Import/Export consolidation**: Removed scattered import/export UI from individual pages
-  - Removed export/import buttons from Kinds page
-  - Removed export/import buttons from Products page
-  - Removed backup/restore/wipe popup menu from bottom controls
-  - All database operations now centralized in Database section
+    - Removed export/import buttons from Kinds page
+    - Removed export/import buttons from Products page
+    - Removed backup/restore/wipe popup menu from bottom controls
+    - All database operations now centralized in Database section
 
 ### Technical
 - Enhanced `ImportExportService` with complete recipes support
-  - Added `RecipesRepository` parameter to service constructor
-  - Updated `exportBundle()` to include recipes with components
-  - Updated `importBundle()` to import recipes with both kind and product components
-  - Added `recipesUpserted` field to `ImportResult` class
+    - Added `RecipesRepository` parameter to service constructor
+    - Updated `exportBundle()` to include recipes with components
+    - Updated `importBundle()` to import recipes with both kind and product components
+    - Added `recipesUpserted` field to `ImportResult` class
 - Added `dumpRecipes()` method to `RecipesRepository`
-  - Exports all recipes with their components (kinds and products)
-  - Follows same pattern as `dumpProductsWithComponents()`
+    - Exports all recipes with their components (kinds and products)
+    - Follows same pattern as `dumpProductsWithComponents()`
 - Updated `importExportServiceProvider` to include `RecipesRepository`
 - Created new `lib/ui/database/database_page.dart` with comprehensive database management UI
 
@@ -228,33 +228,33 @@
 ## [0.6.7] - 2025-11-14
 ### Added
 - **Weekly Overview Panel**: New 7-day summary view with pie chart and entry list
-  - Filter chips to select which nutrient kinds appear in pie chart
-  - Pie chart shows aggregated values for selected nutrients over last 7 days (including today)
-  - Scrollable list of all entries from last 7 days with proper product/recipe names
-  - Smart date range handling (includes entries from today)
+    - Filter chips to select which nutrient kinds appear in pie chart
+    - Pie chart shows aggregated values for selected nutrients over last 7 days (including today)
+    - Scrollable list of all entries from last 7 days with proper product/recipe names
+    - Smart date range handling (includes entries from today)
 - **Section-based navigation**: Complete redesign of app navigation architecture
-  - Calendar, Products, Kinds, and Recipes are now sections instead of stacked pages
-  - Instant section switching with no navigation stack buildup
-  - Bottom toolbar always visible across all sections
+    - Calendar, Products, Kinds, and Recipes are now sections instead of stacked pages
+    - Instant section switching with no navigation stack buildup
+    - Bottom toolbar always visible across all sections
 - **Smart Calendar/Overview toggle**: First button in bottom bar now context-aware
-  - When in calendar section: toggles between overview and calendar views
-  - When in other sections: returns to calendar section (remembers last view mode)
+    - When in calendar section: toggles between overview and calendar views
+    - When in other sections: returns to calendar section (remembers last view mode)
 - **Save & Close buttons**: Edit dialogs now offer two save options
-  - "Save": saves changes but keeps dialog open for multiple edits
-  - "Save & Close": saves changes and closes the dialog
-  - Applied to both kind and product instance editors
+    - "Save": saves changes but keeps dialog open for multiple edits
+    - "Save & Close": saves changes and closes the dialog
+    - Applied to both kind and product instance editors
 
 ### Changed
 - **List styles standardized**: Products and Recipes pages now match Kinds page design
-  - Card wrapper with consistent spacing
-  - Leading CircleAvatar icons (purple basket for products, brown menu for recipes)
-  - Non-clickable list items with explicit Edit/Delete buttons
-  - ListView.builder instead of ListView.separated
+    - Card wrapper with consistent spacing
+    - Leading CircleAvatar icons (purple basket for products, brown menu for recipes)
+    - Non-clickable list items with explicit Edit/Delete buttons
+    - ListView.builder instead of ListView.separated
 - **Search functionality restored**: Works in both overview and calendar modes
-  - Proper product/recipe name extraction from JSON payload
-  - Shows in calendar view when user types in search field
+    - Proper product/recipe name extraction from JSON payload
+    - Shows in calendar view when user types in search field
 - **Pie chart units**: Now displays correct units (mg, ug, g) instead of hardcoded 'g'
-  - Extracts unit from kind metadata
+    - Extracts unit from kind metadata
 
 ### Fixed
 - Products and recipes now show actual names in all lists (weekly overview, search results, day details)
@@ -275,11 +275,11 @@
 ## [0.5.5] - 2025-11-14
 ### Changed
 - Harmonized all 7 dialog editors to consistent code style:
-  - Standardized helper method names: `_fmtDouble` (no abbreviations like `_fmtD` or inline `fmt`).
-  - Added structure comments (`// Helper methods`, `// State variables`) to all dialogs.
-  - Unified DateTime label format: `Text('${_targetAt.toLocal()}')`.
-  - Improved mounted checks after async operations.
-  - Consistent method ordering across all dialog editors.
+    - Standardized helper method names: `_fmtDouble` (no abbreviations like `_fmtD` or inline `fmt`).
+    - Added structure comments (`// Helper methods`, `// State variables`) to all dialogs.
+    - Unified DateTime label format: `Text('${_targetAt.toLocal()}')`.
+    - Improved mounted checks after async operations.
+    - Consistent method ordering across all dialog editors.
 
 ---
 
@@ -337,8 +337,8 @@
 - Database-backed Kinds with live `WidgetRegistry` (no hardcoded seeds at runtime).
 - Kinds Manager UI (list/create/edit/delete) with unit picker, min/max, icon/color fields.
 - Safe Kind deletion with usage-aware dialog and Undo:
-  - Remove from product templates and update existing entries.
-  - Delete direct calendar instances of the kind.
+    - Remove from product templates and update existing entries.
+    - Delete direct calendar instances of the kind.
 - Import/Export v1 (JSON) now includes `entries` alongside `kinds` and `products`.
 - One‑tap backup/restore (single slot) stored as `backup.json` in the app documents folder.
 - Temporary "Wipe DB" action (debug/dev) to reset local database.
@@ -350,9 +350,9 @@
 
 ### Implementation
 - New services/repo helpers:
-  - `KindsRepository`, `ProductsRepository`, `EntriesRepository` expanded for dump/import and usage checks.
-  - `KindService` orchestrates deletion + Undo and re-propagation of affected products.
-  - `ImportExportService` exports/imports bundles and provides single-slot backup/restore.
+    - `KindsRepository`, `ProductsRepository`, `EntriesRepository` expanded for dump/import and usage checks.
+    - `KindService` orchestrates deletion + Undo and re-propagation of affected products.
+    - `ImportExportService` exports/imports bundles and provides single-slot backup/restore.
 - DB lifecycle handled by `DbLifecycleObserver` + `DbHandle`; added helper to resolve DB path for wipe/backup.
 
 ### Notes
@@ -476,4 +476,3 @@
 - The top sheet remains mounted at all times; no loading spinners.
 - All motion and visuals are driven by a single controller value `t ∈ [0..1]` for smoothness.
 - Next phase: Middle-section navigation modes (`MainList`, `WidgetDetail(widgetId)`, `SearchResults(query)`); calendar day taps open widget detail (chooser if multiple entries).
-

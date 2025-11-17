@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/native.dart';
 import 'package:drift/drift.dart' hide isNotNull;
@@ -14,7 +16,6 @@ import 'package:shiata/data/repo/recipe_hierarchy_service.dart';
 import 'package:shiata/domain/widgets/registry.dart';
 import 'package:shiata/domain/widgets/widget_kind.dart';
 import 'package:shiata/domain/widgets/kinds/db_backed_kind.dart';
-import 'package:flutter/material.dart';
 import 'dart:convert';
 
 void main() {

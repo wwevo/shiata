@@ -41,8 +41,8 @@ class MonthCalendar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch selected day so selection highlight updates immediately
-    final selectedDay = ref.watch(selectedDayProvider);
+    // Watch selected day and visible month
+    ref.watch(selectedDayProvider);
     final visibleMonth = ref.watch(visibleMonthProvider);
     // Start of visible month in local time
     final firstOfMonthLocal = DateTime(

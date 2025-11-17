@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
-import '../../data/repo/products_repository.dart';
 import '../../data/repo/recipe_service.dart';
 import '../../data/repo/recipes_repository.dart';
 import '../../domain/widgets/registry.dart';

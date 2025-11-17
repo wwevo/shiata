@@ -2,6 +2,7 @@
 ///
 /// All number and time formatting should use these functions to ensure
 /// consistency across the entire codebase.
+library;
 
 /// Formats a double value to a string, removing trailing zeros.
 ///

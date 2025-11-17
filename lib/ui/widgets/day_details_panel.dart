@@ -249,9 +249,6 @@ class DayDetailsPanel extends ConsumerWidget {
                     isUtc: true,
                   ).toLocal();
                   final kind = registry.byId(e.widgetKind);
-                  final color =
-                      kind?.accentColor ??
-                      Theme.of(context).colorScheme.primary;
                   IconData icon;
                   Color bg;
                   if (e.widgetKind == 'product') {

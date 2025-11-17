@@ -71,6 +71,11 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
 
   Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
     setState(() => _saving = true);
+
+    // Capture context-dependent objects BEFORE any async operations
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
     final repo = ref.read(productsRepositoryProvider);
     final svc = ref.read(productServiceProvider);
     if (repo == null) {
@@ -105,7 +110,7 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
     // Capture old components for Undo
     final old = await repo.getComponents(widget.productId);
     await repo.setComponents(widget.productId, updatedComponents);
-    if (!mounted) return;
+    if (!context.mounted) return;
     // Ask to propagate to non-static instances
     final doProp = await showDialog<bool>(
       context: context,
@@ -121,14 +126,14 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
     if (doProp == true && svc != null) {
       await svc.updateAllEntriesForProductToCurrentFormula(widget.productId);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: const Text('Updated existing entries'),
           action: SnackBarAction(
             label: 'UNDO',
             onPressed: () async {
               // Capture messenger before any awaits to avoid using context across async gaps
-              final messenger = ScaffoldMessenger.of(context);
+              final undoMessenger = ScaffoldMessenger.of(context);
               // Restore old components and re-propagate
               await repo.setComponents(widget.productId, old);
               if (!mounted) return;
@@ -136,18 +141,18 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
               if (!mounted) return;
               await _load();
               if (!mounted) return;
-              messenger.showSnackBar(const SnackBar(content: Text('Reverted template changes')));
+              undoMessenger.showSnackBar(const SnackBar(content: Text('Reverted template changes')));
             },
           ),
         ),
       );
     } else {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved template')));
+      messenger.showSnackBar(const SnackBar(content: Text('Saved template')));
     }
     if (mounted) setState(() => _saving = false);
     if (closeAfter && mounted) {
-      Navigator.of(context).pop();
+      navigator.pop();
     }
   }
 
@@ -281,14 +286,15 @@ class _AddComponentDialogState extends State<_AddComponentDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Add nutrient'),
-      content: DropdownButtonFormField<WidgetKind>(
+      content: DropdownButton<WidgetKind>(
         value: _selected,
+        hint: const Text('Select nutrient'),
+        isExpanded: true,
         items: [
           for (final k in widget.kinds)
             DropdownMenuItem(value: k, child: Text(k.displayName)),
         ],
         onChanged: (v) => setState(() => _selected = v),
-        decoration: const InputDecoration(labelText: 'Select nutrient'),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),

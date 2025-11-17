@@ -1,12 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/db/db_handle.dart';
 import '../../data/providers.dart';
 import '../../data/repo/import_export_service.dart';
-import '../../data/repo/kinds_repository.dart';
 import '../../data/repo/products_repository.dart';
 import '../../data/repo/recipes_repository.dart';
 import '../widgets/icon_resolver.dart';
@@ -105,9 +102,31 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
         const SizedBox(height: 16),
 
         // Kinds section
-        Text(
-          'Kinds (${_selectedKinds.length} selected)',
-          style: Theme.of(context).textTheme.titleMedium,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Kinds (${_selectedKinds.length} selected)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            TextButton(
+              onPressed: () {
+                kindsAsync.whenData((kinds) {
+                  setState(() {
+                    if (_selectedKinds.length == kinds.length) {
+                      _selectedKinds.clear();
+                    } else {
+                      _selectedKinds.addAll(kinds.map((k) => k.id));
+                    }
+                  });
+                });
+              },
+              child: kindsAsync.maybeWhen(
+                data: (kinds) => Text(_selectedKinds.length == kinds.length ? 'Deselect All' : 'Select All'),
+                orElse: () => const Text('Select All'),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         kindsAsync.when(
@@ -163,9 +182,33 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
         const SizedBox(height: 16),
 
         // Products section
-        Text(
-          'Products (${_selectedProducts.length} selected)',
-          style: Theme.of(context).textTheme.titleMedium,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Products (${_selectedProducts.length} selected)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            if (productsRepo != null)
+              StreamBuilder<List<ProductDef>>(
+                stream: productsRepo.watchProducts(),
+                builder: (context, snapshot) {
+                  final products = snapshot.data ?? [];
+                  return TextButton(
+                    onPressed: products.isEmpty ? null : () {
+                      setState(() {
+                        if (_selectedProducts.length == products.length) {
+                          _selectedProducts.clear();
+                        } else {
+                          _selectedProducts.addAll(products.map((p) => p.id));
+                        }
+                      });
+                    },
+                    child: Text(_selectedProducts.length == products.length ? 'Deselect All' : 'Select All'),
+                  );
+                },
+              ),
+          ],
         ),
         const SizedBox(height: 8),
         if (productsRepo == null)
@@ -219,9 +262,33 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
         const SizedBox(height: 16),
 
         // Recipes section
-        Text(
-          'Recipes (${_selectedRecipes.length} selected)',
-          style: Theme.of(context).textTheme.titleMedium,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Recipes (${_selectedRecipes.length} selected)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            if (recipesRepo != null)
+              StreamBuilder<List<RecipeDef>>(
+                stream: recipesRepo.watchRecipes(onlyActive: false),
+                builder: (context, snapshot) {
+                  final recipes = snapshot.data ?? [];
+                  return TextButton(
+                    onPressed: recipes.isEmpty ? null : () {
+                      setState(() {
+                        if (_selectedRecipes.length == recipes.length) {
+                          _selectedRecipes.clear();
+                        } else {
+                          _selectedRecipes.addAll(recipes.map((r) => r.id));
+                        }
+                      });
+                    },
+                    child: Text(_selectedRecipes.length == recipes.length ? 'Deselect All' : 'Select All'),
+                  );
+                },
+              ),
+          ],
         ),
         const SizedBox(height: 8),
         if (recipesRepo == null)
@@ -276,7 +343,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
 
         const SizedBox(height: 16),
 
-        // Include entries checkbox
+        // Include entries checkbox (simple)
         CheckboxListTile(
           title: const Text('Include calendar entries'),
           subtitle: const Text('Export calendar instances of selected items'),
