@@ -344,5 +344,112 @@ void main() {
       print('RESULT:   ${passed ? "✅ PASS" : "❌ FAIL"} - Query returns all recipe instances');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
+
+    test('Recipe instance edit: Update kind amounts and product grams', () async {
+      print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('TEST: Recipe Instance Editing - Update Values');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+
+      // Setup: Create product and recipe templates
+      await products.upsertProduct(ProductDef(id: 'banana', name: 'Banana', createdAt: now, updatedAt: now));
+      await products.setComponents('banana', [
+        ProductComponent(productId: 'banana', kindId: 'vitamin_c', amountPerGram: 5.0),
+      ]);
+
+      await recipes.upsertRecipe(RecipeDef(id: 'smoothie', name: 'Smoothie', createdAt: now, updatedAt: now));
+      await recipes.setComponents('smoothie', [
+        RecipeComponentDef.kind(recipeId: 'smoothie', compId: 'protein', amount: 30.0),
+        RecipeComponentDef.product(recipeId: 'smoothie', compId: 'banana', grams: 100),
+      ]);
+
+      // Create recipe instance with initial values
+      final target = DateTime.now();
+      final instanceId = await recipeService.createRecipeEntry(
+        recipeId: 'smoothie',
+        targetAtLocal: target,
+        isStatic: false,
+      );
+
+      var children = await entries.listChildrenOfParent(instanceId!);
+      var proteinChild = children.firstWhere((c) => c.widgetKind == 'protein');
+      var bananaChild = children.firstWhere((c) => c.widgetKind == 'product');
+      var proteinPayload = jsonDecode(proteinChild.payloadJson) as Map<String, dynamic>;
+
+      print('INIT:     Recipe instance created with protein=30g, banana=100g');
+      print('          Protein child: ${proteinPayload['amount']}g');
+      print('          Banana child: ${bananaChild.productGrams}g\n');
+
+      // Edit instance: Change protein to 50g, banana to 200g
+      await recipeService.updateRecipeInstance(
+        parentEntryId: instanceId,
+        targetAtLocal: target,
+        kindOverrides: {'protein': 50.0},
+        productGramOverrides: {'banana': 200},
+        isStatic: false,
+      );
+
+      print('ACTION:   updateRecipeInstance() called with protein=50g, banana=200g\n');
+
+      // Verify changes
+      children = await entries.listChildrenOfParent(instanceId);
+      proteinChild = children.firstWhere((c) => c.widgetKind == 'protein');
+      bananaChild = children.firstWhere((c) => c.widgetKind == 'product');
+      proteinPayload = jsonDecode(proteinChild.payloadJson) as Map<String, dynamic>;
+
+      print('EXPECTED: Protein child=50g, Banana child=200g');
+      print('ACTUAL:   Protein child=${proteinPayload['amount']}g, Banana child=${bananaChild.productGrams}g\n');
+
+      expect(proteinPayload['amount'], 50.0, reason: 'Protein amount should be updated to 50g');
+      expect(bananaChild.productGrams, 200, reason: 'Banana grams should be updated to 200g');
+
+      final passed = proteinPayload['amount'] == 50.0 && bananaChild.productGrams == 200;
+      print('RESULT:   ${passed ? "✅ PASS" : "❌ FAIL"} - Recipe instance edit updates all children correctly');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    });
+
+    test('Recipe instance edit: Toggle isStatic flag', () async {
+      print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('TEST: Recipe Instance Editing - Static Toggle');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+
+      await recipes.upsertRecipe(RecipeDef(id: 'test', name: 'Test', createdAt: now, updatedAt: now));
+      await recipes.setComponents('test', [
+        RecipeComponentDef.kind(recipeId: 'test', compId: 'protein', amount: 10.0),
+      ]);
+
+      final target = DateTime.now();
+      final instanceId = await recipeService.createRecipeEntry(
+        recipeId: 'test',
+        targetAtLocal: target,
+        isStatic: false,
+      );
+
+      var instance = await entries.getById(instanceId!);
+      print('INIT:     Recipe instance created with isStatic=false');
+      print('          Entry isStatic: ${instance?.isStatic}\n');
+
+      // Toggle to static
+      await recipeService.updateRecipeInstance(
+        parentEntryId: instanceId,
+        targetAtLocal: target,
+        isStatic: true,
+      );
+
+      print('ACTION:   updateRecipeInstance() called with isStatic=true\n');
+
+      instance = await entries.getById(instanceId);
+      print('EXPECTED: isStatic=true');
+      print('ACTUAL:   isStatic=${instance?.isStatic}\n');
+
+      expect(instance?.isStatic, true, reason: 'isStatic should be toggled to true');
+
+      final passed = instance?.isStatic == true;
+      print('RESULT:   ${passed ? "✅ PASS" : "❌ FAIL"} - Recipe instance isStatic toggle works');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    });
   });
 }
