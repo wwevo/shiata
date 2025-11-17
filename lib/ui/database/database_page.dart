@@ -9,6 +9,7 @@ import '../../data/repo/products_repository.dart';
 import '../../data/repo/recipes_repository.dart';
 import '../../data/repo/entries_repository.dart';
 import '../widgets/icon_resolver.dart';
+import '../widgets/entry_list_item_factory.dart';
 
 class DatabasePage extends ConsumerStatefulWidget {
   const DatabasePage({super.key});
@@ -180,6 +181,12 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
             child: Text('Error: $e'),
           ),
         ),
+        const SizedBox(height: 8),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.download),
+          label: const Text('Export Selected Kinds'),
+          onPressed: _selectedKinds.isEmpty ? null : _exportSelected,
+        ),
 
         const SizedBox(height: 16),
 
@@ -260,6 +267,12 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
               );
             },
           ),
+        const SizedBox(height: 8),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.download),
+          label: const Text('Export Selected Products'),
+          onPressed: _selectedProducts.isEmpty ? null : _exportSelected,
+        ),
 
         const SizedBox(height: 16),
 
@@ -342,22 +355,17 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
               );
             },
           ),
+        const SizedBox(height: 8),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.download),
+          label: const Text('Export Selected Recipes'),
+          onPressed: _selectedRecipes.isEmpty ? null : _exportSelected,
+        ),
 
         const SizedBox(height: 16),
 
         // Calendar Entries section
         _buildEntriesSection(),
-
-        const SizedBox(height: 16),
-
-        // Export button
-        ElevatedButton.icon(
-          icon: const Icon(Icons.download),
-          label: const Text('Export Selected'),
-          onPressed: (_selectedKinds.isEmpty && _selectedProducts.isEmpty && _selectedRecipes.isEmpty && _selectedEntries.isEmpty)
-              ? null
-              : _exportSelected,
-        ),
       ],
     );
   }
@@ -425,67 +433,57 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                 );
               }
 
-              // Sort entries by targetAt descending (newest first)
-              entries.sort((a, b) => b.targetAt.compareTo(a.targetAt));
+              // Build hierarchy: childrenByParent map
+              final childrenByParent = <String, List<EntryRecord>>{};
+              for (final entry in entries) {
+                final parentId = entry.sourceEntryId;
+                if (parentId != null && parentId.isNotEmpty) {
+                  childrenByParent.putIfAbsent(parentId, () => []).add(entry);
+                }
+              }
+
+              // Get only top-level entries (those without sourceEntryId)
+              final topLevelEntries = entries.where((e) => e.sourceEntryId == null || e.sourceEntryId!.isEmpty).toList();
+
+              // Sort by targetAt descending (newest first)
+              topLevelEntries.sort((a, b) => b.targetAt.compareTo(a.targetAt));
+
+              // Get registry for icons/colors
+              final registry = ref.watch(widgetRegistryProvider);
 
               return Column(
-                children: entries.map((entry) {
-                  final isSelected = _selectedEntries.contains(entry.id);
-                  final targetDate = DateTime.fromMillisecondsSinceEpoch(entry.targetAt, isUtc: true).toLocal();
-                  final dateStr = '${targetDate.year}-${targetDate.month.toString().padLeft(2, '0')}-${targetDate.day.toString().padLeft(2, '0')} ${targetDate.hour.toString().padLeft(2, '0')}:${targetDate.minute.toString().padLeft(2, '0')}';
-
-                  // Extract name from payload
-                  String name = entry.widgetKind;
-                  try {
-                    final payload = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
-                    if (payload.containsKey('productName')) {
-                      name = payload['productName'] as String;
-                    } else if (payload.containsKey('recipeName')) {
-                      name = payload['recipeName'] as String;
-                    } else if (payload.containsKey('name')) {
-                      name = payload['name'] as String;
-                    }
-                  } catch (_) {
-                    // Ignore JSON parsing errors
-                  }
-
-                  // Icon based on widget kind
-                  IconData icon = Icons.category;
-                  Color color = Colors.grey;
-                  if (entry.widgetKind == 'product') {
-                    icon = Icons.shopping_basket;
-                    color = Colors.purple;
-                  } else if (entry.widgetKind == 'recipe') {
-                    icon = Icons.restaurant_menu;
-                    color = Colors.brown;
-                  }
-
-                  return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: color,
-                        foregroundColor: Colors.white,
-                        child: Icon(icon, color: Colors.white, size: 20),
-                      ),
-                      title: Text(name),
-                      subtitle: Text('$dateStr  •  ${entry.widgetKind}'),
-                      trailing: Checkbox(
-                        value: isSelected,
-                        onChanged: (val) {
-                          setState(() {
-                            if (val == true) {
-                              _selectedEntries.add(entry.id);
-                              _autoSelectDependencies(entry);
-                            } else {
-                              _selectedEntries.remove(entry.id);
-                            }
-                          });
-                        },
-                      ),
-                    ),
-                  );
-                }).toList(),
+                children: [
+                  ...topLevelEntries.map((entry) {
+                    return EntryListItemFactory.buildEntry(
+                      context: context,
+                      ref: ref,
+                      entry: entry,
+                      childrenByParent: childrenByParent,
+                      registry: registry,
+                      config: EntryListItemConfig.fullDateTime,
+                      displayMode: EntryDisplayMode.checkbox,
+                      selectedIds: _selectedEntries,
+                      onSelectionChanged: (entryId, selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedEntries.add(entryId);
+                            // Auto-select dependencies
+                            final entry = entries.firstWhere((e) => e.id == entryId);
+                            _autoSelectDependencies(entry);
+                          } else {
+                            _selectedEntries.remove(entryId);
+                          }
+                        });
+                      },
+                    );
+                  }),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.download),
+                    label: const Text('Export Selected Entries'),
+                    onPressed: _selectedEntries.isEmpty ? null : _exportSelected,
+                  ),
+                ],
               );
             },
           ),

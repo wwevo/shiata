@@ -34,6 +34,15 @@ import '../editors/product_instance_editor_dialog.dart';
 import '../editors/recipe_instance_dialog.dart';
 import '../main_screen_providers.dart';
 
+/// Display mode for entry list items
+enum EntryDisplayMode {
+  /// Normal mode: shows edit/delete buttons, full interactivity
+  normal,
+
+  /// Checkbox mode: shows checkbox for selection, expand works but no edit/delete
+  checkbox,
+}
+
 /// Configuration for metadata display in list items
 class EntryListItemConfig {
   final bool showDate;
@@ -73,6 +82,9 @@ class EntryListItemFactory {
   /// - [depth]: Current nesting level (0 = top-level, 1+ = nested)
   /// - [childrenByParent]: Map for looking up children of any entry
   /// - [config]: Controls which metadata to display (date, time, static flag)
+  /// - [displayMode]: normal (edit/delete buttons) or checkbox (selection mode)
+  /// - [selectedIds]: Set of selected entry IDs (only for checkbox mode)
+  /// - [onSelectionChanged]: Callback when checkbox state changes (only for checkbox mode)
   static Widget buildEntry({
     required BuildContext context,
     required WidgetRef ref,
@@ -81,6 +93,9 @@ class EntryListItemFactory {
     required WidgetRegistry registry,
     EntryListItemConfig config = const EntryListItemConfig(),
     int depth = 0,
+    EntryDisplayMode displayMode = EntryDisplayMode.normal,
+    Set<String> selectedIds = const {},
+    void Function(String entryId, bool selected)? onSelectionChanged,
   }) {
     final children = childrenByParent[entry.id] ?? [];
     final hasChildren = children.isNotEmpty;
@@ -117,13 +132,36 @@ class EntryListItemFactory {
     final expandedSet = ref.watch(expandedEntriesProvider);
     final isExpanded = expandedSet.contains(entry.id);
 
-    // Build trailing widget based on depth and entry type
+    // Build trailing widget based on display mode, depth, and entry type
     final Widget? trailing;
-    if (depth > 0) {
+    if (displayMode == EntryDisplayMode.checkbox && depth == 0) {
+      // Checkbox mode (top-level only): checkbox + optional expand icon
+      final isSelected = selectedIds.contains(entry.id);
+      trailing = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Checkbox(
+            value: isSelected,
+            onChanged: (val) {
+              if (onSelectionChanged != null) {
+                onSelectionChanged(entry.id, val == true);
+              }
+            },
+          ),
+          // Expand/collapse icon (if has children)
+          if (hasChildren)
+            AnimatedRotation(
+              turns: isExpanded ? 0.5 : 0.0,
+              duration: const Duration(milliseconds: 120),
+              child: const Icon(Icons.expand_more),
+            ),
+        ],
+      );
+    } else if (depth > 0) {
       // Nested entries: show amount for kinds
       trailing = _buildKindAmount(entry, registry, context);
     } else {
-      // Top-level entries: show action buttons
+      // Normal mode (top-level): show action buttons
       trailing = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -218,6 +256,9 @@ class EntryListItemFactory {
                         registry: registry,
                         config: config,
                         depth: depth + 1,
+                        displayMode: displayMode,
+                        selectedIds: selectedIds,
+                        onSelectionChanged: onSelectionChanged,
                       ))
                   .toList(),
             ),
