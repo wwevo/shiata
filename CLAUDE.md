@@ -1,18 +1,145 @@
 # Claude Code Guidelines for Shiata
 
-**Premium experience standards**: Clean, tight, congruent. Follow established patterns.
+## ⛔ CRITICAL RULES - READ THESE FIRST ⛔
 
-## Core Principles
+### 1. SCOPE CONTROL (ABSOLUTE PRIORITY)
+**Change ONLY what was explicitly requested. NOTHING else.**
 
-1. **NEVER invent APIs**: Always read existing code. NEVER create fake services, methods, or constructors that don't exist. Use Read/Grep tools extensively.
-2. **Consistency is king**: Users recognize visual patterns (colors, icons) better than text
-3. **Follow the pattern**: If a pattern exists, use it everywhere
-4. **Show, don't hide**: File paths, actions, state changes - make them visible
+❌ **FORBIDDEN**:
+- Changing files not related to the task
+- "Improving" or "optimizing" code that wasn't mentioned
+- Changing visual appearance (colors, icons, layouts) without explicit request
+- Fixing "bugs" or "inconsistencies" that weren't reported
+- Refactoring code "while you're at it"
+- Adding features or functionality not asked for
 
-## Key Patterns
+✅ **ALLOWED**:
+- ONLY the specific change requested
+- ONLY in the specific files/screens mentioned
+- ONLY if you've analyzed the impact first (see below)
+
+**Example violations from last session**:
+- Task: "Überarbeite den Datenbank-Screen"
+- ❌ Changed lists on OTHER pages
+- ❌ Changed PieChart appearance
+- ❌ Created 10-step fix cascades
+
+### 2. MANDATORY WORKFLOW - BEFORE ANY CODE
+
+**EVERY task must follow this sequence**:
+
+```
+1. READ the user's request carefully
+   └─ What EXACTLY is being asked?
+   └─ What is the SCOPE? (which files/screens?)
+
+2. ANALYZE the current code
+   └─ Use Read/Grep to understand existing implementation
+   └─ Identify ALL files that might be affected
+   └─ Check for shared components, patterns, dependencies
+
+3. IMPACT ANALYSIS
+   └─ What could break if I change this?
+   └─ Are there other screens using this component?
+   └─ Are there shared utilities or styles?
+   └─ Will this affect existing tests?
+
+4. ASK if uncertain
+   └─ Multiple valid approaches? → ASK
+   └─ Could affect other areas? → ASK
+   └─ Design decision needed? → ASK
+   └─ Not 100% sure about scope? → ASK
+
+5. PROPOSE the plan
+   └─ List exactly what files will be changed
+   └─ Explain what will change and why
+   └─ Note any risks or dependencies
+   └─ WAIT for confirmation
+
+6. IMPLEMENT only after approval
+   └─ Make ONLY the approved changes
+   └─ Test the specific area changed
+   └─ Update tests if business logic changed
+
+7. VERIFY no side effects
+   └─ Run flutter analyze
+   └─ Check that OTHER screens still work
+   └─ Confirm no unintended visual changes
+```
+
+**DO NOT SKIP THESE STEPS. EVER.**
+
+### 3. ASK FIRST - When in doubt, STOP and ASK
+
+**ALWAYS ask before**:
+- Changing any visual appearance (colors, icons, spacing, layout)
+- Modifying shared components or utilities
+- Changing patterns used across multiple screens
+- Refactoring or "improving" existing code
+- Adding ANY functionality not explicitly requested
+- Making breaking changes
+- Deviating from established patterns
+
+**Questions should be**:
+- Specific: "Should I change the PieChart colors to match the new theme?"
+- With context: "This component is used on 3 screens. Should I change all of them?"
+- With options: "I can do this in two ways: A) ... or B) ... Which do you prefer?"
+
+### 4. NEVER INVENT - ALWAYS READ FIRST
+
+**Before writing ANY code**:
+- ✅ Use Read to see existing implementations
+- ✅ Use Grep to find similar patterns in codebase
+- ✅ Check how it's done elsewhere in the project
+- ✅ Verify that services/methods/constructors exist
+
+**NEVER**:
+- ❌ Assume a service or method exists
+- ❌ Invent new patterns when one exists
+- ❌ Create "improved" versions of existing code
+- ❌ Make up API signatures
+
+**Example**:
+- Task: "Add a delete button to the recipe list"
+- ✅ Read how delete buttons work on OTHER lists first
+- ✅ Use the SAME pattern (colors, icons, confirmation dialog)
+- ❌ Don't invent a new delete pattern
+
+### 5. SURGICAL CHANGES ONLY
+
+**Think of yourself as a surgeon, not a renovator**:
+- Change the MINIMUM necessary
+- Touch the FEWEST files possible
+- Keep changes LOCALIZED
+- Preserve EVERYTHING else
+
+**If a change requires touching 5+ files → STOP and ASK**
+**If a change affects other screens → STOP and ASK**
+**If you're unsure about side effects → STOP and ASK**
+
+---
+
+## 🎯 Quality Standards
+
+### Well-Thought Systems over Quick Fixes
+This project values:
+- **Architecture** over speed
+- **Consistency** over cleverness
+- **Predictability** over innovation
+- **Stability** over features
+
+**Before proposing a solution**:
+- Think about edge cases
+- Consider maintainability
+- Check for similar problems already solved
+- Ensure it fits the existing architecture
+
+---
+
+## 📋 Key Patterns (Use These, Don't Invent New Ones)
 
 ### List Items (MANDATORY)
-**ALL list items** must follow this pattern:
+**ALL list items** must follow this exact pattern:
 
 ```dart
 Card(
@@ -35,15 +162,21 @@ Card(
 - **Products**: Purple (`Colors.purple`), basket (`Icons.shopping_basket`)
 - **Recipes**: Recipe's color/icon if set, else brown (`Colors.brown`), menu (`Icons.restaurant_menu`)
 
+**DO NOT change these colors or icons without explicit request.**
+
 ### Edit Dialogs
 - **Two save buttons**: "Save" (OutlinedButton) + "Save & Close" (FilledButton)
 - **Cancel**: TextButton
+
+**DO NOT change this button layout without explicit request.**
 
 ### Navigation
 - **Section-based**: Use `currentSectionProvider` - NO `Navigator.push` for main sections
 - **Bottom bar**: Always visible
 
-## Architecture
+---
+
+## 🏗️ Architecture
 
 ### State Management
 - **Riverpod**: StateProvider for simple state, StreamBuilder for reactive data
@@ -60,7 +193,11 @@ Card(
 - **Units**: From kind metadata, never hardcode
 - **Unit Normalization**: Convert mg→g (÷1000), µg→g (÷1000000) for pie chart proportions
 
-## Testing
+**Before changing any of these patterns → ASK**
+
+---
+
+## 🧪 Testing
 
 **Tests are living documentation**: They must always reflect current behavior.
 
@@ -95,7 +232,9 @@ flutter test test/propagation_test.dart  # Run specific test file
 flutter test                              # Run all tests
 ```
 
-## Code Quality & Linter Best Practices
+---
+
+## 🎨 Code Quality & Linter Best Practices
 
 ### BuildContext Async Gaps (CRITICAL)
 **Problem**: Using `BuildContext` after `await` causes warnings and potential bugs if widget is unmounted.
@@ -231,9 +370,28 @@ Before committing, ensure:
 - [ ] No unused imports or variables (or documented why kept)
 - [ ] No deprecated API usage
 - [ ] All mounted checks use `context.mounted` when context follows
+- [ ] No unintended side effects on other screens
+- [ ] Tests updated if business logic changed
 
-## Version Management
+---
+
+## 📦 Version Management
 
 - Update `pubspec.yaml` version
 - Update `CHANGELOG.md` with categories: Added, Changed, Fixed, Technical
 - Format: `## [X.Y.Z] - YYYY-MM-DD`
+
+---
+
+## 🚨 Summary - The Golden Rules
+
+1. **SCOPE**: Change ONLY what was asked for
+2. **READ**: Always read existing code first, never invent
+3. **ASK**: When in doubt, STOP and ASK
+4. **ANALYZE**: Check for side effects BEFORE changing
+5. **MINIMAL**: Make the smallest change that works
+6. **VERIFY**: Test that nothing else broke
+7. **QUALITY**: Well-thought systems over quick fixes
+
+**If you violate these rules, you will create chaos.**
+**If you follow these rules, you will create value.**
