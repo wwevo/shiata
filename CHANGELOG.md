@@ -1,8 +1,45 @@
 # CHANGELOG.md
 
-## [Unreleased] - 0.7.9
+## [0.7.9] - 2025-11-17
+### Fixed
+- **All linter warnings eliminated**: Comprehensive cleanup for production-ready code
+  - **BuildContext async gaps** (15+ instances): Captured ScaffoldMessenger/Navigator before async operations
+  - **Unnecessary type checks**: Removed redundant `is dynamic` checks and simplified type assertions
+  - **Unused imports** (5 files): Cleaned up drift, dart:convert, and repository imports
+  - **Unused local variables** (8 instances): Removed or repurposed unused variables across dialogs
+  - **Deprecated APIs** (4 instances): Replaced DropdownButtonFormField with DropdownButton
+  - **Dead code**: Removed unreachable null coalescing and impossible null checks
+  - **Code style**: Fixed unnecessary multiple underscores, added library directive for formatters
+- **Pie chart readability**: Labels moved outside sections for better visibility
+  - Legend on right side shows full information: "Name: 123.45unit"
+  - Flex ratio (2:1) for better space distribution
+  - Works better with many small pie sections
+- **Export page usability**: Enhanced category selection controls
+  - Added "Select All" / "Deselect All" buttons for Kinds, Products, and Recipes
+  - "Include All" / "Exclude All" button for Calendar Entries
+  - Consistent UI pattern across all export categories
+- **Recipe instance static flag**: Simplified toggle behavior
+  - Static flag now directly controlled by user toggle
+  - Removed automatic static conversion logic
+  - Clear user control over template propagation
+
 ### Changed
-- Upcoming bugfixes
+- **Code quality documentation**: Extended claude.md with linter best practices
+  - BuildContext async gap patterns and anti-patterns
+  - Deprecated API replacement guidelines (DropdownButtonFormField → DropdownButton)
+  - Type checks and null safety patterns
+  - Unused variable investigation strategy
+  - Pre-commit checklist for zero-warning code
+- **Mounted checks**: Converted `mounted` to `context.mounted` where context is used after check
+  - Makes mounted checks 'related' to context usage for linter compliance
+  - Applied consistently across all editor dialogs
+
+### Technical
+- ProductHierarchyService/RecipeHierarchyService: Made propagateTemplateChange return int
+  - Provides user feedback statistics about propagation operations
+- Editor dialogs: Context captures moved to function start (before any async operations)
+  - Ensures proper context lifetime handling across async boundaries
+- All code now passes `flutter analyze` with zero warnings/info messages
 
 ---
 
