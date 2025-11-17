@@ -67,6 +67,13 @@ class BottomControls extends ConsumerWidget {
             icon: const Icon(Icons.restaurant_menu_outlined),
           ),
           IconButton(
+            tooltip: 'All Entries',
+            onPressed: () {
+              ref.read(currentSectionProvider.notifier).state = AppSection.allEntries;
+            },
+            icon: const Icon(Icons.view_list),
+          ),
+          IconButton(
             tooltip: 'Database',
             onPressed: () {
               ref.read(currentSectionProvider.notifier).state = AppSection.database;

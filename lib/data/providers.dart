@@ -9,6 +9,7 @@ import 'repo/entries_repository.dart';
 import 'repo/kinds_repository.dart';
 import 'repo/products_repository.dart';
 import 'repo/recipes_repository.dart';
+import '../domain/services/search_service.dart';
 
 /// Provides an [AppDb] instance when the low-level [QueryExecutor] is available.
 final appDbProvider = Provider<AppDb?>((ref) {
@@ -75,4 +76,25 @@ final recipesListProvider = StreamProvider<List<RecipeDef>>((ref) {
   final repo = ref.watch(recipesRepositoryProvider);
   if (repo == null) return Stream.value(<RecipeDef>[]);
   return repo.watchRecipes(onlyActive: true);
+});
+
+final searchServiceProvider = Provider<SearchService?>((ref) {
+  final kindsRepo = ref.watch(kindsRepositoryProvider);
+  final productsRepo = ref.watch(productsRepositoryProvider);
+  final recipesRepo = ref.watch(recipesRepositoryProvider);
+  final entriesRepo = ref.watch(entriesRepositoryProvider);
+
+  if (kindsRepo == null ||
+      productsRepo == null ||
+      recipesRepo == null ||
+      entriesRepo == null) {
+    return null;
+  }
+
+  return SearchService(
+    kindsRepo: kindsRepo,
+    productsRepo: productsRepo,
+    recipesRepo: recipesRepo,
+    entriesRepo: entriesRepo,
+  );
 });

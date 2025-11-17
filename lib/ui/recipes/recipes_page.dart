@@ -7,6 +7,7 @@ import '../../data/repo/recipe_service.dart';
 import '../../data/repo/recipes_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../editors/recipe_template_editor_dialog.dart';
+import '../main_screen_providers.dart';
 import '../widgets/icon_resolver.dart';
 
 class RecipesPage extends ConsumerWidget {
@@ -14,7 +15,13 @@ class RecipesPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final searchService = ref.watch(searchServiceProvider);
+    final searchQuery = ref.watch(searchQueryProvider);
     final repo = ref.watch(recipesRepositoryProvider);
+
+    // Use search service for filtering
+    final recipesStream = searchService?.searchRecipes(searchQuery);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Recipes'),
@@ -40,21 +47,37 @@ class RecipesPage extends ConsumerWidget {
           )
         ],
       ),
-      body: repo == null
-          ? const Center(child: Text('Repository not ready'))
+      body: recipesStream == null
+          ? const Center(child: CircularProgressIndicator())
           : StreamBuilder<List<RecipeDef>>(
-              stream: repo.watchRecipes(),
+              stream: recipesStream,
               builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
                 final list = snapshot.data ?? const <RecipeDef>[];
-                if (list.isEmpty) return const Center(child: Text('No recipes yet'));
+
+                if (list.isEmpty) {
+                  return Center(
+                    child: Text(
+                      searchQuery.trim().isEmpty
+                          ? 'No recipes yet'
+                          : 'No recipes found for "$searchQuery"',
+                    ),
+                  );
+                }
+
                 return ListView.builder(
                   itemCount: list.length,
                   itemBuilder: (ctx, i) {
                     final r = list[i];
                     final icon = resolveIcon(r.icon, Icons.restaurant_menu);
-                    final color = r.color != null ? Color(r.color!) : Colors.brown;
+                    final color =
+                        r.color != null ? Color(r.color!) : Colors.brown;
                     return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       child: ListTile(
                         leading: CircleAvatar(
                           backgroundColor: color,
@@ -72,35 +95,16 @@ class RecipesPage extends ConsumerWidget {
                               onPressed: () async {
                                 await showDialog(
                                   context: context,
-                                  builder: (_) => RecipeEditorDialog(recipeId: r.id),
+                                  builder: (_) =>
+                                      RecipeEditorDialog(recipeId: r.id),
                                 );
                               },
                             ),
                             IconButton(
                               tooltip: 'Delete',
                               icon: const Icon(Icons.delete_outline),
-                              onPressed: () async {
-                                final confirm = await showDialog<bool>(
-                                      context: context,
-                                      builder: (ctx) => AlertDialog(
-                                        title: const Text('Delete recipe?'),
-                                        content: const Text('Instances will convert: children become standalone entries; parents removed.'),
-                                        actions: [
-                                          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-                                          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
-                                        ],
-                                      ),
-                                    ) ??
-                                    false;
-                                if (!confirm) return;
-                                final svc = ref.read(recipeServiceProvider);
-                                if (svc == null) return;
-                                await svc.deleteRecipeTemplate(r.id);
-                                await repo.deleteRecipe(r.id);
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recipe deleted')));
-                                }
-                              },
+                              onPressed: () =>
+                                  _deleteRecipe(context, ref, r, repo),
                             ),
                           ],
                         ),
@@ -113,7 +117,37 @@ class RecipesPage extends ConsumerWidget {
     );
   }
 
-  Future<MapEntry<String, String>?> _askForIdAndName(BuildContext context) async {
+  Future<void> _deleteRecipe(BuildContext context, WidgetRef ref, RecipeDef recipe,
+      RecipesRepository? repo) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Delete recipe?'),
+            content: const Text(
+                'Instances will convert: children become standalone entries; parents removed.'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Cancel')),
+              FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Delete')),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirm) return;
+    final svc = ref.read(recipeServiceProvider);
+    if (svc == null || repo == null) return;
+    await svc.deleteRecipeTemplate(recipe.id);
+    await repo.deleteRecipe(recipe.id);
+    if (!context.mounted) return;
+    messenger.showSnackBar(const SnackBar(content: Text('Recipe deleted')));
+  }
+
+  Future<MapEntry<String, String>?> _askForIdAndName(
+      BuildContext context) async {
     final idCtrl = TextEditingController();
     final nameCtrl = TextEditingController();
     final ok = await showDialog<bool>(
@@ -123,14 +157,24 @@ class RecipesPage extends ConsumerWidget {
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: idCtrl, decoration: const InputDecoration(labelText: 'Id (stable, e.g., potato_salad)')),
+                TextField(
+                    controller: idCtrl,
+                    decoration: const InputDecoration(
+                        labelText: 'Id (stable, e.g., potato_salad)')),
                 const SizedBox(height: 8),
-                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name (display)')),
+                TextField(
+                    controller: nameCtrl,
+                    decoration:
+                        const InputDecoration(labelText: 'Name (display)')),
               ],
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-              FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Create')),
+              TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Cancel')),
+              FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Create')),
             ],
           ),
         ) ??
@@ -178,7 +222,8 @@ class _RecipeTemplateSummary extends ConsumerWidget {
           if (comp.type == RecipeComponentType.product) {
             totalProductGrams += (comp.grams ?? 0).toDouble();
           } else if (comp.type == RecipeComponentType.kind) {
-            kindSummaries[comp.compId] = (kindSummaries[comp.compId] ?? 0.0) + (comp.amount ?? 0.0);
+            kindSummaries[comp.compId] =
+                (kindSummaries[comp.compId] ?? 0.0) + (comp.amount ?? 0.0);
           }
         }
 
@@ -215,7 +260,8 @@ class _RecipeTemplateSummary extends ConsumerWidget {
 
           // Sort by normalized values
           final sortedKinds = kindSummaries.entries.toList()
-            ..sort((a, b) => (normalizedForSort[b.key] ?? 0.0).compareTo(normalizedForSort[a.key] ?? 0.0));
+            ..sort((a, b) => (normalizedForSort[b.key] ?? 0.0)
+                .compareTo(normalizedForSort[a.key] ?? 0.0));
 
           for (final entry in sortedKinds.take(2)) {
             final kind = registry.byId(entry.key);
