@@ -110,7 +110,7 @@ class _ProductTemplateEditorDialogState extends ConsumerState<ProductTemplateEdi
     // Capture old components for Undo
     final old = await repo.getComponents(widget.productId);
     await repo.setComponents(widget.productId, updatedComponents);
-    if (!mounted) return;
+    if (!context.mounted) return;
     // Ask to propagate to non-static instances
     final doProp = await showDialog<bool>(
       context: context,

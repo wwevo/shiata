@@ -120,7 +120,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
     // Capture old components for Undo
     final old = await repo.getComponents(widget.recipeId);
     await repo.setComponents(widget.recipeId, updatedComponents);
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     // Ask to propagate to non-static instances
     final svc = ref.read(recipeHierarchyServiceProvider);

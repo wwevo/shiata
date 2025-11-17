@@ -161,17 +161,15 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
   }
 
   Future<void> _pickDateTime(BuildContext context) async {
-    // Capture the context parameter for use after async operations
-    final ctx = context;
     final date = await showDatePicker(
-      context: ctx,
+      context: context,
       initialDate: _targetAt,
       firstDate: DateTime.now().subtract(const Duration(days: 3650)),
       lastDate: DateTime.now().add(const Duration(days: 3650)),
     );
-    if (date == null || !mounted) return;
+    if (date == null || !context.mounted) return;
     final time = await showTimePicker(
-      context: ctx,
+      context: context,
       initialTime: TimeOfDay.fromDateTime(_targetAt),
       builder: (ctx, child) => MediaQuery(
         data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true),
