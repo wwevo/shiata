@@ -8,6 +8,7 @@ import '../../data/repo/import_export_service.dart';
 import '../../data/repo/products_repository.dart';
 import '../../data/repo/recipes_repository.dart';
 import '../../data/repo/entries_repository.dart';
+import '../../domain/widgets/registry.dart';
 import '../widgets/icon_resolver.dart';
 import '../widgets/entry_list_item_factory.dart';
 

@@ -98,19 +98,15 @@ void main() {
         updatedAt: now,
       ));
       await recipes.setComponents('fruit_salad', [
-        RecipeComponent(
+        RecipeComponentDef.product(
           recipeId: 'fruit_salad',
           compId: 'banana',
-          type: RecipeComponentType.product,
           grams: 100,
-          sortOrder: 0,
         ),
-        RecipeComponent(
+        RecipeComponentDef.product(
           recipeId: 'fruit_salad',
           compId: 'apple',
-          type: RecipeComponentType.product,
           grams: 50,
-          sortOrder: 1,
         ),
       ]);
     });
