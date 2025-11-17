@@ -343,35 +343,16 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
 
         const SizedBox(height: 16),
 
-        // Calendar entries section (as a category)
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Calendar Entries (${_includeEntries ? "all" : "none"})',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _includeEntries = !_includeEntries;
-                });
-              },
-              child: Text(_includeEntries ? 'Exclude All' : 'Include All'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Text(
-            _includeEntries
-              ? 'All calendar instances of selected kinds, products, and recipes will be exported'
-              : 'Calendar entries will not be exported (only templates)',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-            ),
-          ),
+        // Include entries checkbox (simple)
+        CheckboxListTile(
+          title: const Text('Include calendar entries'),
+          subtitle: const Text('Export calendar instances of selected items'),
+          value: _includeEntries,
+          onChanged: (val) {
+            setState(() {
+              _includeEntries = val ?? false;
+            });
+          },
         ),
 
         const SizedBox(height: 16),

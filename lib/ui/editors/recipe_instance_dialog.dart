@@ -228,38 +228,6 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
       if (g != null) productOverrides[k] = g;
     });
 
-    // Check if components were altered (different from template)
-    bool hasOverrides = kindOverrides.isNotEmpty || productOverrides.isNotEmpty;
-    bool valuesChangedFromTemplate = false;
-
-    if (hasOverrides) {
-      // Compare against template values
-      for (final c in _components) {
-        final typeStr = c.type.toString();
-        if (typeStr.endsWith('kind')) {
-          final overrideValue = kindOverrides[c.compId];
-          final templateValue = c.amount ?? 0.0;
-          if (overrideValue != null && (overrideValue - templateValue).abs() > 0.001) {
-            valuesChangedFromTemplate = true;
-            break;
-          }
-        } else {
-          final overrideValue = productOverrides[c.compId];
-          final templateValue = c.grams ?? 0;
-          if (overrideValue != null && overrideValue != templateValue) {
-            valuesChangedFromTemplate = true;
-            break;
-          }
-        }
-      }
-    }
-
-    // If components were altered, automatically set to static
-    bool finalIsStatic = _isStatic;
-    if (valuesChangedFromTemplate && !_isStatic) {
-      finalIsStatic = true;
-    }
-
     // Capture context-dependent objects before async gaps
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
@@ -271,12 +239,11 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
         targetAtLocal: _targetAt,
         kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
         productGramOverrides: productOverrides.isEmpty ? null : productOverrides,
-        isStatic: finalIsStatic,
+        isStatic: _isStatic,
       );
       if (!mounted) return;
-      final staticNote = (finalIsStatic && !_isStatic) ? ' (set to static)' : '';
       messenger.showSnackBar(
-        SnackBar(content: Text('Updated ${_recipeName.isEmpty ? 'Recipe' : _recipeName}$staticNote')),
+        SnackBar(content: Text('Updated ${_recipeName.isEmpty ? 'Recipe' : _recipeName}')),
       );
     } else {
       // Create new recipe instance
@@ -290,12 +257,11 @@ class RecipeInstantiateDialogState extends ConsumerState<RecipeInstantiateDialog
         kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
         productGramOverrides: productOverrides.isEmpty ? null : productOverrides,
         showParentInCalendar: true,
-        isStatic: finalIsStatic,
+        isStatic: _isStatic,
       );
       if (!mounted) return;
-      final staticNote = (finalIsStatic && !_isStatic) ? ' (set to static)' : '';
       messenger.showSnackBar(
-        SnackBar(content: Text('Added ${_recipeName.isEmpty ? 'Recipe' : _recipeName}$staticNote')),
+        SnackBar(content: Text('Added ${_recipeName.isEmpty ? 'Recipe' : _recipeName}')),
       );
     }
 
