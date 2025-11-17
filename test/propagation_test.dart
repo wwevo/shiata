@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/native.dart';
+import 'package:drift/drift.dart';
 
 import 'package:shiata/data/db/raw_db.dart';
 import 'package:shiata/data/repo/kinds_repository.dart';
@@ -17,6 +18,11 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 
 void main() {
+  // Suppress drift warnings about multiple database instances in tests
+  setUpAll(() {
+    driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+  });
+
   group('Template Propagation Tests', () {
     late AppDb db;
     late KindsRepository kinds;
@@ -72,7 +78,7 @@ void main() {
       // Setup: Product template with 5mg vitamin C per 100g
       await products.upsertProduct(ProductDef(id: 'banana', name: 'Banana', createdAt: now, updatedAt: now));
       await products.setComponents('banana', [
-        ProductComponent(productId: 'banana', kindId: 'vitamin_c', amountPerGram: 0.05), // 5mg per 100g
+        ProductComponent(productId: 'banana', kindId: 'vitamin_c', amountPerGram: 5.0), // 5mg per 100g
       ]);
 
       // Create 2 instances: 1 dynamic, 1 static (both 100g)
@@ -103,7 +109,7 @@ void main() {
 
       // Change template to 10mg per 100g
       await products.setComponents('banana', [
-        ProductComponent(productId: 'banana', kindId: 'vitamin_c', amountPerGram: 0.1), // 10mg per 100g
+        ProductComponent(productId: 'banana', kindId: 'vitamin_c', amountPerGram: 10.0), // 10mg per 100g
       ]);
 
       // Propagate changes
@@ -124,12 +130,15 @@ void main() {
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
 
       // Setup: Product with SMALL amountPerGram (tests the ~/ bug)
+      // amountPerGram: 0.5mg per 100g
+      // At 100g: 0.5 * 100 / 100 = 0.5mg ✅
+      // With integer division: (0.5 * 100) ~/ 100 = 50 ~/ 100 = 0 ❌
       await products.upsertProduct(ProductDef(id: 'supplement', name: 'Supplement', createdAt: now, updatedAt: now));
       await products.setComponents('supplement', [
-        ProductComponent(productId: 'supplement', kindId: 'vitamin_c', amountPerGram: 0.05), // Very small!
+        ProductComponent(productId: 'supplement', kindId: 'vitamin_c', amountPerGram: 0.5), // Small value!
       ]);
 
-      // Create dynamic instance
+      // Create dynamic instance (100g)
       final target = DateTime.now();
       final instanceId = await productService.createProductEntry(
         productId: 'supplement',
@@ -141,11 +150,12 @@ void main() {
       // Verify initial value
       var children = await entries.listChildrenOfParent(instanceId!);
       var payload = jsonDecode(children.first.payloadJson) as Map<String, dynamic>;
-      expect(payload['amount'], 5.0); // 100 * 0.05 = 5
+      expect(payload['amount'], 0.5, reason: '0.5 * 100 / 100 = 0.5mg');
 
       // Change template (still small value)
+      // 0.8mg per 100g -> at 100g = 0.8mg
       await products.setComponents('supplement', [
-        ProductComponent(productId: 'supplement', kindId: 'vitamin_c', amountPerGram: 0.08),
+        ProductComponent(productId: 'supplement', kindId: 'vitamin_c', amountPerGram: 0.8),
       ]);
 
       // Propagate
@@ -155,7 +165,7 @@ void main() {
       children = await entries.listChildrenOfParent(instanceId);
       payload = jsonDecode(children.first.payloadJson) as Map<String, dynamic>;
 
-      expect(payload['amount'], 8.0, reason: 'Should be 8.0, NOT 0 (bug was integer division)');
+      expect(payload['amount'], 0.8, reason: 'Should be 0.8, NOT 0 (bug was integer division)');
       expect(payload['amount'], isNot(0), reason: 'CRITICAL: Value must not be nulled!');
     });
 
@@ -215,7 +225,7 @@ void main() {
       // Setup: Product
       await products.upsertProduct(ProductDef(id: 'banana', name: 'Banana', createdAt: now, updatedAt: now));
       await products.setComponents('banana', [
-        ProductComponent(productId: 'banana', kindId: 'protein', amountPerGram: 0.1), // 10g per 100g
+        ProductComponent(productId: 'banana', kindId: 'protein', amountPerGram: 10.0), // 10g per 100g
       ]);
 
       // Setup: Recipe containing product

@@ -4,9 +4,10 @@
 
 ## Core Principles
 
-1. **Consistency is king**: Users recognize visual patterns (colors, icons) better than text
-2. **Follow the pattern**: If a pattern exists, use it everywhere
-3. **Show, don't hide**: File paths, actions, state changes - make them visible
+1. **NEVER invent APIs**: Always read existing code. NEVER create fake services, methods, or constructors that don't exist. Use Read/Grep tools extensively.
+2. **Consistency is king**: Users recognize visual patterns (colors, icons) better than text
+3. **Follow the pattern**: If a pattern exists, use it everywhere
+4. **Show, don't hide**: File paths, actions, state changes - make them visible
 
 ## Key Patterns
 
