@@ -213,6 +213,7 @@ class ImportExportService {
     List<String>? kindIds,
     List<String>? productIds,
     List<String>? recipeIds,
+    List<String>? entryIds,
     bool includeEntries = false,
   }) async {
     final selectedKindIds = <String>{...?kindIds};
@@ -314,10 +315,22 @@ class ImportExportService {
       'recipes': recipesList,
     };
 
-    // Optionally include calendar entries that reference these items
-    if (includeEntries) {
-      // TODO: Implement filtered entry export
-      // Would need a method to get entries by kind/product/recipe IDs
+    // Include specific entries if entryIds provided
+    if (entryIds != null && entryIds.isNotEmpty) {
+      final entriesList = <Map<String, Object?>>[];
+      final allEntries = await entries.dumpEntries();
+
+      for (final entryData in allEntries) {
+        final entryId = entryData['id'] as String;
+        if (entryIds.contains(entryId)) {
+          entriesList.add(entryData);
+        }
+      }
+
+      bundle['entries'] = entriesList;
+    } else if (includeEntries) {
+      // Include all entries related to selected items
+      // TODO: Implement filtered entry export based on selected kinds/products/recipes
       bundle['entries'] = const <Map<String, Object?>>[];
     }
 

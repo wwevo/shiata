@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:convert';
 
 import '../../data/db/db_handle.dart';
 import '../../data/providers.dart';
 import '../../data/repo/import_export_service.dart';
 import '../../data/repo/products_repository.dart';
 import '../../data/repo/recipes_repository.dart';
+import '../../data/repo/entries_repository.dart';
 import '../widgets/icon_resolver.dart';
 
 class DatabasePage extends ConsumerStatefulWidget {
@@ -20,7 +22,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
   final Set<String> _selectedKinds = {};
   final Set<String> _selectedProducts = {};
   final Set<String> _selectedRecipes = {};
-  bool _includeEntries = false;
+  final Set<String> _selectedEntries = {};
 
   @override
   Widget build(BuildContext context) {
@@ -343,17 +345,8 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
 
         const SizedBox(height: 16),
 
-        // Include entries checkbox (simple)
-        CheckboxListTile(
-          title: const Text('Include calendar entries'),
-          subtitle: const Text('Export calendar instances of selected items'),
-          value: _includeEntries,
-          onChanged: (val) {
-            setState(() {
-              _includeEntries = val ?? false;
-            });
-          },
-        ),
+        // Calendar Entries section
+        _buildEntriesSection(),
 
         const SizedBox(height: 16),
 
@@ -361,12 +354,169 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
         ElevatedButton.icon(
           icon: const Icon(Icons.download),
           label: const Text('Export Selected'),
-          onPressed: (_selectedKinds.isEmpty && _selectedProducts.isEmpty && _selectedRecipes.isEmpty)
+          onPressed: (_selectedKinds.isEmpty && _selectedProducts.isEmpty && _selectedRecipes.isEmpty && _selectedEntries.isEmpty)
               ? null
               : _exportSelected,
         ),
       ],
     );
+  }
+
+  Widget _buildEntriesSection() {
+    final entriesRepo = ref.watch(entriesRepositoryProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Calendar Entries (${_selectedEntries.length} selected)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            if (entriesRepo != null)
+              FutureBuilder<List<EntryRecord>>(
+                future: _getAllEntries(),
+                builder: (context, snapshot) {
+                  final entries = snapshot.data ?? [];
+                  return TextButton(
+                    onPressed: entries.isEmpty ? null : () {
+                      setState(() {
+                        if (_selectedEntries.length == entries.length) {
+                          _selectedEntries.clear();
+                        } else {
+                          _selectedEntries.addAll(entries.map((e) => e.id));
+                          // Auto-select dependencies
+                          for (final entry in entries) {
+                            _autoSelectDependencies(entry);
+                          }
+                        }
+                      });
+                    },
+                    child: Text(_selectedEntries.length == entries.length ? 'Deselect All' : 'Select All'),
+                  );
+                },
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (entriesRepo == null)
+          const Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text('Repository not ready'),
+          )
+        else
+          FutureBuilder<List<EntryRecord>>(
+            future: _getAllEntries(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              final entries = snapshot.data ?? [];
+              if (entries.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('No entries available'),
+                );
+              }
+
+              // Sort entries by targetAt descending (newest first)
+              entries.sort((a, b) => b.targetAt.compareTo(a.targetAt));
+
+              return Column(
+                children: entries.map((entry) {
+                  final isSelected = _selectedEntries.contains(entry.id);
+                  final targetDate = DateTime.fromMillisecondsSinceEpoch(entry.targetAt, isUtc: true).toLocal();
+                  final dateStr = '${targetDate.year}-${targetDate.month.toString().padLeft(2, '0')}-${targetDate.day.toString().padLeft(2, '0')} ${targetDate.hour.toString().padLeft(2, '0')}:${targetDate.minute.toString().padLeft(2, '0')}';
+
+                  // Extract name from payload
+                  String name = entry.widgetKind;
+                  try {
+                    final payload = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
+                    if (payload.containsKey('productName')) {
+                      name = payload['productName'] as String;
+                    } else if (payload.containsKey('recipeName')) {
+                      name = payload['recipeName'] as String;
+                    } else if (payload.containsKey('name')) {
+                      name = payload['name'] as String;
+                    }
+                  } catch (_) {
+                    // Ignore JSON parsing errors
+                  }
+
+                  // Icon based on widget kind
+                  IconData icon = Icons.category;
+                  Color color = Colors.grey;
+                  if (entry.widgetKind == 'product') {
+                    icon = Icons.shopping_basket;
+                    color = Colors.purple;
+                  } else if (entry.widgetKind == 'recipe') {
+                    icon = Icons.restaurant_menu;
+                    color = Colors.brown;
+                  }
+
+                  return Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: color,
+                        foregroundColor: Colors.white,
+                        child: Icon(icon, color: Colors.white, size: 20),
+                      ),
+                      title: Text(name),
+                      subtitle: Text('$dateStr  •  ${entry.widgetKind}'),
+                      trailing: Checkbox(
+                        value: isSelected,
+                        onChanged: (val) {
+                          setState(() {
+                            if (val == true) {
+                              _selectedEntries.add(entry.id);
+                              _autoSelectDependencies(entry);
+                            } else {
+                              _selectedEntries.remove(entry.id);
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  Future<List<EntryRecord>> _getAllEntries() async {
+    final entriesRepo = ref.read(entriesRepositoryProvider);
+    if (entriesRepo == null) return [];
+
+    final rows = await entriesRepo.dumpEntries();
+    return rows.map((row) => EntryRecord.fromDb(row)).toList();
+  }
+
+  void _autoSelectDependencies(EntryRecord entry) {
+    // Auto-select kinds
+    if (entry.productId == null && entry.recipeId == null && entry.sourceEntryId == null) {
+      // This is a direct kind entry
+      _selectedKinds.add(entry.widgetKind);
+    }
+
+    // Auto-select products
+    if (entry.productId != null) {
+      _selectedProducts.add(entry.productId!);
+    }
+
+    // Auto-select recipes
+    if (entry.recipeId != null) {
+      _selectedRecipes.add(entry.recipeId!);
+    }
   }
 
   // Helper methods
@@ -419,7 +569,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
         kindIds: _selectedKinds.toList(),
         productIds: _selectedProducts.toList(),
         recipeIds: _selectedRecipes.toList(),
-        includeEntries: _includeEntries,
+        entryIds: _selectedEntries.toList(),
       );
 
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
@@ -433,13 +583,14 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
         final kinds = (bundle['kinds'] as List?)?.length ?? 0;
         final products = (bundle['products'] as List?)?.length ?? 0;
         final recipes = (bundle['recipes'] as List?)?.length ?? 0;
+        final entriesCount = (bundle['entries'] as List?)?.length ?? 0;
 
         await showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Export Complete'),
             content: SelectableText(
-              'Exported $kinds kinds, $products products, $recipes recipes\n'
+              'Exported $kinds kinds, $products products, $recipes recipes, $entriesCount entries\n'
               '(includes auto-resolved dependencies)\n\n'
               'File saved to:\n$path',
             ),
