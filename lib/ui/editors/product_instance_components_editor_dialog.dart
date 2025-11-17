@@ -134,10 +134,13 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
     _pendingDeletes.clear();
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Updated components (instance is now Static)')));
+    // Capture context-dependent objects before using them
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('Updated components (instance is now Static)')));
     if (mounted) setState(() => _saving = false);
     if (closeAfter && mounted) {
-      Navigator.of(context).pop();
+      navigator.pop();
     }
   }
 
@@ -218,7 +221,7 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
                 return ListView.separated(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: totalCount,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (context, index) => const Divider(height: 1),
                   itemBuilder: (ctx, i) {
                     // First show existing children, then pending adds
                     if (i < visibleChildren.length) {
@@ -265,7 +268,7 @@ class _InstanceComponentsEditorDialogState extends ConsumerState<InstanceCompone
                       final kind = _pendingAdds[pendingIndex];
                       final icon = kind.icon;
                       final color = kind.accentColor;
-                      final unit = kind.unit ?? '';
+                      final unit = kind.unit;
                       final ctrl = _controllers['pending_${kind.id}']!;
                       return ListTile(
                         leading: CircleAvatar(
@@ -338,14 +341,15 @@ class _AddNutrientDialogState extends State<_AddNutrientDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Add nutrient'),
-      content: DropdownButtonFormField<WidgetKind>(
+      content: DropdownButton<WidgetKind>(
         value: _selected,
+        hint: const Text('Select nutrient'),
+        isExpanded: true,
         items: [
           for (final k in widget.kinds)
             DropdownMenuItem(value: k, child: Text(k.displayName)),
         ],
         onChanged: (v) => setState(() => _selected = v),
-        decoration: const InputDecoration(labelText: 'Select nutrient'),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),

@@ -52,8 +52,8 @@ void main() {
       expect(list.map((r) => r.id).toList(), contains('breakfast'));
       final comps = await recipes.getComponents('breakfast');
       expect(comps.length, 2);
-      expect(comps.any((c) => c is RecipeComponentDef && c.type == RecipeComponentType.kind && c.compId == 'vitamin_c'), isTrue);
-      expect(comps.any((c) => c is RecipeComponentDef && c.type == RecipeComponentType.product && c.compId == 'smoothie'), isTrue);
+      expect(comps.any((c) => c.type == RecipeComponentType.kind && c.compId == 'vitamin_c'), isTrue);
+      expect(comps.any((c) => c.type == RecipeComponentType.product && c.compId == 'smoothie'), isTrue);
 
       await recipes.deleteRecipe('breakfast');
       final afterDelete = await recipes.listRecipes();

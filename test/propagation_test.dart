@@ -14,7 +14,6 @@ import 'package:shiata/data/repo/recipe_hierarchy_service.dart';
 import 'package:shiata/domain/widgets/registry.dart';
 import 'package:shiata/domain/widgets/widget_kind.dart';
 import 'package:shiata/domain/widgets/kinds/db_backed_kind.dart';
-import 'package:flutter/material.dart';
 import 'dart:convert';
 
 void main() {

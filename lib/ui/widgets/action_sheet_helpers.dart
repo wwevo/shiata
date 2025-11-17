@@ -7,8 +7,6 @@ import '../ux_config.dart';
 import 'create_action_sheet_content.dart';
 
 Future<void> _showSideCreateActionSheet(BuildContext context, WidgetRef ref, DateTime targetDate, {required bool fromRight}) async {
-  final registry = ref.read(widgetRegistryProvider);
-  final items = registry.actionsForDate(context, targetDate);
   final ux = ref.read(uxConfigProvider);
   final cfg = ux.sideSheet;
   final size = MediaQuery.of(context).size;
@@ -26,7 +24,6 @@ Future<void> _showSideCreateActionSheet(BuildContext context, WidgetRef ref, Dat
     barrierDismissible: true,
     barrierLabel: 'Dismiss',
     pageBuilder: (ctx, _, _) {
-      final begin = Offset(fromRight ? 1 : -1, 0);
       return Align(
         alignment: fromRight ? Alignment.centerRight : Alignment.centerLeft,
         child: Material(
@@ -72,8 +69,6 @@ Future<void> showCreateActionSheet(BuildContext context, WidgetRef ref, DateTime
   }
 
   if (mode == ActionSheetPresentation.bottom) {
-    final registry = ref.read(widgetRegistryProvider);
-    final items = registry.actionsForDate(context, targetDate);
     await showModalBottomSheet(
       context: context,
       showDragHandle: true,
@@ -83,14 +78,12 @@ Future<void> showCreateActionSheet(BuildContext context, WidgetRef ref, DateTime
     return;
   }
 
-  // Side sheet: align with handedness. Right-handed → from right (LTR/RTL nuance optional).
-  final textDir = Directionality.of(context);
+  // Side sheet: align with handedness. Right-handed → from right.
   bool fromRight;
   if (handed == Handedness.right) {
     fromRight = true;
   } else {
     fromRight = false;
   }
-  // If in RTL, you may want to flip for conventional expectations; we prioritize handedness per request.
   await _showSideCreateActionSheet(context, ref, targetDate, fromRight: fromRight);
 }

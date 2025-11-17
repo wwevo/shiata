@@ -110,7 +110,8 @@ class ProductHierarchyService {
 
   /// Propagate template changes to non-static instances.
   /// When a product template is updated, this recalculates all non-static instances.
-  Future<void> propagateTemplateChange(String productId) async {
+  /// Returns the number of instances that were updated.
+  Future<int> propagateTemplateChange(String productId) async {
     // Get all instances of this product
     final instances = await entries.listParentsByProductId(productId);
 
@@ -127,8 +128,7 @@ class ProductHierarchyService {
       }
     }
 
-    // TODO: Return statistics for user feedback
-    // e.g., "Updated $updatedCount product instances"
+    return updatedCount;
   }
 }
 

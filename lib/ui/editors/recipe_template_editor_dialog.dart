@@ -118,6 +118,9 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
     if (!mounted) return;
 
     // Ask to propagate to non-static instances
+    // Capture context before async gap
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     final svc = ref.read(recipeHierarchyServiceProvider);
     final doProp = await showDialog<bool>(
       context: context,
@@ -133,14 +136,14 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
     if (doProp == true && svc != null) {
       await svc.propagateTemplateChange(widget.recipeId);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: const Text('Updated existing recipe instances'),
           action: SnackBarAction(
             label: 'UNDO',
             onPressed: () async {
               // Capture messenger before any awaits to avoid using context across async gaps
-              final messenger = ScaffoldMessenger.of(context);
+              final undoMessenger = ScaffoldMessenger.of(context);
               // Restore old components and re-propagate
               await repo.setComponents(widget.recipeId, old);
               if (!mounted) return;
@@ -148,18 +151,18 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
               if (!mounted) return;
               await _load();
               if (!mounted) return;
-              messenger.showSnackBar(const SnackBar(content: Text('Reverted template changes')));
+              undoMessenger.showSnackBar(const SnackBar(content: Text('Reverted template changes')));
             },
           ),
         ),
       );
     } else {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved recipe template')));
+      messenger.showSnackBar(const SnackBar(content: Text('Saved recipe template')));
     }
     if (mounted) setState(() => _saving = false);
     if (closeAfter && mounted) {
-      Navigator.of(context).pop();
+      navigator.pop();
     }
   }
 
@@ -190,7 +193,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
       ),
     );
 
-    if (choice == null) return;
+    if (choice == null || !mounted) return;
 
     switch (choice) {
       case 'kind':
@@ -212,6 +215,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
         break;
       case 'product':
         if (productsRepo == null) return;
+        if (!mounted) return;
         final picked = await showDialog<String?>(
           context: context,
           builder: (ctx) => _AddProductToRecipeDialog(productsRepo: productsRepo),
@@ -375,14 +379,15 @@ class _AddKindToRecipeDialogState extends State<_AddKindToRecipeDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Add kind'),
-      content: DropdownButtonFormField<WidgetKind>(
+      content: DropdownButton<WidgetKind>(
         value: _selected,
+        hint: const Text('Select kind'),
+        isExpanded: true,
         items: [
           for (final k in widget.registry.kinds)
             DropdownMenuItem(value: k, child: Text(k.displayName)),
         ],
         onChanged: (v) => setState(() => _selected = v),
-        decoration: const InputDecoration(labelText: 'Select kind'),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
@@ -418,14 +423,15 @@ class _AddProductToRecipeDialogState extends State<_AddProductToRecipeDialog> {
         final products = snap.data ?? const <ProductDef>[];
         return AlertDialog(
           title: const Text('Add product'),
-          content: DropdownButtonFormField<String>(
+          content: DropdownButton<String>(
             value: _selectedId,
+            hint: const Text('Select product'),
+            isExpanded: true,
             items: [
               for (final p in products)
                 DropdownMenuItem(value: p.id, child: Text(p.name)),
             ],
             onChanged: (v) => setState(() => _selectedId = v),
-            decoration: const InputDecoration(labelText: 'Select product'),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),

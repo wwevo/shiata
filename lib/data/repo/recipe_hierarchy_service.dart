@@ -185,7 +185,8 @@ class RecipeHierarchyService {
 
   /// Propagate template changes to non-static instances.
   /// When a recipe template is updated, this recalculates all non-static instances.
-  Future<void> propagateTemplateChange(String recipeId) async {
+  /// Returns the number of instances that were updated.
+  Future<int> propagateTemplateChange(String recipeId) async {
     // Get all instances of this recipe
     final instances = await entries.listParentsByRecipeId(recipeId);
 
@@ -236,8 +237,7 @@ class RecipeHierarchyService {
       }
     }
 
-    // TODO: Return statistics for user feedback
-    // e.g., "Updated $updatedCount recipe instances"
+    return updatedCount;
   }
 }
 
