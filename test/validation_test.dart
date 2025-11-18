@@ -2,7 +2,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/native.dart';
-import 'package:drift/drift.dart' hide isNotNull;
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 
 import 'package:shiata/data/db/raw_db.dart';
 import 'package:shiata/data/repo/kinds_repository.dart';
@@ -400,7 +400,7 @@ void main() {
       await kinds.deleteKind('protein');
 
       final kindGone = await kinds.getKind('protein');
-      final allEntries = await entries.listAllInstanceEntries();
+      final allEntries = await entries.watchAllInstanceEntries().first;
 
       print('ACTUAL:   Kind deleted successfully');
       print('          Entries still exist: ${allEntries.length} entries');
@@ -448,7 +448,7 @@ void main() {
       await products.deleteProduct('banana');
 
       final productGone = await products.getProduct('banana');
-      final allEntries = await entries.listAllInstanceEntries();
+      final allEntries = await entries.watchAllInstanceEntries().first;
 
       print('ACTUAL:   Product deleted');
       print('          Entry still exists with productId="banana" (orphaned)');
@@ -480,7 +480,7 @@ void main() {
         productGrams: 100,
       );
 
-      final allEntries = await entries.listAllInstanceEntries();
+      final allEntries = await entries.watchAllInstanceEntries().first;
       final product = await products.getProduct('nonexistent_product');
 
       print('ACTUAL:   Entry created with invalid productId');
@@ -525,7 +525,7 @@ void main() {
       // This is a regression test - we don't test the actual bug
       // We test that the FIXED behavior is maintained
 
-      final results = await entries.search('nonexistent_term_xyz');
+      final results = await entries.watchSearch('nonexistent_term_xyz').first;
 
       print('SETUP:    Search for term that returns no results');
       print('ACTUAL:   Search returns: ${results.length} entries');
