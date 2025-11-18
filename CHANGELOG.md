@@ -1,5 +1,52 @@
 # CHANGELOG.md
 
+## [0.8.9] - 2025-11-18
+
+### Removed
+- **All UNDO Functionality** (~120 lines)
+  - Removed "UNDO" buttons from all deletion snackbars
+  - Removed `undoKindDeletion()` method and `KindDeletionSnapshot` class
+  - Deletions are now permanent (kinds, products, recipes, entries)
+  - Simplified deletion flow: confirm dialog → delete → success snackbar
+  - Affected files: `kind_service.dart`, `kinds_page.dart`, `all_entries_page.dart`, `entry_list_item_factory.dart`
+
+- **Unused Variables & Methods** (~50 lines)
+  - `nutrientsExpandedProvider` - never read anywhere
+  - `SearchService.searchAllEntries()` - duplicate of repository method
+  - `EntriesRepository.detachChildrenOfParent()` - never called
+  - `EntriesRepository.watchAllInstanceEntries()` - replaced by `watchAllEntriesWithChildren()`
+  - `dispose()` methods in all 4 repositories - never invoked (Riverpod Provider doesn't call dispose)
+
+- **Hierarchy Services** (~410 lines)
+  - **Deleted files**:
+    - `lib/data/repo/product_hierarchy_service.dart` (~152 lines) - unused in app code
+    - `lib/data/repo/nutrient_summary.dart` (~83 lines) - only used by deleted services
+  - **Cleaned file**:
+    - `lib/data/repo/recipe_hierarchy_service.dart` (280 → 105 lines)
+    - Removed: `RecipeInstanceHierarchy`, `getRecipeInstance()`, `aggregateNutrients()`, `resetToTemplate()`
+    - Kept: `propagateTemplateChange()` (used by recipe_template_editor_dialog.dart)
+  - App uses `ProductService.updateAllEntriesForProductToCurrentFormula()` instead of old hierarchy services
+
+- **Unused Database Fields** (~30 lines)
+  - `source_event_id` - never used in business logic, never displayed
+  - `schema_version` - always hardcoded to 1, never checked
+  - Updated schema in `raw_db.dart` with automatic migration (DROP COLUMN if exists)
+  - Removed from: `EntryRecord` model, all `entries.create()` calls, import/export mapping
+
+### Changed
+- **Test Rewrite**: `test/propagation_test.dart` now uses current `ProductService` API
+  - Removed dependencies on old hierarchy services (RecipeHierarchyService, WidgetRegistry)
+  - Added new test: Product name propagation
+  - All 3 tests pass: dynamic/static propagation, small values preserved, name updates
+
+### Technical
+- **Total removed: ~610 lines of dead code**
+- Database migration runs automatically on app start (SQLite 3.35+ required for DROP COLUMN)
+- All changes backward compatible (old backups import successfully)
+- Zero functionality lost (removed code was unused or replaced)
+
+---
+
 ## [0.8.8] - 2025-11-18
 
 ### Added
