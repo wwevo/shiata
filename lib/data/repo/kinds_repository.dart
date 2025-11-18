@@ -167,8 +167,4 @@ class KindsRepository {
       yield await listKinds();
     }
   }
-
-  void dispose() {
-    _changes.close();
-  }
 }

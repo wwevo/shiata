@@ -43,8 +43,6 @@ final searchQueryProvider = StateProvider<String>((_) => '');
 final expandedProductsProvider = StateProvider<Set<String>>((_) => <String>{});
 // Global expanded entries (for recursive list items across all pages)
 final expandedEntriesProvider = StateProvider<Set<String>>((_) => <String>{});
-// CAS: whether the Nutrients grid is expanded (session-scoped)
-final nutrientsExpandedProvider = StateProvider<bool>((_) => false);
 
 // All Entries page filters
 enum EntrySortMode { newest, oldest }

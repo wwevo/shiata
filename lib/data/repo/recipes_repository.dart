@@ -251,8 +251,4 @@ class RecipesRepository {
     }
     return out;
   }
-
-  void dispose() {
-    _changes.close();
-  }
 }

@@ -130,10 +130,4 @@ class SearchService {
     }
   }
 
-  /// Searches all entries in the database.
-  /// Uses the existing repository global search (limit: 200 results).
-  Stream<List<EntryRecord>> searchAllEntries(String query) {
-    final normalized = query.trim();
-    return entriesRepo.watchSearch(normalized);
-  }
 }

@@ -264,15 +264,6 @@ class EntriesRepository {
     _notify();
   }
 
-  Future<void> detachChildrenOfParent(String parentEntryId) async {
-    await _ready;
-    await db.customStatement(
-      'UPDATE entries SET source_entry_id = NULL, source_widget_kind = NULL WHERE source_entry_id = ?;',
-      [parentEntryId],
-    );
-    _notify();
-  }
-
   /// Convert product children into standalone entries: detach linkage and make them visible in calendar.
   Future<void> convertChildrenOfParentToStandalone(String parentEntryId) async {
     await _ready;
@@ -426,25 +417,6 @@ class EntriesRepository {
   }
 
   /// Watch all instance entries (top-level only, excludes children and templates).
-  /// Returns entries sorted by targetAt descending (newest first).
-  /// This is used for the All Entries page to show all calendar instances.
-  Stream<List<EntryRecord>> watchAllInstanceEntries() async* {
-    Future<List<EntryRecord>> query() async {
-      final rows = await db
-          .customSelect(
-            'SELECT * FROM entries WHERE source_entry_id IS NULL ORDER BY target_at DESC;',
-            readsFrom: const {},
-          )
-          .get();
-      return rows.map((r) => EntryRecord.fromDb(r.data)).toList();
-    }
-
-    yield await query();
-    await for (final _ in _changes.stream) {
-      yield await query();
-    }
-  }
-
   /// Watch ALL entries including children (reactive).
   /// Returns all entries sorted by created_at ascending for consistent hierarchy building.
   ///
@@ -483,9 +455,5 @@ class EntriesRepository {
     await for (final _ in _changes.stream) {
       yield await query();
     }
-  }
-
-  void dispose() {
-    _changes.close();
   }
 }
