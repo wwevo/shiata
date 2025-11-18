@@ -122,20 +122,18 @@ void main() {
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
       final stream = entries.watchAllEntriesWithChildren();
-      final emittedValues = <List<EntryRecord>>[];
 
-      // Collect stream values
-      final subscription = stream.listen((data) {
-        emittedValues.add(data);
-      });
-
-      // Wait for initial emission
-      await Future.delayed(const Duration(milliseconds: 50));
-      final initialCount = emittedValues.last.length;
+      // Get initial state
+      final initial = await stream.first;
+      final initialCount = initial.length;
       print('INIT:     Stream initially emitted $initialCount entries');
 
-      // ACTION: Create new entry
+      // ACTION: Create new entry and wait for next emission
       final targetAt = DateTime(2025, 11, 18, 12, 0).toLocal();
+
+      // Start listening for the next emission BEFORE creating the entry
+      final nextEmission = stream.skip(1).first;
+
       await entries.create(
         widgetKind: 'protein',
         targetAtLocal: targetAt,
@@ -143,20 +141,17 @@ void main() {
       );
       print('ACTION:   Created new direct protein entry (25g)');
 
-      // Wait for stream to emit
-      await Future.delayed(const Duration(milliseconds: 50));
-      final finalCount = emittedValues.last.length;
+      // Wait for the stream to emit the new data
+      final updated = await nextEmission;
+      final finalCount = updated.length;
 
       print('EXPECTED: Stream emits new value with +1 entry');
       print('ACTUAL:   Initial: $initialCount, Final: $finalCount\n');
 
       expect(finalCount, initialCount + 1, reason: 'Stream should emit new entry');
-      expect(emittedValues.length, greaterThan(1), reason: 'Stream should have emitted multiple times');
 
       print('RESULT:   ✅ PASS - Stream reactively emitted after CREATE');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-
-      await subscription.cancel();
     });
 
     test('watchAllEntriesWithChildren: stream emits after DELETE', () async {
@@ -174,34 +169,30 @@ void main() {
       print('INIT:     Created protein entry (30g), ID: ${record.id}');
 
       final stream = entries.watchAllEntriesWithChildren();
-      final emittedValues = <List<EntryRecord>>[];
 
-      final subscription = stream.listen((data) {
-        emittedValues.add(data);
-      });
-
-      await Future.delayed(const Duration(milliseconds: 50));
-      final beforeDelete = emittedValues.last.length;
+      // Get current state
+      final before = await stream.first;
+      final beforeDelete = before.length;
       print('           Stream shows $beforeDelete entries');
 
-      // ACTION: Delete entry
+      // ACTION: Delete entry and wait for next emission
+      final nextEmission = stream.skip(1).first;
+
       await entries.delete(record.id);
       print('ACTION:   Deleted entry ${record.id}');
 
-      await Future.delayed(const Duration(milliseconds: 50));
-      final afterDelete = emittedValues.last.length;
+      final after = await nextEmission;
+      final afterDelete = after.length;
 
       print('EXPECTED: Stream emits new value with -1 entry');
       print('ACTUAL:   Before: $beforeDelete, After: $afterDelete\n');
 
       expect(afterDelete, beforeDelete - 1, reason: 'Stream should reflect deletion');
-      expect(emittedValues.last.any((e) => e.id == record.id), false,
+      expect(after.any((e) => e.id == record.id), false,
         reason: 'Deleted entry should not be in stream');
 
       print('RESULT:   ✅ PASS - Stream reactively emitted after DELETE');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-
-      await subscription.cancel();
     });
 
     test('watchAllEntriesWithChildren: stream emits after UPDATE', () async {
@@ -219,39 +210,31 @@ void main() {
       print('INIT:     Created protein entry (40g), ID: ${record.id}');
 
       final stream = entries.watchAllEntriesWithChildren();
-      final emittedValues = <List<EntryRecord>>[];
 
-      final subscription = stream.listen((data) {
-        emittedValues.add(data);
-      });
+      // Get initial state
+      await stream.first;
+      print('           Stream emitted initial state');
 
-      await Future.delayed(const Duration(milliseconds: 50));
-      final initialEmissions = emittedValues.length;
-      print('           Stream emitted $initialEmissions time(s)');
+      // ACTION: Update entry and wait for next emission
+      final nextEmission = stream.skip(1).first;
 
-      // ACTION: Update entry
       await entries.update(record.id, {
         'payload_json': '{"amount": 50.0}',
       });
       print('ACTION:   Updated entry ${record.id} (amount: 40 → 50)');
 
-      await Future.delayed(const Duration(milliseconds: 50));
-      final finalEmissions = emittedValues.length;
-
-      // Find updated entry in latest emission
-      final updated = emittedValues.last.firstWhere((e) => e.id == record.id);
-      final updatedPayload = updated.payloadJson;
+      // Wait for update emission
+      final updated = await nextEmission;
+      final updatedEntry = updated.firstWhere((e) => e.id == record.id);
+      final updatedPayload = updatedEntry.payloadJson;
 
       print('EXPECTED: Stream emits new value, payload updated');
-      print('ACTUAL:   Emissions: $initialEmissions → $finalEmissions, Payload: $updatedPayload\n');
+      print('ACTUAL:   Payload: $updatedPayload\n');
 
-      expect(finalEmissions, greaterThan(initialEmissions), reason: 'Stream should emit on UPDATE');
       expect(updatedPayload, contains('50.0'), reason: 'Updated value should be in stream');
 
       print('RESULT:   ✅ PASS - Stream reactively emitted after UPDATE');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-
-      await subscription.cancel();
     });
 
     test('watchAllEntriesWithChildren: complex hierarchy with product + children', () async {
@@ -328,40 +311,33 @@ void main() {
       );
 
       final stream = entries.watchAllEntriesWithChildren();
-      final emittedValues = <List<EntryRecord>>[];
 
-      final subscription = stream.listen((data) {
-        emittedValues.add(data);
-      });
-
-      await Future.delayed(const Duration(milliseconds: 50));
-
-      // Find a child entry
-      final allEntries = emittedValues.last;
-      final child = allEntries.firstWhere((e) => e.sourceEntryId != null);
-      final beforeDelete = allEntries.length;
+      // Get initial state
+      final before = await stream.first;
+      final child = before.firstWhere((e) => e.sourceEntryId != null);
+      final beforeDelete = before.length;
 
       print('INIT:     Product with children created, total entries: $beforeDelete');
       print('           Found child entry: ${child.widgetKind} (ID: ${child.id})');
 
-      // ACTION: Delete child
+      // ACTION: Delete child and wait for next emission
+      final nextEmission = stream.skip(1).first;
+
       await entries.delete(child.id);
       print('ACTION:   Deleted child entry ${child.id}');
 
-      await Future.delayed(const Duration(milliseconds: 50));
-      final afterDelete = emittedValues.last.length;
+      final after = await nextEmission;
+      final afterDelete = after.length;
 
       print('EXPECTED: Stream emits with -1 entry (child removed)');
       print('ACTUAL:   Before: $beforeDelete, After: $afterDelete\n');
 
       expect(afterDelete, beforeDelete - 1, reason: 'Child deletion should be reflected');
-      expect(emittedValues.last.any((e) => e.id == child.id), false,
+      expect(after.any((e) => e.id == child.id), false,
         reason: 'Deleted child should not be in stream');
 
       print('RESULT:   ✅ PASS - Stream reactively emitted after child DELETE');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-
-      await subscription.cancel();
     });
   });
 }
