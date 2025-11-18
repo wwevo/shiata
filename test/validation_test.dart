@@ -271,7 +271,7 @@ void main() {
       entries = EntriesRepository(db: db);
     });
 
-    tearDown() async {
+    tearDown(() async {
       kinds.dispose();
       entries.dispose();
       await db.close();
@@ -344,7 +344,7 @@ void main() {
     late ProductsRepository products;
     late EntriesRepository entries;
 
-    setUp() async {
+    setUp(() async {
       db = AppDb(NativeDatabase.memory());
       await db.ensureInitialized();
       kinds = KindsRepository(db: db);
@@ -352,7 +352,7 @@ void main() {
       entries = EntriesRepository(db: db);
     });
 
-    tearDown() async {
+    tearDown(() async {
       kinds.dispose();
       products.dispose();
       entries.dispose();
@@ -502,13 +502,13 @@ void main() {
     late AppDb db;
     late EntriesRepository entries;
 
-    setUp() async {
+    setUp(() async {
       db = AppDb(NativeDatabase.memory());
       await db.ensureInitialized();
       entries = EntriesRepository(db: db);
     });
 
-    tearDown() async {
+    tearDown(() async {
       entries.dispose();
       await db.close();
     });
