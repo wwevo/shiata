@@ -54,13 +54,28 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
         title: Text('All Entries (${_selectedEntries.length} selected)'),
       ),
       body: StreamBuilder<List<EntryRecord>>(
-        stream: repo.watchAllInstanceEntries(),
+        stream: repo.watchAllEntriesWithChildren(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          var entries = snapshot.data ?? <EntryRecord>[];
+          final allEntries = snapshot.data ?? <EntryRecord>[];
+
+          // Build hierarchy: childrenByParent map from ALL entries
+          final childrenByParent = <String, List<EntryRecord>>{};
+          for (final entry in allEntries) {
+            if (entry.sourceEntryId != null && entry.sourceEntryId!.isNotEmpty) {
+              childrenByParent.putIfAbsent(entry.sourceEntryId!, () => []).add(
+                entry,
+              );
+            }
+          }
+
+          // Get only top-level entries for filtering and display
+          var entries = allEntries
+              .where((e) => e.sourceEntryId == null || e.sourceEntryId!.isEmpty)
+              .toList();
 
           // Apply type filter (empty = show all)
           if (typeFilter.isNotEmpty) {
@@ -94,8 +109,10 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
           // Apply sort mode
           if (sortMode == EntrySortMode.oldest) {
             entries.sort((a, b) => a.targetAt.compareTo(b.targetAt));
+          } else {
+            // Newest first (default)
+            entries.sort((a, b) => b.targetAt.compareTo(a.targetAt));
           }
-          // Default is newest first (already sorted by repo)
 
           if (entries.isEmpty) {
             return Center(
@@ -109,11 +126,6 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
               ),
             );
           }
-
-          // Build hierarchy: childrenByParent map (for expandable entries)
-          // NOTE: Children won't be available here since watchAllInstanceEntries only returns top-level
-          // This is intentional - expand functionality is currently limited to checkbox mode
-          final childrenByParent = <String, List<EntryRecord>>{};
 
           return Column(
             children: [

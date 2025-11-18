@@ -417,30 +417,36 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             if (entriesRepo != null)
-              FutureBuilder<List<EntryRecord>>(
-                future: _getAllEntries(),
+              StreamBuilder<List<EntryRecord>>(
+                stream: entriesRepo.watchAllEntriesWithChildren(),
                 builder: (context, snapshot) {
-                  final entries = snapshot.data ?? [];
+                  final allEntries = snapshot.data ?? [];
+                  // Only count top-level entries for "Select All"
+                  final topLevel = allEntries
+                      .where(
+                        (e) => e.sourceEntryId == null || e.sourceEntryId!.isEmpty,
+                      )
+                      .toList();
                   return TextButton(
-                    onPressed: entries.isEmpty
+                    onPressed: topLevel.isEmpty
                         ? null
                         : () {
                             setState(() {
-                              if (_selectedEntries.length == entries.length) {
+                              if (_selectedEntries.length == topLevel.length) {
                                 _selectedEntries.clear();
                               } else {
                                 _selectedEntries.addAll(
-                                  entries.map((e) => e.id),
+                                  topLevel.map((e) => e.id),
                                 );
                                 // Auto-select dependencies
-                                for (final entry in entries) {
+                                for (final entry in topLevel) {
                                   _autoSelectDependencies(entry);
                                 }
                               }
                             });
                           },
                     child: Text(
-                      _selectedEntries.length == entries.length
+                      _selectedEntries.length == topLevel.length
                           ? 'Deselect All'
                           : 'Select All',
                     ),
@@ -456,8 +462,8 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
             child: Text('Repository not ready'),
           )
         else
-          FutureBuilder<List<EntryRecord>>(
-            future: _getAllEntries(),
+          StreamBuilder<List<EntryRecord>>(
+            stream: entriesRepo.watchAllEntriesWithChildren(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Padding(
@@ -466,17 +472,17 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                 );
               }
 
-              final entries = snapshot.data ?? [];
-              if (entries.isEmpty) {
+              final allEntries = snapshot.data ?? [];
+              if (allEntries.isEmpty) {
                 return const Padding(
                   padding: EdgeInsets.all(8.0),
                   child: Text('No entries available'),
                 );
               }
 
-              // Build hierarchy: childrenByParent map
+              // Build hierarchy: childrenByParent map from ALL entries
               final childrenByParent = <String, List<EntryRecord>>{};
-              for (final entry in entries) {
+              for (final entry in allEntries) {
                 final parentId = entry.sourceEntryId;
                 if (parentId != null && parentId.isNotEmpty) {
                   childrenByParent.putIfAbsent(parentId, () => []).add(entry);
@@ -484,7 +490,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
               }
 
               // Get only top-level entries (those without sourceEntryId)
-              final topLevelEntries = entries
+              final topLevelEntries = allEntries
                   .where(
                     (e) => e.sourceEntryId == null || e.sourceEntryId!.isEmpty,
                   )
@@ -538,14 +544,6 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
           ),
       ],
     );
-  }
-
-  Future<List<EntryRecord>> _getAllEntries() async {
-    final entriesRepo = ref.read(entriesRepositoryProvider);
-    if (entriesRepo == null) return [];
-
-    final rows = await entriesRepo.dumpEntries();
-    return rows.map((row) => EntryRecord.fromDb(row)).toList();
   }
 
   void _autoSelectDependencies(EntryRecord entry) {

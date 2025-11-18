@@ -4,6 +4,8 @@
 ### Changed
 - **All Entries Page**: Complete redesign with filtering, sorting, and bulk operations
     - Now shows all instance entries by default (no search required)
+    - **Reactive updates**: Page updates automatically on any database change
+    - **Full expand support**: Products/Recipes show nested children when expanded
     - Filter chips for entry type (Nutrients/Products/Recipes)
     - Sort modes: Newest First / Oldest First (persists across navigation)
     - Type filters persist across navigation
@@ -12,18 +14,35 @@
     - Bulk delete with confirmation dialog showing breakdown by type
     - Undo support for bulk deletions
     - Search integration: filters work alongside search query
-    - Uses new `watchAllInstanceEntries()` repository method
+- **Database Page**: Fixed critical reactivity bug
+    - **Was using FutureBuilder** (loaded once, never updated)
+    - **Now uses StreamBuilder** with reactive updates
+    - List updates automatically when entries are created/deleted/modified
+    - Expand functionality now works correctly with full hierarchy
 
 ### Added
-- **EntriesRepository**: `watchAllInstanceEntries()` method for efficiently watching all top-level instances
+- **EntriesRepository**: `watchAllEntriesWithChildren()` - reactive stream for ALL entries including children
+    - Use this for pages that need expand functionality (Database, AllEntries)
+    - Automatically updates on any entry change (create/update/delete)
+    - Pattern documented in method docstring for reusability
+- **EntriesRepository**: `watchAllInstanceEntries()` - reactive stream for top-level instances only
 - **Filter state providers**: `entrySortModeProvider`, `entryTypeFilterProvider` for reusable filtering
 - **Entry sort modes**: Newest/Oldest sort options (enum `EntrySortMode`)
 
+### Fixed
+- **Database Page**: Critical bug where list didn't update after creating/deleting entries
+- **All Entries Page**: Expand functionality now works (products/recipes show children)
+
 ### Technical
+- **Reactive list pattern**: StreamBuilder + watchAllEntriesWithChildren()
+    - Build childrenByParent map from ALL entries
+    - Filter to top-level entries for display
+    - Pass childrenByParent to EntryListItemFactory for expand support
 - All Entries Page now ConsumerStatefulWidget for scroll and selection state
 - Filter logic consolidated: Type → Search → Sort pipeline
 - FilterChip and ChoiceChip patterns following WeeklyOverviewPanel design
 - Bulk delete follows DatabasePage patterns (no FAB, regular button with conditional visibility)
+- Removed obsolete `_getAllEntries()` Future method from DatabasePage
 
 ---
 

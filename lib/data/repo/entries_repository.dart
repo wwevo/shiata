@@ -415,4 +415,44 @@ class EntriesRepository {
       yield await query();
     }
   }
+
+  /// Watch ALL entries including children (reactive).
+  /// Returns all entries sorted by created_at ascending for consistent hierarchy building.
+  ///
+  /// Use this for pages that need expand functionality (Database, AllEntries with expand).
+  /// The stream updates automatically on any entry change (create/update/delete).
+  ///
+  /// Pattern:
+  /// ```dart
+  /// StreamBuilder<List<EntryRecord>>(
+  ///   stream: repo.watchAllEntriesWithChildren(),
+  ///   builder: (context, snapshot) {
+  ///     final all = snapshot.data ?? [];
+  ///     final childrenByParent = <String, List<EntryRecord>>{};
+  ///     for (final e in all) {
+  ///       if (e.sourceEntryId != null) {
+  ///         childrenByParent[e.sourceEntryId!] = [...];
+  ///       }
+  ///     }
+  ///     final topLevel = all.where((e) => e.sourceEntryId == null);
+  ///     // ...
+  ///   }
+  /// )
+  /// ```
+  Stream<List<EntryRecord>> watchAllEntriesWithChildren() async* {
+    Future<List<EntryRecord>> query() async {
+      final rows = await db
+          .customSelect(
+            'SELECT * FROM entries ORDER BY created_at ASC;',
+            readsFrom: const {},
+          )
+          .get();
+      return rows.map((r) => EntryRecord.fromDb(r.data)).toList();
+    }
+
+    yield await query();
+    await for (final _ in _changes.stream) {
+      yield await query();
+    }
+  }
 }
