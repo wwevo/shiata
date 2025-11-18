@@ -455,4 +455,8 @@ class EntriesRepository {
       yield await query();
     }
   }
+
+  void dispose() {
+    _changes.close();
+  }
 }
