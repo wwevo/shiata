@@ -36,12 +36,6 @@ void main() {
       entries = EntriesRepository(db: db);
     });
 
-    tearDown(() async {
-      kinds.dispose();
-      products.dispose();
-      recipes.dispose();
-      entries.dispose();
-    });
 
     test('KIND: Creating kind with min > max (nonsensical constraint)', () async {
       print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -233,10 +227,6 @@ void main() {
       entries = EntriesRepository(db: db);
     });
 
-    tearDown(() async {
-      kinds.dispose();
-      entries.dispose();
-    });
 
     test('ENTRY: Date 100 years in future is accepted (potential user error)', () async {
       print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -313,11 +303,6 @@ void main() {
       entries = EntriesRepository(db: db);
     });
 
-    tearDown(() async {
-      kinds.dispose();
-      products.dispose();
-      entries.dispose();
-    });
 
     test('CONSTRAINT: Deleting kind with existing entries (foreign key violation)', () async {
       print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -433,9 +418,6 @@ void main() {
       entries = EntriesRepository(db: db);
     });
 
-    tearDown(() async {
-      entries.dispose();
-    });
 
     test('UI: Empty search results allows recovery (v0.8.4 regression test)', () async {
       print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
