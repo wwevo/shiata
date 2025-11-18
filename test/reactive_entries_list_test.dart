@@ -121,7 +121,7 @@ void main() {
       print('TEST: watchAllEntriesWithChildren - Reactive CREATE');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-      final stream = entries.watchAllEntriesWithChildren();
+      final stream = entries.watchAllEntriesWithChildren().asBroadcastStream();
 
       // Get initial state
       final initial = await stream.first;
@@ -132,7 +132,7 @@ void main() {
       final targetAt = DateTime(2025, 11, 18, 12, 0).toLocal();
 
       // Start listening for the next emission BEFORE creating the entry
-      final nextEmission = stream.skip(1).first;
+      final nextEmission = stream.first;
 
       await entries.create(
         widgetKind: 'protein',
@@ -168,7 +168,7 @@ void main() {
       );
       print('INIT:     Created protein entry (30g), ID: ${record.id}');
 
-      final stream = entries.watchAllEntriesWithChildren();
+      final stream = entries.watchAllEntriesWithChildren().asBroadcastStream();
 
       // Get current state
       final before = await stream.first;
@@ -176,7 +176,7 @@ void main() {
       print('           Stream shows $beforeDelete entries');
 
       // ACTION: Delete entry and wait for next emission
-      final nextEmission = stream.skip(1).first;
+      final nextEmission = stream.first;
 
       await entries.delete(record.id);
       print('ACTION:   Deleted entry ${record.id}');
@@ -209,14 +209,14 @@ void main() {
       );
       print('INIT:     Created protein entry (40g), ID: ${record.id}');
 
-      final stream = entries.watchAllEntriesWithChildren();
+      final stream = entries.watchAllEntriesWithChildren().asBroadcastStream();
 
       // Get initial state
       await stream.first;
       print('           Stream emitted initial state');
 
       // ACTION: Update entry and wait for next emission
-      final nextEmission = stream.skip(1).first;
+      final nextEmission = stream.first;
 
       await entries.update(record.id, {
         'payload_json': '{"amount": 50.0}',
@@ -310,7 +310,7 @@ void main() {
         isStatic: false,
       );
 
-      final stream = entries.watchAllEntriesWithChildren();
+      final stream = entries.watchAllEntriesWithChildren().asBroadcastStream();
 
       // Get initial state
       final before = await stream.first;
@@ -321,7 +321,7 @@ void main() {
       print('           Found child entry: ${child.widgetKind} (ID: ${child.id})');
 
       // ACTION: Delete child and wait for next emission
-      final nextEmission = stream.skip(1).first;
+      final nextEmission = stream.first;
 
       await entries.delete(child.id);
       print('ACTION:   Deleted child entry ${child.id}');
