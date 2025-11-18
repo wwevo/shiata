@@ -1,5 +1,23 @@
 # CHANGELOG.md
 
+## [0.8.6] - 2025-11-18
+### Added
+- **Comprehensive Validation Tests**: New `validation_test.dart` with 13 tests that intentionally provoke errors
+    - **Philosophy**: "Tests must find bugs by provoking errors" - Documents current behavior and expected fixes
+    - **User Input Validation** (7 tests): Invalid constraints (min>max), empty names, negative amounts, zero grams
+    - **Edge Cases** (2 tests): Far future dates (100 years), extremely large values
+    - **Data Integrity** (3 tests): Orphaned entries from deleted kinds/products, invalid foreign keys
+    - **Regression Tests** (1 test): Empty search results recovery (v0.8.4 fix validation)
+    - Each test documents: SCENARIO (what user does wrong), CURRENT (what happens), EXPECTED (what should happen), FIX (how to implement)
+
+### Technical
+- Tests use scientific format: SCENARIO → SETUP → ACTUAL → EXPECTED → RESULT
+- All tests currently PASS (documenting lack of validation is intentional)
+- Tests serve as specification for future validation layer implementation
+- "Der größte Bug sitzt immer vor dem Bildschirm!" - User-centric testing approach
+
+---
+
 ## [0.8.5] - 2025-11-18
 ### Fixed
 - **Recipe Components Reactivity**: Fixed critical bug where recipe template summaries didn't update after component changes
