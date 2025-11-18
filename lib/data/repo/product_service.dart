@@ -122,16 +122,29 @@ class ProductService {
   }
 
   /// Recompute children for all non-static instances of a product using current template components.
+  /// Also updates parent entry name to match current template.
   Future<void> updateAllEntriesForProductToCurrentFormula(
     String productId,
   ) async {
+    final def = await products.getProduct(productId);
+    if (def == null) return;
+
     final parents = await entries.listParentsByProductId(productId);
     final comps = await products.getComponents(productId);
+
     for (final parent in parents) {
       if (parent.isStatic) continue; // skip static instances
       final grams = parent.productGrams ?? 0;
       if (grams <= 0) continue;
-      // Update parent payload grams (keep as-is) and recreate children
+
+      // Update parent payload with current name from template
+      final payload = jsonDecode(parent.payloadJson) as Map<String, dynamic>;
+      payload['name'] = def.name;
+      await entries.update(parent.id, {
+        'payload_json': jsonEncode(payload),
+      });
+
+      // Recreate children with current formula
       await entries.deleteChildrenOfParent(parent.id);
       for (final c in comps) {
         final amount = (c.amountPerGram * grams) / 100.0;

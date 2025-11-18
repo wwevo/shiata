@@ -194,13 +194,24 @@ class RecipeHierarchyService {
   /// When a recipe template is updated, this recalculates all non-static instances.
   /// Returns the number of instances that were updated.
   Future<int> propagateTemplateChange(String recipeId) async {
+    // Get recipe definition for current name
+    final def = await recipes.getRecipe(recipeId);
+    if (def == null) return 0;
+
     // Get all instances of this recipe
     final instances = await entries.listParentsByRecipeId(recipeId);
 
     int updatedCount = 0;
     for (final instance in instances) {
       if (!instance.isStatic) {
-        // Reset and recreate from template
+        // Update parent payload with current name from template
+        final payload = jsonDecode(instance.payloadJson) as Map<String, dynamic>;
+        payload['name'] = def.name;
+        await entries.update(instance.id, {
+          'payload_json': jsonEncode(payload),
+        });
+
+        // Reset and recreate children from template
         await entries.deleteChildrenOfParent(instance.id);
 
         final targetAt = DateTime.fromMillisecondsSinceEpoch(
