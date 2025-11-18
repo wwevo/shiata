@@ -172,6 +172,26 @@ class RecipesRepository {
     return list;
   }
 
+  /// Watch recipe components (reactive).
+  /// Returns a stream that automatically updates when components are added/updated/deleted.
+  ///
+  /// Use this instead of getComponents() in UI widgets to ensure automatic refresh:
+  /// ```dart
+  /// StreamBuilder<List<RecipeComponentDef>>(
+  ///   stream: recipesRepo.watchComponents(recipeId),
+  ///   builder: (context, snapshot) {
+  ///     final components = snapshot.data ?? [];
+  ///     // UI updates automatically when components change
+  ///   }
+  /// )
+  /// ```
+  Stream<List<RecipeComponentDef>> watchComponents(String recipeId) async* {
+    yield await getComponents(recipeId);
+    await for (final _ in _changes.stream) {
+      yield await getComponents(recipeId);
+    }
+  }
+
   Future<void> setComponents(
     String recipeId,
     List<RecipeComponentDef> comps,

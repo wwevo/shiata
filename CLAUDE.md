@@ -197,6 +197,202 @@ Card(
 
 ---
 
+## 🔄 Reactive UI Patterns (CRITICAL)
+
+### StreamBuilder vs FutureBuilder
+
+**GOLDEN RULE**: Use StreamBuilder for ALL data-driven UI in Pages. FutureBuilder is only acceptable in dialogs or one-time queries.
+
+#### ⛔ Critical Bug Pattern: FutureBuilder in Pages
+
+```dart
+// ❌ CRITICAL BUG: This widget NEVER updates after initial load
+FutureBuilder<List<EntryRecord>>(
+  future: repo.listEntries(),  // Loads ONCE, never updates
+  builder: (context, snapshot) {
+    final entries = snapshot.data ?? [];
+    // BUG: After creating/deleting entries, list stays stale
+  }
+)
+```
+
+**Why this is a bug**:
+- FutureBuilder executes the future ONCE when widget builds
+- After creating/updating/deleting data, the UI shows stale data
+- User must navigate away and back to see changes
+- This violates user expectations of immediate feedback
+
+#### ✅ Correct Pattern: StreamBuilder for Reactive Lists
+
+```dart
+// ✅ CORRECT: UI automatically updates on any data change
+StreamBuilder<List<EntryRecord>>(
+  stream: repo.watchEntries(),  // Stream that reacts to changes
+  builder: (context, snapshot) {
+    final entries = snapshot.data ?? [];
+    // UI updates automatically when data changes
+  }
+)
+```
+
+**When to use each**:
+
+| Pattern | Use Case | Example |
+|---------|----------|---------|
+| **StreamBuilder** | Pages, lists, data that changes | AllEntriesPage, DatabasePage, RecipesPage |
+| **FutureBuilder** | Dialogs, one-time queries, static data | Initial data load in dialogs, lookup tables |
+
+### The Reactive List Pattern
+
+All repositories provide `watch*()` methods that return reactive streams. Use these in UI:
+
+#### Repository Pattern (Provider Side)
+
+```dart
+// ✅ Every data-fetching method should have a watch* counterpart
+class EntriesRepository {
+  // One-time query (use sparingly)
+  Future<List<EntryRecord>> listEntries() async {
+    final rows = await db.customSelect('SELECT * FROM entries;').get();
+    return rows.map((r) => EntryRecord.fromDb(r.data)).toList();
+  }
+
+  // Reactive stream (use in UI)
+  Stream<List<EntryRecord>> watchEntries() async* {
+    yield await listEntries();
+    await for (final _ in _changes.stream) {
+      yield await listEntries();
+    }
+  }
+}
+```
+
+**Pattern documentation in repository methods**:
+Every `watch*()` method should include a docstring with usage example:
+
+```dart
+/// Watch all entries (reactive).
+/// Returns a stream that automatically updates when entries change.
+///
+/// Use this instead of listEntries() in UI widgets:
+/// ```dart
+/// StreamBuilder<List<EntryRecord>>(
+///   stream: repo.watchEntries(),
+///   builder: (context, snapshot) {
+///     final entries = snapshot.data ?? [];
+///     // UI updates automatically
+///   }
+/// )
+/// ```
+Stream<List<EntryRecord>> watchEntries() async* { ... }
+```
+
+#### Hierarchical Lists with Expand Support
+
+For lists that need parent-child hierarchy (products with components, recipes with ingredients):
+
+```dart
+// ✅ The Hierarchical Reactive List Pattern
+StreamBuilder<List<EntryRecord>>(
+  stream: repo.watchAllEntriesWithChildren(),
+  builder: (context, snapshot) {
+    final allEntries = snapshot.data ?? <EntryRecord>[];
+
+    // Build hierarchy: childrenByParent map from ALL entries
+    final childrenByParent = <String, List<EntryRecord>>{};
+    for (final entry in allEntries) {
+      if (entry.sourceEntryId != null && entry.sourceEntryId!.isNotEmpty) {
+        childrenByParent.putIfAbsent(entry.sourceEntryId!, () => []).add(entry);
+      }
+    }
+
+    // Get only top-level entries for display
+    final topLevel = allEntries
+        .where((e) => e.sourceEntryId == null || e.sourceEntryId!.isEmpty)
+        .toList();
+
+    // Use EntryListItemFactory with childrenByParent for expand support
+    return ListView.builder(
+      itemCount: topLevel.length,
+      itemBuilder: (ctx, index) {
+        return EntryListItemFactory.buildEntry(
+          context: context,
+          ref: ref,
+          entry: topLevel[index],
+          childrenByParent: childrenByParent,  // Enables expand
+          registry: registry,
+          config: EntryListItemConfig.fullDateTime,
+          displayMode: EntryDisplayMode.normal,
+        );
+      },
+    );
+  }
+)
+```
+
+**Why this pattern**:
+- Single stream for ALL entries (efficient, one DB query)
+- Hierarchy built in-memory (fast, no extra queries)
+- Expand/collapse works automatically (children available)
+- Filter/search on top-level only (cleaner UX)
+- Fully reactive (any change updates entire tree)
+
+#### Available Watch Methods
+
+**EntriesRepository**:
+- `watchAllEntriesWithChildren()` - All entries for hierarchy (Database, AllEntries with expand)
+- `watchAllInstanceEntries()` - Top-level only (simpler lists without expand)
+- `watchByDay(DateTime)` - Single day entries
+- `watchByDayRange(DateTime, DateTime)` - Date range entries
+- `watchSearch(String)` - Text search results
+- `watchById(String)` - Single entry (for detail views)
+
+**RecipesRepository**:
+- `watchRecipes({bool onlyActive})` - All recipes
+- `watchComponents(String recipeId)` - Recipe components (v0.8.5+)
+
+**ProductsRepository**:
+- `watchProducts({bool onlyActive})` - All products
+
+**KindsRepository**:
+- `watchKinds({bool onlyActive})` - All kinds
+
+### Audit Checklist for Lists
+
+When reviewing list implementations, check:
+- [ ] Is this in a Page (not a Dialog)? → Must use StreamBuilder
+- [ ] Does data change during app usage? → Must use StreamBuilder
+- [ ] Is there a `watch*()` method available? → Use it
+- [ ] Is there expand/hierarchy needed? → Use `watchAllEntriesWithChildren()`
+- [ ] Is it truly one-time data? → FutureBuilder acceptable (rare)
+
+### Migration Guide: FutureBuilder → StreamBuilder
+
+If you find a FutureBuilder bug:
+1. Check if a `watch*()` method exists in the repository
+2. If not, add one following the pattern above
+3. Replace `FutureBuilder` → `StreamBuilder`
+4. Replace `future: repo.get*()` → `stream: repo.watch*()`
+5. Verify reactivity by creating/deleting data and checking UI updates
+6. Add tests for the new stream (see Testing section)
+
+**Example migration**:
+```dart
+// BEFORE (BUG):
+FutureBuilder<List<RecipeComponentDef>>(
+  future: recipesRepo.getComponents(recipeId),
+  builder: (ctx, snapshot) { ... }
+)
+
+// AFTER (FIXED):
+StreamBuilder<List<RecipeComponentDef>>(
+  stream: recipesRepo.watchComponents(recipeId),
+  builder: (ctx, snapshot) { ... }
+)
+```
+
+---
+
 ## 🧪 Testing
 
 **Tests are living documentation**: They must always reflect current behavior.

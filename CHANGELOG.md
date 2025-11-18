@@ -1,5 +1,44 @@
 # CHANGELOG.md
 
+## [0.8.5] - 2025-11-18
+### Fixed
+- **Recipe Components Reactivity**: Fixed critical bug where recipe template summaries didn't update after component changes
+    - `_RecipeTemplateSummary` widget was using FutureBuilder (loaded once, never updated)
+    - Now uses StreamBuilder with `watchComponents(recipeId)` for automatic updates
+    - Component summaries now refresh immediately when adding/removing/editing ingredients
+    - This completes the systematic audit of FutureBuilder bugs started in v0.8.4
+
+### Added
+- **RecipesRepository**: `watchComponents(String recipeId)` - reactive stream for recipe components
+    - Automatically updates when components are added/removed/modified
+    - Use this instead of `getComponents()` in UI widgets for automatic refresh
+    - Pattern documented in method docstring following established conventions
+- **Comprehensive documentation**: New "Reactive UI Patterns" section in CLAUDE.md
+    - StreamBuilder vs FutureBuilder: when to use each, critical bug patterns
+    - The Reactive List Pattern: repository patterns, hierarchical lists with expand support
+    - Available watch methods catalog for all repositories
+    - Audit checklist for reviewing list implementations
+    - Migration guide for fixing FutureBuilder bugs
+- **Test coverage**: New `reactive_streams_test.dart` with 10 comprehensive tests
+    - Tests for `watchKinds()`, `watchProducts()`, `watchRecipes()` - CREATE/UPDATE/DELETE reactivity
+    - Tests for `watchComponents(recipeId)` - component changes reactivity (v0.8.5 feature)
+    - Tests for `watchByDay()`, `watchByDayRange()` - day/range-specific entries
+    - Tests for `watchSearch()` - text search reactivity
+    - Tests for `watchById()` - single entry updates and deletion
+    - All tests follow scientific format (INIT/ACTION/EXPECTED/ACTUAL/RESULT)
+
+### Technical
+- **Systematic list audit completed**: Reviewed all 34 UI files for FutureBuilder vs StreamBuilder usage
+    - 9 files correctly using StreamBuilder (AllEntriesPage, DatabasePage, RecipesPage, etc.)
+    - 1 FutureBuilder bug found and fixed (RecipesPage line 224)
+    - 1 acceptable FutureBuilder usage in dialogs (RecipeTemplateEditorDialog)
+- **Test infrastructure expanded**: `reactive_streams_test.dart` complements `reactive_entries_list_test.dart`
+    - 10 new tests covering repository watch methods across Kinds, Products, Recipes, Entries
+    - Tests verify CREATE, UPDATE, DELETE, and query-specific reactivity
+    - Comprehensive coverage ensures no regression of Database Page bug from v0.8.4
+
+---
+
 ## [0.8.4] - 2025-11-18
 ### Changed
 - **All Entries Page**: Complete redesign with filtering, sorting, and bulk operations

@@ -221,8 +221,8 @@ class _RecipeTemplateSummary extends ConsumerWidget {
       return Text(recipeId);
     }
 
-    return FutureBuilder<List<RecipeComponentDef>>(
-      future: recipesRepo.getComponents(recipeId),
+    return StreamBuilder<List<RecipeComponentDef>>(
+      stream: recipesRepo.watchComponents(recipeId),
       builder: (ctx, snapshot) {
         if (!snapshot.hasData) {
           return Text(recipeId);
