@@ -2,7 +2,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/native.dart';
-import 'package:drift/drift.dart' hide isNotNull;
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 
 import 'package:shiata/data/db/raw_db.dart';
 import 'package:shiata/data/repo/kinds_repository.dart';
