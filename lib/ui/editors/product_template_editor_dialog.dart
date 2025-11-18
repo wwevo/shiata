@@ -17,12 +17,10 @@ import '../widgets/validation_rules.dart';
 class ProductTemplateEditorDialog extends ConsumerStatefulWidget {
   const ProductTemplateEditorDialog({
     super.key,
-    required this.productId,
-    this.productName, // for new products (if not in DB yet)
+    this.existing, // null for create, non-null for edit
   });
 
-  final String productId;
-  final String? productName;
+  final ProductDef? existing;
 
   @override
   ConsumerState<ProductTemplateEditorDialog> createState() =>
@@ -33,21 +31,27 @@ class _ProductTemplateEditorDialogState
     extends ConsumerState<ProductTemplateEditorDialog> {
   // State variables
   final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _idController;
+  late final TextEditingController _nameController;
   List<ProductComponent> _components = const [];
   bool _loading = true;
   bool _saving = false;
-  String _productName = '';
   final Map<String, TextEditingController> _controllers = {};
   String? _saveError;
 
   @override
   void initState() {
     super.initState();
+    final e = widget.existing;
+    _idController = TextEditingController(text: e?.id ?? '');
+    _nameController = TextEditingController(text: e?.name ?? '');
     _load();
   }
 
   @override
   void dispose() {
+    _idController.dispose();
+    _nameController.dispose();
     for (final ctrl in _controllers.values) {
       ctrl.dispose();
     }
@@ -56,13 +60,11 @@ class _ProductTemplateEditorDialogState
 
   Future<void> _load() async {
     final repo = ref.read(productsRepositoryProvider);
-    if (repo != null) {
-      final def = await repo.getProduct(widget.productId);
-      final comps = await repo.getComponents(widget.productId);
+    if (repo != null && widget.existing != null) {
+      // Edit mode: load components for existing product
+      final comps = await repo.getComponents(widget.existing!.id);
       if (mounted) {
         setState(() {
-          // If product doesn't exist in DB, use provided name (creating new)
-          _productName = def?.name ?? widget.productName ?? widget.productId;
           _components = comps;
           _loading = false;
         });
@@ -74,6 +76,7 @@ class _ProductTemplateEditorDialogState
         }
       }
     } else {
+      // Create mode: no components to load
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -99,20 +102,24 @@ class _ProductTemplateEditorDialogState
     }
 
     try {
-      // Check if product exists in DB
-      final existing = await repo.getProduct(widget.productId);
-      if (existing == null) {
-        // Create new product first
-        final now = DateTime.now().toUtc().millisecondsSinceEpoch;
-        await repo.upsertProduct(
-          ProductDef(
-            id: widget.productId,
-            name: widget.productName ?? widget.productId,
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-      }
+      // Get id and name from controllers
+      final productId = _idController.text.trim();
+      final productName = _nameController.text.trim();
+
+      // Upsert product (create or update)
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+      final isEdit = widget.existing != null;
+      await repo.upsertProduct(
+        ProductDef(
+          id: productId,
+          name: productName,
+          createdAt: widget.existing?.createdAt ?? now,
+          updatedAt: now,
+          isActive: widget.existing?.isActive ?? true,
+          icon: widget.existing?.icon,
+          color: widget.existing?.color,
+        ),
+      );
 
       // Read values from controllers and update components
       final updatedComponents = <ProductComponent>[];
@@ -121,13 +128,13 @@ class _ProductTemplateEditorDialogState
         final amount = parseDouble(ctrl?.text) ?? 0.0;
         updatedComponents.add(
           ProductComponent(
-            productId: widget.productId,
+            productId: productId,
             kindId: c.kindId,
             amountPerGram: amount,
           ),
         );
       }
-      await repo.setComponents(widget.productId, updatedComponents);
+      await repo.setComponents(productId, updatedComponents);
 
       if (!context.mounted) return;
 
@@ -153,14 +160,18 @@ class _ProductTemplateEditorDialogState
       );
 
       if (doProp == true && svc != null) {
-        await svc.updateAllEntriesForProductToCurrentFormula(widget.productId);
+        await svc.updateAllEntriesForProductToCurrentFormula(productId);
         if (!mounted) return;
         messenger.showSnackBar(
           const SnackBar(content: Text('Updated existing entries')),
         );
       } else {
         if (!mounted) return;
-        messenger.showSnackBar(const SnackBar(content: Text('Saved template')));
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(isEdit ? 'Updated template' : 'Created template'),
+          ),
+        );
       }
 
       if (mounted) setState(() => _saving = false);
@@ -207,10 +218,11 @@ class _ProductTemplateEditorDialogState
       // Remove if already exists
       _components = [..._components.where((c) => c.kindId != picked.id)];
       // Add new component with initial value 0
+      final productId = widget.existing?.id ?? _idController.text.trim();
       _components = [
         ..._components,
         ProductComponent(
-          productId: widget.productId,
+          productId: productId,
           kindId: picked.id,
           amountPerGram: 0.0,
         ),
@@ -235,10 +247,9 @@ class _ProductTemplateEditorDialogState
 
   @override
   Widget build(BuildContext context) {
+    final isEdit = widget.existing != null;
     return AlertDialog(
-      title: Text(
-        'Edit: ${_productName.isEmpty ? widget.productId : _productName}',
-      ),
+      title: Text(isEdit ? 'Edit product' : 'Add product'),
       content: _loading
           ? const SizedBox(
               width: 500,
@@ -254,6 +265,26 @@ class _ProductTemplateEditorDialogState
                   children: [
                     // Show repository errors inline
                     if (_saveError != null) InlineError(message: _saveError!),
+                    // Id and Name fields
+                    TextFormField(
+                      controller: _idController,
+                      enabled: !isEdit,
+                      decoration: const InputDecoration(
+                        labelText: 'Id (stable, e.g., chicken_breast)',
+                      ),
+                      validator: (v) => ValidationRules.required(v, 'Id'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Name (display)',
+                      ),
+                      validator: (v) => ValidationRules.required(v, 'Name'),
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(height: 1),
+                    const SizedBox(height: 8),
                     Expanded(
                     child: _components.isEmpty
                         ? const Center(child: Text('No components yet'))

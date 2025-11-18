@@ -30,17 +30,12 @@ class RecipesPage extends ConsumerWidget {
             onPressed: repo == null
                 ? null
                 : () async {
-                    final created = await _askForIdAndName(context);
-                    if (created == null) return;
-                    if (context.mounted) {
-                      showDialog(
-                        context: context,
-                        builder: (_) => RecipeEditorDialog(
-                          recipeId: created.key,
-                          recipeName: created.value,
-                        ),
-                      );
-                    }
+                    showDialog(
+                      context: context,
+                      builder: (_) => const RecipeEditorDialog(
+                        existing: null, // Create mode
+                      ),
+                    );
                   },
             icon: const Icon(Icons.add),
           ),
@@ -97,8 +92,9 @@ class RecipesPage extends ConsumerWidget {
                               onPressed: () async {
                                 await showDialog(
                                   context: context,
-                                  builder: (_) =>
-                                      RecipeEditorDialog(recipeId: r.id),
+                                  builder: (_) => RecipeEditorDialog(
+                                    existing: r,
+                                  ),
                                 );
                               },
                             ),
@@ -156,53 +152,6 @@ class RecipesPage extends ConsumerWidget {
     messenger.showSnackBar(const SnackBar(content: Text('Recipe deleted')));
   }
 
-  Future<MapEntry<String, String>?> _askForIdAndName(
-    BuildContext context,
-  ) async {
-    final idCtrl = TextEditingController();
-    final nameCtrl = TextEditingController();
-    final ok =
-        await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('New recipe'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: idCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Id (stable, e.g., potato_salad)',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Name (display)',
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Create'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-    if (!ok) return null;
-    final id = idCtrl.text.trim();
-    final name = nameCtrl.text.trim();
-    if (id.isEmpty || name.isEmpty) return null;
-    return MapEntry(id, name);
-  }
 }
 
 /// Shows component summary for a recipe template (products + nutrients)

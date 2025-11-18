@@ -15,12 +15,10 @@ import '../widgets/validation_rules.dart';
 class RecipeEditorDialog extends ConsumerStatefulWidget {
   const RecipeEditorDialog({
     super.key,
-    required this.recipeId,
-    this.recipeName, // for new recipes (if not in DB yet)
+    this.existing, // null for create, non-null for edit
   });
 
-  final String recipeId;
-  final String? recipeName;
+  final RecipeDef? existing;
 
   @override
   ConsumerState<RecipeEditorDialog> createState() => _RecipeEditorDialogState();
@@ -29,28 +27,30 @@ class RecipeEditorDialog extends ConsumerStatefulWidget {
 class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
   // State variables
   final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _idController;
+  late final TextEditingController _nameController;
   List<RecipeComponentDef> _components = const [];
   bool _loading = true;
   bool _saving = false;
-  String _recipeName = '';
   final Map<String, TextEditingController> _controllers = {};
   String? _saveError;
 
   @override
   void initState() {
     super.initState();
+    final e = widget.existing;
+    _idController = TextEditingController(text: e?.id ?? '');
+    _nameController = TextEditingController(text: e?.name ?? '');
     _load();
   }
 
   Future<void> _load() async {
     final repo = ref.read(recipesRepositoryProvider);
-    if (repo != null) {
-      final def = await repo.getRecipe(widget.recipeId);
-      final comps = await repo.getComponents(widget.recipeId);
+    if (repo != null && widget.existing != null) {
+      // Edit mode: load components for existing recipe
+      final comps = await repo.getComponents(widget.existing!.id);
       if (mounted) {
         setState(() {
-          // If recipe doesn't exist in DB, use provided name (creating new)
-          _recipeName = def?.name ?? widget.recipeName ?? widget.recipeId;
           _components = comps;
           _loading = false;
         });
@@ -68,12 +68,15 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
         }
       }
     } else {
+      // Create mode: no components to load
       if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   void dispose() {
+    _idController.dispose();
+    _nameController.dispose();
     for (final ctrl in _controllers.values) {
       ctrl.dispose();
     }
@@ -100,20 +103,24 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
     }
 
     try {
-      // Check if recipe exists in DB
-      final existing = await repo.getRecipe(widget.recipeId);
-      if (existing == null) {
-        // Create new recipe first
-        final now = DateTime.now().toUtc().millisecondsSinceEpoch;
-        await repo.upsertRecipe(
-          RecipeDef(
-            id: widget.recipeId,
-            name: widget.recipeName ?? widget.recipeId,
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-      }
+      // Get id and name from controllers
+      final recipeId = _idController.text.trim();
+      final recipeName = _nameController.text.trim();
+
+      // Upsert recipe (create or update)
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+      final isEdit = widget.existing != null;
+      await repo.upsertRecipe(
+        RecipeDef(
+          id: recipeId,
+          name: recipeName,
+          createdAt: widget.existing?.createdAt ?? now,
+          updatedAt: now,
+          isActive: widget.existing?.isActive ?? true,
+          icon: widget.existing?.icon,
+          color: widget.existing?.color,
+        ),
+      );
 
       // Read values from controllers and update components
       final updatedComponents = <RecipeComponentDef>[];
@@ -123,7 +130,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
           final val = double.tryParse(ctrl.text.trim()) ?? c.amount ?? 0.0;
           updatedComponents.add(
             RecipeComponentDef.kind(
-              recipeId: c.recipeId,
+              recipeId: recipeId,
               compId: c.compId,
               amount: val,
             ),
@@ -133,14 +140,14 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
           final val = int.tryParse(ctrl.text.trim()) ?? c.grams ?? 0;
           updatedComponents.add(
             RecipeComponentDef.product(
-              recipeId: c.recipeId,
+              recipeId: recipeId,
               compId: c.compId,
               grams: val,
             ),
           );
         }
       }
-      await repo.setComponents(widget.recipeId, updatedComponents);
+      await repo.setComponents(recipeId, updatedComponents);
 
       if (!context.mounted) return;
 
@@ -167,7 +174,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
       );
 
       if (doProp == true && svc != null) {
-        await svc.propagateTemplateChange(widget.recipeId);
+        await svc.propagateTemplateChange(recipeId);
         if (!mounted) return;
         messenger.showSnackBar(
           const SnackBar(content: Text('Updated existing recipe instances')),
@@ -175,7 +182,9 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
       } else {
         if (!mounted) return;
         messenger.showSnackBar(
-          const SnackBar(content: Text('Saved recipe template')),
+          SnackBar(
+            content: Text(isEdit ? 'Updated template' : 'Created template'),
+          ),
         );
       }
 
@@ -249,13 +258,14 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
         if (picked != null) {
           setState(() {
             // Remove if exists, then add new
+            final recipeId = widget.existing?.id ?? _idController.text.trim();
             _components = [
               ..._components.where(
                 (c) =>
                     !(c.type == RecipeComponentType.kind && c.compId == picked),
               ),
               RecipeComponentDef.kind(
-                recipeId: widget.recipeId,
+                recipeId: recipeId,
                 compId: picked,
                 amount: 0.0,
               ),
@@ -276,6 +286,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
         if (picked != null) {
           setState(() {
             // Remove if exists, then add new
+            final recipeId = widget.existing?.id ?? _idController.text.trim();
             _components = [
               ..._components.where(
                 (c) =>
@@ -283,7 +294,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
                         c.compId == picked),
               ),
               RecipeComponentDef.product(
-                recipeId: widget.recipeId,
+                recipeId: recipeId,
                 compId: picked,
                 grams: 100,
               ),
@@ -301,11 +312,10 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
   @override
   Widget build(BuildContext context) {
     final registry = ref.watch(widgetRegistryProvider);
+    final isEdit = widget.existing != null;
 
     return AlertDialog(
-      title: Text(
-        'Edit: ${_recipeName.isEmpty ? widget.recipeId : _recipeName}',
-      ),
+      title: Text(isEdit ? 'Edit recipe' : 'Add recipe'),
       content: _loading
           ? const SizedBox(
               width: 500,
@@ -321,6 +331,26 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
                   children: [
                     // Show repository errors inline
                     if (_saveError != null) InlineError(message: _saveError!),
+                    // Id and Name fields
+                    TextFormField(
+                      controller: _idController,
+                      enabled: !isEdit,
+                      decoration: const InputDecoration(
+                        labelText: 'Id (stable, e.g., breakfast_smoothie)',
+                      ),
+                      validator: (v) => ValidationRules.required(v, 'Id'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Name (display)',
+                      ),
+                      validator: (v) => ValidationRules.required(v, 'Name'),
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(height: 1),
+                    const SizedBox(height: 8),
                     Expanded(
                     child: _components.isEmpty
                         ? const Center(child: Text('No components yet'))

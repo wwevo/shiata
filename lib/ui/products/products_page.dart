@@ -29,17 +29,12 @@ class ProductTemplatesPage extends ConsumerWidget {
             onPressed: repo == null
                 ? null
                 : () async {
-                    final created = await _askForIdAndName(context);
-                    if (created == null) return;
-                    if (context.mounted) {
-                      showDialog(
-                        context: context,
-                        builder: (_) => ProductTemplateEditorDialog(
-                          productId: created.key,
-                          productName: created.value,
-                        ),
-                      );
-                    }
+                    showDialog(
+                      context: context,
+                      builder: (_) => const ProductTemplateEditorDialog(
+                        existing: null, // Create mode
+                      ),
+                    );
                   },
             icon: const Icon(Icons.add),
           ),
@@ -97,7 +92,7 @@ class ProductTemplatesPage extends ConsumerWidget {
                                 await showDialog(
                                   context: context,
                                   builder: (_) => ProductTemplateEditorDialog(
-                                    productId: p.id,
+                                    existing: p,
                                   ),
                                 );
                               },
@@ -153,51 +148,4 @@ class ProductTemplatesPage extends ConsumerWidget {
     }
   }
 
-  Future<MapEntry<String, String>?> _askForIdAndName(
-    BuildContext context,
-  ) async {
-    final idCtrl = TextEditingController();
-    final nameCtrl = TextEditingController();
-    final ok =
-        await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('New product'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: idCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Id (stable, e.g., egg)',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Name (display)',
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Create'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-    if (!ok) return null;
-    final id = idCtrl.text.trim();
-    final name = nameCtrl.text.trim();
-    if (id.isEmpty || name.isEmpty) return null;
-    return MapEntry(id, name);
-  }
 }
