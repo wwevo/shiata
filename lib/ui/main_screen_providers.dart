@@ -45,3 +45,14 @@ final expandedProductsProvider = StateProvider<Set<String>>((_) => <String>{});
 final expandedEntriesProvider = StateProvider<Set<String>>((_) => <String>{});
 // CAS: whether the Nutrients grid is expanded (session-scoped)
 final nutrientsExpandedProvider = StateProvider<bool>((_) => false);
+
+// All Entries page filters
+enum EntrySortMode { newest, oldest }
+
+final entrySortModeProvider = StateProvider<EntrySortMode>(
+  (_) => EntrySortMode.newest,
+);
+
+// Entry type filter: empty = show all, non-empty = show only selected types
+// Valid types: 'kind' (direct nutrient entries), 'product', 'recipe'
+final entryTypeFilterProvider = StateProvider<Set<String>>((_) => <String>{});

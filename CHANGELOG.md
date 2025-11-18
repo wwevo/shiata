@@ -1,5 +1,58 @@
 # CHANGELOG.md
 
+## [0.8.4] - 2025-11-18
+### Changed
+- **All Entries Page**: Complete redesign with filtering, sorting, and bulk operations
+    - Now shows all instance entries by default (no search required)
+    - Filter chips for entry type (Nutrients/Products/Recipes)
+    - Sort modes: Newest First / Oldest First (persists across navigation)
+    - Type filters persist across navigation
+    - Checkbox selection mode with bulk delete
+    - Scroll position restoration when navigating away and back
+    - Bulk delete with confirmation dialog showing breakdown by type
+    - Undo support for bulk deletions
+    - Search integration: filters work alongside search query
+    - Uses new `watchAllInstanceEntries()` repository method
+
+### Added
+- **EntriesRepository**: `watchAllInstanceEntries()` method for efficiently watching all top-level instances
+- **Filter state providers**: `entrySortModeProvider`, `entryTypeFilterProvider` for reusable filtering
+- **Entry sort modes**: Newest/Oldest sort options (enum `EntrySortMode`)
+
+### Technical
+- All Entries Page now ConsumerStatefulWidget for scroll and selection state
+- Filter logic consolidated: Type → Search → Sort pipeline
+- FilterChip and ChoiceChip patterns following WeeklyOverviewPanel design
+- Bulk delete follows DatabasePage patterns (no FAB, regular button with conditional visibility)
+
+---
+
+## [0.8.3] - 2025-11-17
+### Added
+- **Checkbox mode for entry lists**: EntryListItemFactory now supports selection mode
+    - New `EntryDisplayMode.checkbox` enum value
+    - `selectedIds` parameter for tracking selection
+    - `onSelectionChanged` callback for selection updates
+    - Used in Database page for fine-grained export selection
+
+### Changed
+- **Database page**: Enhanced export capabilities
+    - Fine-grained export: select specific kinds, products, recipes, and entries
+    - "Select All / Deselect All" buttons for each category
+    - Auto-dependency selection: selecting entries automatically includes referenced kinds/products/recipes
+    - Export summary shows counts by category
+
+### Fixed
+- Export service now correctly handles fine-grained exports with dependency resolution
+- Database page entry list now uses checkbox mode from EntryListItemFactory
+
+### Technical
+- Automatic code reformatting across all files for consistency
+- Added tests for import/export operations
+- ImportExportService enhanced with `exportSelected()` method
+
+---
+
 ## [0.8.2] - 2025-11-17
 ### Added
 - **Recursive entry list item factory**: Universal solution for consistent, nestable list items

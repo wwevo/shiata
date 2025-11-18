@@ -395,4 +395,24 @@ class EntriesRepository {
       yield await query();
     }
   }
+
+  /// Watch all instance entries (top-level only, excludes children and templates).
+  /// Returns entries sorted by targetAt descending (newest first).
+  /// This is used for the All Entries page to show all calendar instances.
+  Stream<List<EntryRecord>> watchAllInstanceEntries() async* {
+    Future<List<EntryRecord>> query() async {
+      final rows = await db
+          .customSelect(
+            'SELECT * FROM entries WHERE source_entry_id IS NULL ORDER BY target_at DESC;',
+            readsFrom: const {},
+          )
+          .get();
+      return rows.map((r) => EntryRecord.fromDb(r.data)).toList();
+    }
+
+    yield await query();
+    await for (final _ in _changes.stream) {
+      yield await query();
+    }
+  }
 }
