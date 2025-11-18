@@ -99,6 +99,24 @@
 - ❌ Create "improved" versions of existing code
 - ❌ Make up API signatures
 
+**CRITICAL: Before calling ANY method, VERIFY it exists**:
+```bash
+# ❌ BAD: Assume dispose() exists
+entries.dispose()  # Might not exist!
+
+# ✅ GOOD: Check first
+grep -n "dispose" lib/data/repo/entries_repository.dart
+# → No results found
+
+# → STOP and ASK: "EntriesRepository has no dispose() method. Should I add it?"
+```
+
+**If a method/feature is missing**:
+1. STOP immediately
+2. ASK the user whether to add it
+3. Do NOT silently add it without discussion
+4. Do NOT assume "it probably exists like in other repos"
+
 **Example**:
 - Task: "Add a delete button to the recipe list"
 - ✅ Read how delete buttons work on OTHER lists first

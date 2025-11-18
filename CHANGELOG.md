@@ -13,29 +13,28 @@
     - Automatically updates when components are added/removed/modified
     - Use this instead of `getComponents()` in UI widgets for automatic refresh
     - Pattern documented in method docstring following established conventions
+- **EntriesRepository**: `dispose()` method - closes stream controller for proper cleanup
+    - Matches pattern from other repositories (Kinds, Products, Recipes)
 - **Comprehensive documentation**: New "Reactive UI Patterns" section in CLAUDE.md
     - StreamBuilder vs FutureBuilder: when to use each, critical bug patterns
     - The Reactive List Pattern: repository patterns, hierarchical lists with expand support
     - Available watch methods catalog for all repositories
     - Audit checklist for reviewing list implementations
     - Migration guide for fixing FutureBuilder bugs
-- **Test coverage**: New `reactive_streams_test.dart` with 10 comprehensive tests
-    - Tests for `watchKinds()`, `watchProducts()`, `watchRecipes()` - CREATE/UPDATE/DELETE reactivity
-    - Tests for `watchComponents(recipeId)` - component changes reactivity (v0.8.5 feature)
-    - Tests for `watchByDay()`, `watchByDayRange()` - day/range-specific entries
-    - Tests for `watchSearch()` - text search reactivity
-    - Tests for `watchById()` - single entry updates and deletion
-    - All tests follow scientific format (INIT/ACTION/EXPECTED/ACTUAL/RESULT)
+- **CLAUDE.md Rule 4 enhanced**: "NEVER INVENT - ALWAYS READ FIRST"
+    - Added explicit check before calling ANY method
+    - Mandatory STOP and ASK if method/feature is missing
+    - Example showing proper verification workflow
 
 ### Technical
 - **Systematic list audit completed**: Reviewed all 34 UI files for FutureBuilder vs StreamBuilder usage
     - 9 files correctly using StreamBuilder (AllEntriesPage, DatabasePage, RecipesPage, etc.)
     - 1 FutureBuilder bug found and fixed (RecipesPage line 224)
     - 1 acceptable FutureBuilder usage in dialogs (RecipeTemplateEditorDialog)
-- **Test infrastructure expanded**: `reactive_streams_test.dart` complements `reactive_entries_list_test.dart`
-    - 10 new tests covering repository watch methods across Kinds, Products, Recipes, Entries
-    - Tests verify CREATE, UPDATE, DELETE, and query-specific reactivity
-    - Comprehensive coverage ensures no regression of Database Page bug from v0.8.4
+- **Reactive pattern validated**: Existing `reactive_entries_list_test.dart` proves the pattern works
+    - 6 comprehensive tests covering CREATE/UPDATE/DELETE reactivity with hierarchies
+    - Tests use explicit delays to avoid race conditions
+    - Pattern is safe in real UI due to Flutter's event loop timing
 
 ---
 
