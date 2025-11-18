@@ -114,22 +114,9 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
             entries.sort((a, b) => b.targetAt.compareTo(a.targetAt));
           }
 
-          if (entries.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  _buildEmptyMessage(searchQuery, typeFilter),
-                  style: theme.textTheme.bodyMedium,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-
           return Column(
             children: [
-              // Filter chips
+              // Filter chips (ALWAYS visible)
               Container(
                 color: theme.colorScheme.surfaceContainerHighest.withValues(
                   alpha: 0.3,
@@ -186,14 +173,13 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
                                   newSet;
                             },
                           ),
-                          // Clear type filters button
-                          if (typeFilter.isNotEmpty)
+                          // Clear type filters button (always visible if any filter active)
+                          if (typeFilter.isNotEmpty || searchQuery.trim().isNotEmpty)
                             ActionChip(
-                              label: const Text('Clear Filters'),
+                              label: const Text('Clear All'),
                               onPressed: () {
-                                ref
-                                    .read(entryTypeFilterProvider.notifier)
-                                    .state = {};
+                                ref.read(entryTypeFilterProvider.notifier).state = {};
+                                ref.read(searchQueryProvider.notifier).state = '';
                               },
                             ),
                         ],
@@ -234,7 +220,7 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
                   ],
                 ),
               ),
-              // Bulk actions bar
+              // Bulk actions bar (only when selections exist)
               if (_selectedEntries.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -266,34 +252,45 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
                     ],
                   ),
                 ),
-              // Entry list
+              // Entry list OR empty message
               Expanded(
-                child: ListView.builder(
-                  controller: _scrollController,
-                  itemCount: entries.length,
-                  itemBuilder: (ctx, index) {
-                    final entry = entries[index];
-                    return EntryListItemFactory.buildEntry(
-                      context: context,
-                      ref: ref,
-                      entry: entry,
-                      childrenByParent: childrenByParent,
-                      registry: registry,
-                      config: EntryListItemConfig.fullDateTime,
-                      displayMode: EntryDisplayMode.checkbox,
-                      selectedIds: _selectedEntries,
-                      onSelectionChanged: (entryId, selected) {
-                        setState(() {
-                          if (selected) {
-                            _selectedEntries.add(entryId);
-                          } else {
-                            _selectedEntries.remove(entryId);
-                          }
-                        });
-                      },
-                    );
-                  },
-                ),
+                child: entries.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            _buildEmptyMessage(searchQuery, typeFilter),
+                            style: theme.textTheme.bodyMedium,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        itemCount: entries.length,
+                        itemBuilder: (ctx, index) {
+                          final entry = entries[index];
+                          return EntryListItemFactory.buildEntry(
+                            context: context,
+                            ref: ref,
+                            entry: entry,
+                            childrenByParent: childrenByParent,
+                            registry: registry,
+                            config: EntryListItemConfig.fullDateTime,
+                            displayMode: EntryDisplayMode.checkbox,
+                            selectedIds: _selectedEntries,
+                            onSelectionChanged: (entryId, selected) {
+                              setState(() {
+                                if (selected) {
+                                  _selectedEntries.add(entryId);
+                                } else {
+                                  _selectedEntries.remove(entryId);
+                                }
+                              });
+                            },
+                          );
+                        },
+                      ),
               ),
             ],
           );
