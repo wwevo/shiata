@@ -39,7 +39,6 @@ class RecipeService {
       targetAtLocal: targetAtLocal,
       payload: {'recipe_id': recipeId, 'name': def.name},
       showInCalendar: showParentInCalendar,
-      schemaVersion: 1,
       recipeId: recipeId,
       isStatic: isStatic,
     );
@@ -53,7 +52,6 @@ class RecipeService {
           targetAtLocal: targetAtLocal,
           payload: {'amount': amount},
           showInCalendar: false,
-          schemaVersion: 1,
           sourceEntryId: parent.id,
           sourceWidgetKind: 'recipe',
         );
@@ -132,7 +130,6 @@ class RecipeService {
           targetAtLocal: targetAtLocal,
           payload: {'amount': amount},
           showInCalendar: false,
-          schemaVersion: 1,
           sourceEntryId: parentEntryId,
           sourceWidgetKind: 'recipe',
         );

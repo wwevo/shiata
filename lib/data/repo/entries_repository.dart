@@ -14,9 +14,7 @@ class EntryRecord {
     required this.targetAt,
     required this.showInCalendar,
     required this.payloadJson,
-    required this.schemaVersion,
     required this.updatedAt,
-    this.sourceEventId,
     this.sourceEntryId,
     this.sourceWidgetKind,
     this.productId,
@@ -31,9 +29,7 @@ class EntryRecord {
   final int targetAt; // UTC millis
   final bool showInCalendar;
   final String payloadJson;
-  final int schemaVersion;
   final int updatedAt; // UTC millis
-  final String? sourceEventId;
   final String? sourceEntryId;
   final String? sourceWidgetKind;
   final String? productId;
@@ -48,9 +44,7 @@ class EntryRecord {
     'target_at': targetAt,
     'show_in_calendar': showInCalendar ? 1 : 0,
     'payload_json': payloadJson,
-    'schema_version': schemaVersion,
     'updated_at': updatedAt,
-    'source_event_id': sourceEventId,
     'source_entry_id': sourceEntryId,
     'source_widget_kind': sourceWidgetKind,
     'product_id': productId,
@@ -67,9 +61,7 @@ class EntryRecord {
       targetAt: row['target_at'] as int,
       showInCalendar: (row['show_in_calendar'] as int) != 0,
       payloadJson: row['payload_json'] as String,
-      schemaVersion: row['schema_version'] as int,
       updatedAt: row['updated_at'] as int,
-      sourceEventId: row['source_event_id'] as String?,
       sourceEntryId: row['source_entry_id'] as String?,
       sourceWidgetKind: row['source_widget_kind'] as String?,
       productId: row['product_id'] as String?,
@@ -148,8 +140,6 @@ class EntriesRepository {
     required DateTime targetAtLocal,
     required Map<String, Object?> payload,
     bool showInCalendar = true,
-    int schemaVersion = 1,
-    String? sourceEventId,
     String? sourceEntryId,
     String? sourceWidgetKind,
     String? productId,
@@ -197,9 +187,7 @@ class EntriesRepository {
       targetAt: targetUtc,
       showInCalendar: showInCalendar,
       payloadJson: jsonEncode(payload),
-      schemaVersion: schemaVersion,
       updatedAt: nowUtc,
-      sourceEventId: sourceEventId,
       sourceEntryId: sourceEntryId,
       sourceWidgetKind: sourceWidgetKind,
       productId: productId,

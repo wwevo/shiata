@@ -34,7 +34,6 @@ class ProductService {
         'grams': productGrams,
       },
       showInCalendar: true,
-      schemaVersion: 1,
       productId: productId,
       productGrams: productGrams,
       isStatic: isStatic,
@@ -49,7 +48,6 @@ class ProductService {
         targetAtLocal: targetAtLocal,
         payload: {'amount': amount},
         showInCalendar: false,
-        schemaVersion: 1,
         sourceEntryId: parent.id,
         sourceWidgetKind: 'product',
       );
@@ -93,7 +91,6 @@ class ProductService {
         ).toLocal(),
         payload: {'amount': amount},
         showInCalendar: false,
-        schemaVersion: 1,
         sourceEntryId: parentEntryId,
         sourceWidgetKind: 'product',
       );
@@ -156,7 +153,6 @@ class ProductService {
           ).toLocal(),
           payload: {'amount': amount},
           showInCalendar: false,
-          schemaVersion: 1,
           sourceEntryId: parent.id,
           sourceWidgetKind: 'product',
         );

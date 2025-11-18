@@ -128,7 +128,6 @@ class _InstanceComponentsEditorDialogState
         ).toLocal(),
         payload: {'amount': val, 'unit': kind.unit},
         showInCalendar: false,
-        schemaVersion: 1,
         sourceEntryId: widget.parentEntryId,
       );
     }

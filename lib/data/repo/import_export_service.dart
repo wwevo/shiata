@@ -419,11 +419,7 @@ class ImportExportService {
       targetAt: asInt(raw['target_at']),
       showInCalendar: asBool(raw['show_in_calendar']),
       payloadJson: (raw['payload_json'] ?? '{}').toString(),
-      schemaVersion: asInt(raw['schema_version']),
       updatedAt: asInt(raw['updated_at']),
-      sourceEventId:
-          (raw['source_event_id'] as String?) ??
-          (raw['sourceEventId'] as String?),
       sourceEntryId:
           (raw['source_entry_id'] as String?) ??
           (raw['sourceEntryId'] as String?),
@@ -433,6 +429,7 @@ class ImportExportService {
       productId:
           (raw['product_id'] as String?) ?? (raw['productId'] as String?),
       productGrams: _asInt(raw['product_grams']),
+      recipeId: (raw['recipe_id'] as String?) ?? (raw['recipeId'] as String?),
       isStatic: asBool(raw['is_static']),
     );
   }

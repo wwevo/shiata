@@ -45,9 +45,7 @@ class AppDb extends GeneratedDatabase {
         target_at INTEGER NOT NULL,
         show_in_calendar INTEGER NOT NULL DEFAULT 1,
         payload_json TEXT NOT NULL,
-        schema_version INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
-        source_event_id TEXT NULL,
         source_entry_id TEXT NULL,
         source_widget_kind TEXT NULL
       );
@@ -76,6 +74,19 @@ class AppDb extends GeneratedDatabase {
     if (!colNames.contains('recipe_id')) {
       await customStatement(
         'ALTER TABLE entries ADD COLUMN recipe_id TEXT NULL;',
+      );
+    }
+
+    // v0.8.9: Remove unused columns (if they exist)
+    // Note: ALTER TABLE DROP COLUMN requires SQLite 3.35+ (2021)
+    if (colNames.contains('source_event_id')) {
+      await customStatement(
+        'ALTER TABLE entries DROP COLUMN source_event_id;',
+      );
+    }
+    if (colNames.contains('schema_version')) {
+      await customStatement(
+        'ALTER TABLE entries DROP COLUMN schema_version;',
       );
     }
 

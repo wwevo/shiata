@@ -57,7 +57,6 @@ class RecipeHierarchyService {
               targetAtLocal: targetAt,
               payload: {'amount': amount},
               showInCalendar: false,
-              schemaVersion: 1,
               sourceEntryId: instance.id,
               sourceWidgetKind: 'recipe',
             );

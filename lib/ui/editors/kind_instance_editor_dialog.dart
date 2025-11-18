@@ -143,7 +143,6 @@ class _KindInstanceEditorDialogState
           targetAtLocal: _targetAt,
           payload: {'amount': amountToStore, 'unit': widget.kind.unit},
           showInCalendar: _showInCalendar,
-          schemaVersion: 1,
         );
         if (!mounted) return;
         messenger.showSnackBar(
