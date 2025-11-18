@@ -29,6 +29,7 @@ void main() {
 
     setUp(() async {
       db = AppDb(NativeDatabase.memory());
+      await db.ensureInitialized();
       kinds = KindsRepository(db: db);
       products = ProductsRepository(db: db);
       recipes = RecipesRepository(db: db);
@@ -40,7 +41,6 @@ void main() {
       products.dispose();
       recipes.dispose();
       entries.dispose();
-      await db.close();
     });
 
     test('KIND: Creating kind with min > max (nonsensical constraint)', () async {
@@ -265,6 +265,7 @@ void main() {
 
     setUp(() async {
       db = AppDb(NativeDatabase.memory());
+      await db.ensureInitialized();
       kinds = KindsRepository(db: db);
       entries = EntriesRepository(db: db);
     });
@@ -272,7 +273,6 @@ void main() {
     tearDown(() async {
       kinds.dispose();
       entries.dispose();
-      await db.close();
     });
 
     test('ENTRY: Date 100 years in future is accepted (potential user error)', () async {
@@ -344,6 +344,7 @@ void main() {
 
     setUp(() async {
       db = AppDb(NativeDatabase.memory());
+      await db.ensureInitialized();
       kinds = KindsRepository(db: db);
       products = ProductsRepository(db: db);
       entries = EntriesRepository(db: db);
@@ -353,7 +354,6 @@ void main() {
       kinds.dispose();
       products.dispose();
       entries.dispose();
-      await db.close();
     });
 
     test('CONSTRAINT: Deleting kind with existing entries (foreign key violation)', () async {
@@ -501,12 +501,12 @@ void main() {
 
     setUp(() async {
       db = AppDb(NativeDatabase.memory());
+      await db.ensureInitialized();
       entries = EntriesRepository(db: db);
     });
 
     tearDown(() async {
       entries.dispose();
-      await db.close();
     });
 
     test('UI: Empty search results allows recovery (v0.8.4 regression test)', () async {
