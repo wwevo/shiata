@@ -23,8 +23,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
-import '../../data/repo/product_service.dart';
-import '../../data/repo/recipe_service.dart';
 import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
