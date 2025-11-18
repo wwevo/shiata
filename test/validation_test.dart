@@ -29,7 +29,6 @@ void main() {
 
     setUp(() async {
       db = AppDb(NativeDatabase.memory());
-      await db.ensureInitialized();
       kinds = KindsRepository(db: db);
       products = ProductsRepository(db: db);
       recipes = RecipesRepository(db: db);
@@ -266,7 +265,6 @@ void main() {
 
     setUp(() async {
       db = AppDb(NativeDatabase.memory());
-      await db.ensureInitialized();
       kinds = KindsRepository(db: db);
       entries = EntriesRepository(db: db);
     });
@@ -346,7 +344,6 @@ void main() {
 
     setUp(() async {
       db = AppDb(NativeDatabase.memory());
-      await db.ensureInitialized();
       kinds = KindsRepository(db: db);
       products = ProductsRepository(db: db);
       entries = EntriesRepository(db: db);
@@ -504,7 +501,6 @@ void main() {
 
     setUp(() async {
       db = AppDb(NativeDatabase.memory());
-      await db.ensureInitialized();
       entries = EntriesRepository(db: db);
     });
 
