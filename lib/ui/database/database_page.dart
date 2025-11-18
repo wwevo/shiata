@@ -519,7 +519,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                           if (selected) {
                             _selectedEntries.add(entryId);
                             // Auto-select dependencies
-                            final entry = entries.firstWhere(
+                            final entry = allEntries.firstWhere(
                               (e) => e.id == entryId,
                             );
                             _autoSelectDependencies(entry);
