@@ -446,6 +446,12 @@ flutter test test/propagation_test.dart  # Run specific test file
 flutter test                              # Run all tests
 ```
 
+**⚠️ IMPORTANT - Development Environment:**
+- Flutter is **NOT available** in the Claude Code web environment
+- All `flutter test` and `flutter analyze` commands must be run **locally by the user**
+- When committing code: Note in commit message if tests need to be run manually
+- Always document what tests should pass and why
+
 ---
 
 ## 🎨 Code Quality & Linter Best Practices
