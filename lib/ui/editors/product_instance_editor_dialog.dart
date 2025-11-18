@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/product_service.dart';
 import '../widgets/editor_dialog_actions.dart';
+import '../widgets/inline_error.dart';
 
 class ProductEditorDialog extends ConsumerStatefulWidget {
   const ProductEditorDialog({
@@ -39,6 +40,7 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
   bool _loading = false;
   String? _productId;
   String? _productName;
+  String? _saveError;
 
   @override
   void initState() {
@@ -149,16 +151,22 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
   }
 
   Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
+    // Clear previous errors
+    setState(() => _saveError = null);
+
+    // UI validation first
     if (!_formKey.currentState!.validate()) return;
+
     final grams = int.tryParse(_gramsController.text) ?? widget.defaultGrams;
     final service = ref.read(productServiceProvider);
-    if (service == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Service not ready')));
-      return;
-    }
+    if (service == null) return;
+
     setState(() => _saving = true);
+
+    // Capture context-dependent objects before async gap
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     try {
       if (widget.entryId != null) {
         // Edit existing parent: update grams/static and recompute children
@@ -167,19 +175,22 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
           productGrams: grams,
           isStatic: _isStatic,
         );
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (!mounted) return;
+        messenger.showSnackBar(
           SnackBar(
             content: Text('Updated ${_productName ?? 'Product'} • $grams g'),
           ),
         );
-        if (closeAfter) Navigator.of(context).pop();
+        if (closeAfter && mounted) navigator.pop();
       } else {
         // Create new parent+children
         if (_productId == null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('No product selected')));
+          if (mounted) {
+            setState(() {
+              _saveError = 'No product selected';
+              _saving = false;
+            });
+          }
           return;
         }
         final id = await service.createProductEntry(
@@ -188,28 +199,49 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
           targetAtLocal: _targetAt,
           isStatic: _isStatic,
         );
-        if (!context.mounted) return;
+        if (!mounted) return;
         if (id == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Product not defined yet')),
-          );
+          if (mounted) {
+            setState(() {
+              _saveError = 'Product not defined yet';
+              _saving = false;
+            });
+          }
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
+          messenger.showSnackBar(
             SnackBar(
               content: Text('Added ${_productName ?? 'Product'} • $grams g'),
             ),
           );
-          if (closeAfter) Navigator.of(context).pop();
+          if (closeAfter && mounted) navigator.pop();
         }
       }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
-      }
-    } finally {
       if (mounted) setState(() => _saving = false);
+    } on ArgumentError catch (e) {
+      // User input error - show inline
+      if (mounted) {
+        setState(() {
+          _saveError = e.message;
+          _saving = false;
+        });
+      }
+    } on StateError catch (e) {
+      // Constraint violation - show inline
+      if (mounted) {
+        setState(() {
+          _saveError = e.message;
+          _saving = false;
+        });
+      }
+    } catch (e) {
+      // Unexpected error - debug only
+      debugPrint('Unexpected error in save: $e');
+      if (mounted) {
+        setState(() {
+          _saveError = 'An unexpected error occurred';
+          _saving = false;
+        });
+      }
     }
   }
 
@@ -239,6 +271,8 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Show repository errors inline
+                      if (_saveError != null) InlineError(message: _saveError!),
                       Text(
                         'Amount (grams)',
                         style: theme.textTheme.titleMedium,

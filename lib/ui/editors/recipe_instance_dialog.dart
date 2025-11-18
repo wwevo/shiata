@@ -8,6 +8,8 @@ import '../../data/repo/recipe_service.dart';
 import '../../domain/widgets/registry.dart';
 import '../../utils/formatters.dart';
 import '../widgets/editor_dialog_actions.dart';
+import '../widgets/inline_error.dart';
+import '../widgets/validation_rules.dart';
 
 class RecipeInstantiateDialog extends ConsumerStatefulWidget {
   const RecipeInstantiateDialog({
@@ -28,6 +30,7 @@ class RecipeInstantiateDialog extends ConsumerStatefulWidget {
 class RecipeInstantiateDialogState
     extends ConsumerState<RecipeInstantiateDialog> {
   // State variables
+  final _formKey = GlobalKey<FormState>();
   String? _recipeId;
   String _recipeName = '';
   DateTime _targetAt = DateTime.now();
@@ -36,6 +39,7 @@ class RecipeInstantiateDialogState
   List<dynamic> _components = const [];
   final Map<String, TextEditingController> _kindCtrls = {};
   final Map<String, TextEditingController> _productCtrls = {};
+  String? _saveError;
 
   @override
   void initState() {
@@ -250,6 +254,12 @@ class RecipeInstantiateDialogState
   }
 
   Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
+    // Clear previous errors
+    setState(() => _saveError = null);
+
+    // UI validation first
+    if (!_formKey.currentState!.validate()) return;
+
     final svc = ref.read(recipeServiceProvider);
     if (svc == null) return;
 
@@ -268,55 +278,66 @@ class RecipeInstantiateDialogState
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
 
-    if (widget.entryId != null) {
-      // Edit existing recipe instance
-      await svc.updateRecipeInstance(
-        parentEntryId: widget.entryId!,
-        targetAtLocal: _targetAt,
-        kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
-        productGramOverrides: productOverrides.isEmpty
-            ? null
-            : productOverrides,
-        isStatic: _isStatic,
-      );
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Updated ${_recipeName.isEmpty ? 'Recipe' : _recipeName}',
-          ),
-        ),
-      );
-    } else {
-      // Create new recipe instance
-      if (_recipeId == null) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('No recipe selected')),
-        );
-        return;
-      }
-      await svc.createRecipeEntry(
-        recipeId: _recipeId!,
-        targetAtLocal: _targetAt,
-        kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
-        productGramOverrides: productOverrides.isEmpty
-            ? null
-            : productOverrides,
-        showParentInCalendar: true,
-        isStatic: _isStatic,
-      );
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Added ${_recipeName.isEmpty ? 'Recipe' : _recipeName}',
-          ),
-        ),
-      );
-    }
+    try {
 
-    if (closeAfter && mounted) {
-      navigator.pop();
+      if (widget.entryId != null) {
+        // Edit existing recipe instance
+        await svc.updateRecipeInstance(
+          parentEntryId: widget.entryId!,
+          targetAtLocal: _targetAt,
+          kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
+          productGramOverrides: productOverrides.isEmpty
+              ? null
+              : productOverrides,
+          isStatic: _isStatic,
+        );
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Updated ${_recipeName.isEmpty ? 'Recipe' : _recipeName}',
+            ),
+          ),
+        );
+      } else {
+        // Create new recipe instance
+        if (_recipeId == null) {
+          if (mounted) setState(() => _saveError = 'No recipe selected');
+          return;
+        }
+        await svc.createRecipeEntry(
+          recipeId: _recipeId!,
+          targetAtLocal: _targetAt,
+          kindOverrides: kindOverrides.isEmpty ? null : kindOverrides,
+          productGramOverrides: productOverrides.isEmpty
+              ? null
+              : productOverrides,
+          showParentInCalendar: true,
+          isStatic: _isStatic,
+        );
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Added ${_recipeName.isEmpty ? 'Recipe' : _recipeName}',
+            ),
+          ),
+        );
+      }
+
+      if (closeAfter && mounted) {
+        navigator.pop();
+      }
+    } on ArgumentError catch (e) {
+      // User input error - show inline
+      if (mounted) setState(() => _saveError = e.message);
+    } on StateError catch (e) {
+      // Constraint violation - show inline
+      if (mounted) setState(() => _saveError = e.message);
+    } catch (e) {
+      // Unexpected error - debug only
+      debugPrint('Unexpected error in save: $e');
+      if (mounted) setState(() => _saveError = 'An unexpected error occurred');
     }
   }
 
@@ -339,11 +360,15 @@ class RecipeInstantiateDialogState
           : SizedBox(
               width: 520,
               child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    OutlinedButton.icon(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Show repository errors inline
+                      if (_saveError != null) InlineError(message: _saveError!),
+                      OutlinedButton.icon(
                       onPressed: () => _pickDateTime(context),
                       icon: const Icon(Icons.schedule),
                       label: Text('${_targetAt.toLocal()}'),
@@ -369,7 +394,7 @@ class RecipeInstantiateDialogState
                               final k = registry.byId(c.compId);
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
-                                child: TextField(
+                                child: TextFormField(
                                   controller: _kindCtrls[c.compId],
                                   keyboardType:
                                       const TextInputType.numberWithOptions(
@@ -380,24 +405,27 @@ class RecipeInstantiateDialogState
                                     labelText:
                                         '${k?.displayName ?? c.compId} (${k?.unit ?? ''})',
                                   ),
+                                  validator: ValidationRules.nonNegativeAmount,
                                 ),
                               );
                             } else {
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
-                                child: TextField(
+                                child: TextFormField(
                                   controller: _productCtrls[c.compId],
                                   keyboardType: TextInputType.number,
                                   decoration: InputDecoration(
                                     labelText: 'Product: ${c.compId} (grams)',
                                   ),
+                                  validator: ValidationRules.positiveGrams,
                                 ),
                               );
                             }
                           },
                         ),
                     ],
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

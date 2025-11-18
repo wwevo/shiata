@@ -9,6 +9,8 @@ import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
 import '../widgets/editor_dialog_actions.dart';
+import '../widgets/inline_error.dart';
+import '../widgets/validation_rules.dart';
 
 class RecipeEditorDialog extends ConsumerStatefulWidget {
   const RecipeEditorDialog({
@@ -26,11 +28,13 @@ class RecipeEditorDialog extends ConsumerStatefulWidget {
 
 class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
   // State variables
+  final _formKey = GlobalKey<FormState>();
   List<RecipeComponentDef> _components = const [];
   bool _loading = true;
   bool _saving = false;
   String _recipeName = '';
   final Map<String, TextEditingController> _controllers = {};
+  String? _saveError;
 
   @override
   void initState() {
@@ -77,6 +81,12 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
   }
 
   Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
+    // Clear previous errors
+    setState(() => _saveError = null);
+
+    // UI validation first
+    if (!_formKey.currentState!.validate()) return;
+
     setState(() => _saving = true);
 
     // Capture context-dependent objects BEFORE any async operations
@@ -89,106 +99,115 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
       return;
     }
 
-    // Check if recipe exists in DB
-    final existing = await repo.getRecipe(widget.recipeId);
-    if (existing == null) {
-      // Create new recipe first
-      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
-      await repo.upsertRecipe(
-        RecipeDef(
-          id: widget.recipeId,
-          name: widget.recipeName ?? widget.recipeId,
-          createdAt: now,
-          updatedAt: now,
-        ),
-      );
-    }
-
-    // Read values from controllers and update components
-    final updatedComponents = <RecipeComponentDef>[];
-    for (final c in _components) {
-      if (c.type == RecipeComponentType.kind) {
-        final ctrl = _controllers['kind_${c.compId}']!;
-        final val = double.tryParse(ctrl.text.trim()) ?? c.amount ?? 0.0;
-        updatedComponents.add(
-          RecipeComponentDef.kind(
-            recipeId: c.recipeId,
-            compId: c.compId,
-            amount: val,
-          ),
-        );
-      } else {
-        final ctrl = _controllers['product_${c.compId}']!;
-        final val = int.tryParse(ctrl.text.trim()) ?? c.grams ?? 0;
-        updatedComponents.add(
-          RecipeComponentDef.product(
-            recipeId: c.recipeId,
-            compId: c.compId,
-            grams: val,
+    try {
+      // Check if recipe exists in DB
+      final existing = await repo.getRecipe(widget.recipeId);
+      if (existing == null) {
+        // Create new recipe first
+        final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+        await repo.upsertRecipe(
+          RecipeDef(
+            id: widget.recipeId,
+            name: widget.recipeName ?? widget.recipeId,
+            createdAt: now,
+            updatedAt: now,
           ),
         );
       }
-    }
-    // Capture old components for Undo
-    final old = await repo.getComponents(widget.recipeId);
-    await repo.setComponents(widget.recipeId, updatedComponents);
-    if (!context.mounted) return;
 
-    // Ask to propagate to non-static instances
-    final svc = ref.read(recipeHierarchyServiceProvider);
-    final doProp = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Update existing entries?'),
-        content: const Text(
-          'Apply these changes to all non-static recipe instances?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('No'),
+      // Read values from controllers and update components
+      final updatedComponents = <RecipeComponentDef>[];
+      for (final c in _components) {
+        if (c.type == RecipeComponentType.kind) {
+          final ctrl = _controllers['kind_${c.compId}']!;
+          final val = double.tryParse(ctrl.text.trim()) ?? c.amount ?? 0.0;
+          updatedComponents.add(
+            RecipeComponentDef.kind(
+              recipeId: c.recipeId,
+              compId: c.compId,
+              amount: val,
+            ),
+          );
+        } else {
+          final ctrl = _controllers['product_${c.compId}']!;
+          final val = int.tryParse(ctrl.text.trim()) ?? c.grams ?? 0;
+          updatedComponents.add(
+            RecipeComponentDef.product(
+              recipeId: c.recipeId,
+              compId: c.compId,
+              grams: val,
+            ),
+          );
+        }
+      }
+      await repo.setComponents(widget.recipeId, updatedComponents);
+
+      if (!context.mounted) return;
+
+      // Ask to propagate to non-static instances
+      final svc = ref.read(recipeHierarchyServiceProvider);
+      final doProp = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Confirm propagation'),
+          content: const Text(
+            'Apply these changes to all non-static recipe instances?',
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Yes'),
-          ),
-        ],
-      ),
-    );
-    if (doProp == true && svc != null) {
-      await svc.propagateTemplateChange(widget.recipeId);
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Updated existing recipe instances'),
-          action: SnackBarAction(
-            label: 'UNDO',
-            onPressed: () async {
-              // Capture messenger before any awaits to avoid using context across async gaps
-              final undoMessenger = ScaffoldMessenger.of(context);
-              // Restore old components and re-propagate
-              await repo.setComponents(widget.recipeId, old);
-              if (!mounted) return;
-              await svc.propagateTemplateChange(widget.recipeId);
-              if (!mounted) return;
-              await _load();
-              if (!mounted) return;
-              undoMessenger.showSnackBar(
-                const SnackBar(content: Text('Reverted template changes')),
-              );
-            },
-          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Yes, update'),
+            ),
+          ],
         ),
       );
-    } else {
-      if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Saved recipe template')),
-      );
-    }
-    if (mounted) setState(() => _saving = false);
-    if (closeAfter && mounted) {
-      navigator.pop();
+
+      if (doProp == true && svc != null) {
+        await svc.propagateTemplateChange(widget.recipeId);
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Updated existing recipe instances')),
+        );
+      } else {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Saved recipe template')),
+        );
+      }
+
+      if (mounted) setState(() => _saving = false);
+      if (closeAfter && mounted) {
+        navigator.pop();
+      }
+    } on ArgumentError catch (e) {
+      // User input error - show inline
+      if (mounted) {
+        setState(() {
+          _saveError = e.message;
+          _saving = false;
+        });
+      }
+    } on StateError catch (e) {
+      // Constraint violation - show inline
+      if (mounted) {
+        setState(() {
+          _saveError = e.message;
+          _saving = false;
+        });
+      }
+    } catch (e) {
+      // Unexpected error - debug only
+      debugPrint('Unexpected error in save: $e');
+      if (mounted) {
+        setState(() {
+          _saveError = 'An unexpected error occurred';
+          _saving = false;
+        });
+      }
     }
   }
 
@@ -296,9 +315,13 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
           : SizedBox(
               width: 500,
               height: 400,
-              child: Column(
-                children: [
-                  Expanded(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    // Show repository errors inline
+                    if (_saveError != null) InlineError(message: _saveError!),
+                    Expanded(
                     child: _components.isEmpty
                         ? const Center(child: Text('No components yet'))
                         : ListView.separated(
@@ -328,7 +351,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
                                     children: [
                                       SizedBox(
                                         width: 100,
-                                        child: TextField(
+                                        child: TextFormField(
                                           controller: ctrl,
                                           keyboardType:
                                               const TextInputType.numberWithOptions(
@@ -338,6 +361,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
                                             hintText: '0',
                                             isDense: true,
                                           ),
+                                          validator: ValidationRules.nonNegativeAmount,
                                         ),
                                       ),
                                       IconButton(
@@ -384,13 +408,14 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
                                     children: [
                                       SizedBox(
                                         width: 100,
-                                        child: TextField(
+                                        child: TextFormField(
                                           controller: ctrl,
                                           keyboardType: TextInputType.number,
                                           decoration: const InputDecoration(
                                             hintText: '100',
                                             isDense: true,
                                           ),
+                                          validator: ValidationRules.positiveGrams,
                                         ),
                                       ),
                                       IconButton(
@@ -430,8 +455,9 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
                       icon: const Icon(Icons.add),
                       label: const Text('Add component'),
                     ),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
       actions: editorDialogActions(

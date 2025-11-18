@@ -11,6 +11,8 @@ import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
 import '../widgets/editor_dialog_actions.dart';
+import '../widgets/inline_error.dart';
+import '../widgets/validation_rules.dart';
 
 class ProductTemplateEditorDialog extends ConsumerStatefulWidget {
   const ProductTemplateEditorDialog({
@@ -30,11 +32,13 @@ class ProductTemplateEditorDialog extends ConsumerStatefulWidget {
 class _ProductTemplateEditorDialogState
     extends ConsumerState<ProductTemplateEditorDialog> {
   // State variables
+  final _formKey = GlobalKey<FormState>();
   List<ProductComponent> _components = const [];
   bool _loading = true;
   bool _saving = false;
   String _productName = '';
   final Map<String, TextEditingController> _controllers = {};
+  String? _saveError;
 
   @override
   void initState() {
@@ -75,6 +79,12 @@ class _ProductTemplateEditorDialogState
   }
 
   Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
+    // Clear previous errors
+    setState(() => _saveError = null);
+
+    // UI validation first
+    if (!_formKey.currentState!.validate()) return;
+
     setState(() => _saving = true);
 
     // Capture context-dependent objects BEFORE any async operations
@@ -88,92 +98,100 @@ class _ProductTemplateEditorDialogState
       return;
     }
 
-    // Check if product exists in DB
-    final existing = await repo.getProduct(widget.productId);
-    if (existing == null) {
-      // Create new product first
-      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
-      await repo.upsertProduct(
-        ProductDef(
-          id: widget.productId,
-          name: widget.productName ?? widget.productId,
-          createdAt: now,
-          updatedAt: now,
-        ),
-      );
-    }
+    try {
+      // Check if product exists in DB
+      final existing = await repo.getProduct(widget.productId);
+      if (existing == null) {
+        // Create new product first
+        final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+        await repo.upsertProduct(
+          ProductDef(
+            id: widget.productId,
+            name: widget.productName ?? widget.productId,
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+      }
 
-    // Read values from controllers and update components
-    final updatedComponents = <ProductComponent>[];
-    for (final c in _components) {
-      final ctrl = _controllers[c.kindId];
-      final amount = parseDouble(ctrl?.text) ?? 0.0;
-      updatedComponents.add(
-        ProductComponent(
-          productId: widget.productId,
-          kindId: c.kindId,
-          amountPerGram: amount,
+      // Read values from controllers and update components
+      final updatedComponents = <ProductComponent>[];
+      for (final c in _components) {
+        final ctrl = _controllers[c.kindId];
+        final amount = parseDouble(ctrl?.text) ?? 0.0;
+        updatedComponents.add(
+          ProductComponent(
+            productId: widget.productId,
+            kindId: c.kindId,
+            amountPerGram: amount,
+          ),
+        );
+      }
+      await repo.setComponents(widget.productId, updatedComponents);
+
+      if (!context.mounted) return;
+
+      // Ask to propagate to non-static instances
+      final doProp = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Confirm propagation'),
+          content: const Text(
+            'Apply these changes to all non-static entries for this product?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Yes, update'),
+            ),
+          ],
         ),
       );
-    }
-    // Capture old components for Undo
-    final old = await repo.getComponents(widget.productId);
-    await repo.setComponents(widget.productId, updatedComponents);
-    if (!context.mounted) return;
-    // Ask to propagate to non-static instances
-    final doProp = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Update existing entries?'),
-        content: const Text(
-          'Apply these changes to all non-static entries for this product?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('No'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Yes'),
-          ),
-        ],
-      ),
-    );
-    if (doProp == true && svc != null) {
-      await svc.updateAllEntriesForProductToCurrentFormula(widget.productId);
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Updated existing entries'),
-          action: SnackBarAction(
-            label: 'UNDO',
-            onPressed: () async {
-              // Capture messenger before any awaits to avoid using context across async gaps
-              final undoMessenger = ScaffoldMessenger.of(context);
-              // Restore old components and re-propagate
-              await repo.setComponents(widget.productId, old);
-              if (!mounted) return;
-              await svc.updateAllEntriesForProductToCurrentFormula(
-                widget.productId,
-              );
-              if (!mounted) return;
-              await _load();
-              if (!mounted) return;
-              undoMessenger.showSnackBar(
-                const SnackBar(content: Text('Reverted template changes')),
-              );
-            },
-          ),
-        ),
-      );
-    } else {
-      if (!mounted) return;
-      messenger.showSnackBar(const SnackBar(content: Text('Saved template')));
-    }
-    if (mounted) setState(() => _saving = false);
-    if (closeAfter && mounted) {
-      navigator.pop();
+
+      if (doProp == true && svc != null) {
+        await svc.updateAllEntriesForProductToCurrentFormula(widget.productId);
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Updated existing entries')),
+        );
+      } else {
+        if (!mounted) return;
+        messenger.showSnackBar(const SnackBar(content: Text('Saved template')));
+      }
+
+      if (mounted) setState(() => _saving = false);
+      if (closeAfter && mounted) {
+        navigator.pop();
+      }
+    } on ArgumentError catch (e) {
+      // User input error - show inline
+      if (mounted) {
+        setState(() {
+          _saveError = e.message;
+          _saving = false;
+        });
+      }
+    } on StateError catch (e) {
+      // Constraint violation - show inline
+      if (mounted) {
+        setState(() {
+          _saveError = e.message;
+          _saving = false;
+        });
+      }
+    } catch (e) {
+      // Unexpected error - debug only
+      debugPrint('Unexpected error in save: $e');
+      if (mounted) {
+        setState(() {
+          _saveError = 'An unexpected error occurred';
+          _saving = false;
+        });
+      }
     }
   }
 
@@ -230,9 +248,13 @@ class _ProductTemplateEditorDialogState
           : SizedBox(
               width: 500,
               height: 400,
-              child: Column(
-                children: [
-                  Expanded(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    // Show repository errors inline
+                    if (_saveError != null) InlineError(message: _saveError!),
+                    Expanded(
                     child: _components.isEmpty
                         ? const Center(child: Text('No components yet'))
                         : ListView.separated(
@@ -269,7 +291,7 @@ class _ProductTemplateEditorDialogState
                                   children: [
                                     SizedBox(
                                       width: 100,
-                                      child: TextField(
+                                      child: TextFormField(
                                         controller: ctrl,
                                         keyboardType:
                                             const TextInputType.numberWithOptions(
@@ -279,6 +301,7 @@ class _ProductTemplateEditorDialogState
                                           hintText: '0',
                                           isDense: true,
                                         ),
+                                        validator: ValidationRules.nonNegativeAmount,
                                       ),
                                     ),
                                     IconButton(
@@ -300,8 +323,9 @@ class _ProductTemplateEditorDialogState
                       icon: const Icon(Icons.add),
                       label: const Text('Add nutrient'),
                     ),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
       actions: editorDialogActions(

@@ -9,6 +9,8 @@ import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
 import '../widgets/editor_dialog_actions.dart';
+import '../widgets/inline_error.dart';
+import '../widgets/validation_rules.dart';
 
 class InstanceComponentsEditorDialog extends ConsumerStatefulWidget {
   const InstanceComponentsEditorDialog({
@@ -26,10 +28,12 @@ class InstanceComponentsEditorDialog extends ConsumerStatefulWidget {
 class _InstanceComponentsEditorDialogState
     extends ConsumerState<InstanceComponentsEditorDialog> {
   // State variables
+  final _formKey = GlobalKey<FormState>();
   bool _loading = true;
   bool _saving = false;
   List<EntryRecord> _children = const [];
   final Map<String, TextEditingController> _controllers = {};
+  String? _saveError;
 
   // Pending changes (transient until Save)
   final List<WidgetKind> _pendingAdds = [];
@@ -77,6 +81,12 @@ class _InstanceComponentsEditorDialogState
   }
 
   Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
+    // Clear previous errors
+    setState(() => _saveError = null);
+
+    // UI validation first
+    if (!_formKey.currentState!.validate()) return;
+
     setState(() => _saving = true);
 
     // Capture context-dependent objects BEFORE any async operations
@@ -90,15 +100,16 @@ class _InstanceComponentsEditorDialogState
       return;
     }
 
-    // Get parent entry to extract targetAt for new entries
-    final parent = await repo.getById(widget.parentEntryId);
-    if (parent == null) {
-      if (mounted) setState(() => _saving = false);
-      return;
-    }
+    try {
+      // Get parent entry to extract targetAt for new entries
+      final parent = await repo.getById(widget.parentEntryId);
+      if (parent == null) {
+        if (mounted) setState(() => _saving = false);
+        return;
+      }
 
-    // Mark parent as static on first override
-    await repo.update(widget.parentEntryId, {'is_static': 1});
+      // Mark parent as static on first override
+      await repo.update(widget.parentEntryId, {'is_static': 1});
 
     // 1. Delete pending deletes
     for (final id in _pendingDeletes) {
@@ -145,19 +156,45 @@ class _InstanceComponentsEditorDialogState
       }
     }
 
-    // Clear pending changes after successful save
-    _pendingAdds.clear();
-    _pendingDeletes.clear();
+      // Clear pending changes after successful save
+      _pendingAdds.clear();
+      _pendingDeletes.clear();
 
-    if (!mounted) return;
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text('Updated components (instance is now Static)'),
-      ),
-    );
-    if (mounted) setState(() => _saving = false);
-    if (closeAfter && mounted) {
-      navigator.pop();
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Updated components (instance is now Static)'),
+        ),
+      );
+      if (mounted) setState(() => _saving = false);
+      if (closeAfter && mounted) {
+        navigator.pop();
+      }
+    } on ArgumentError catch (e) {
+      // User input error - show inline
+      if (mounted) {
+        setState(() {
+          _saveError = e.message;
+          _saving = false;
+        });
+      }
+    } on StateError catch (e) {
+      // Constraint violation - show inline
+      if (mounted) {
+        setState(() {
+          _saveError = e.message;
+          _saving = false;
+        });
+      }
+    } catch (e) {
+      // Unexpected error - debug only
+      debugPrint('Unexpected error in save: $e');
+      if (mounted) {
+        setState(() {
+          _saveError = 'An unexpected error occurred';
+          _saving = false;
+        });
+      }
     }
   }
 
@@ -225,9 +262,13 @@ class _InstanceComponentsEditorDialogState
           : SizedBox(
               width: 500,
               height: 400,
-              child: Column(
-                children: [
-                  Expanded(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    // Show repository errors inline
+                    if (_saveError != null) InlineError(message: _saveError!),
+                    Expanded(
                     child: () {
                       // Build combined list: existing (minus deleted) + pending adds
                       final visibleChildren = _children
@@ -270,7 +311,7 @@ class _InstanceComponentsEditorDialogState
                                 children: [
                                   SizedBox(
                                     width: 100,
-                                    child: TextField(
+                                    child: TextFormField(
                                       controller: ctrl,
                                       keyboardType:
                                           const TextInputType.numberWithOptions(
@@ -280,6 +321,7 @@ class _InstanceComponentsEditorDialogState
                                         hintText: '0',
                                         isDense: true,
                                       ),
+                                      validator: ValidationRules.nonNegativeAmount,
                                     ),
                                   ),
                                   IconButton(
@@ -313,7 +355,7 @@ class _InstanceComponentsEditorDialogState
                                 children: [
                                   SizedBox(
                                     width: 100,
-                                    child: TextField(
+                                    child: TextFormField(
                                       controller: ctrl,
                                       keyboardType:
                                           const TextInputType.numberWithOptions(
@@ -323,6 +365,7 @@ class _InstanceComponentsEditorDialogState
                                         hintText: '0',
                                         isDense: true,
                                       ),
+                                      validator: ValidationRules.nonNegativeAmount,
                                     ),
                                   ),
                                   IconButton(

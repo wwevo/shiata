@@ -7,6 +7,7 @@ import '../../data/providers.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
 import '../widgets/editor_dialog_actions.dart';
+import '../widgets/inline_error.dart';
 
 /// Generic integer-only nutrient editor driven by WidgetKind metadata.
 class KindInstanceEditorDialog extends ConsumerStatefulWidget {
@@ -34,6 +35,7 @@ class _KindInstanceEditorDialogState
   late DateTime _targetAt;
   late bool _showInCalendar;
   bool _loading = false;
+  String? _saveError;
 
   @override
   void initState() {
@@ -104,15 +106,21 @@ class _KindInstanceEditorDialogState
   }
 
   Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
+    // Clear previous errors
+    setState(() => _saveError = null);
+
+    // UI validation first
     if (!_formKey.currentState!.validate()) return;
+
     final repo = ref.read(entriesRepositoryProvider);
-    if (repo == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Database not ready')));
-      return;
-    }
+    if (repo == null) return;
+
     final amountToStore = parseDouble(_amountController.text) ?? 0.0;
+
+    // Capture context-dependent objects before async gap
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     try {
       if (widget.entryId != null) {
         await repo.update(widget.entryId!, {
@@ -124,12 +132,11 @@ class _KindInstanceEditorDialogState
           'show_in_calendar': _showInCalendar ? 1 : 0,
           'schema_version': 1,
         });
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Updated ${widget.kind.displayName}')),
-          );
-          if (closeAfter) Navigator.of(context).pop();
-        }
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(content: Text('Updated ${widget.kind.displayName}')),
+        );
+        if (closeAfter && mounted) navigator.pop();
       } else {
         await repo.create(
           widgetKind: widget.kind.id,
@@ -138,19 +145,22 @@ class _KindInstanceEditorDialogState
           showInCalendar: _showInCalendar,
           schemaVersion: 1,
         );
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Saved ${widget.kind.displayName}')),
-          );
-          if (closeAfter) Navigator.of(context).pop();
-        }
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(content: Text('Saved ${widget.kind.displayName}')),
+        );
+        if (closeAfter && mounted) navigator.pop();
       }
+    } on ArgumentError catch (e) {
+      // User input error - show inline
+      if (mounted) setState(() => _saveError = e.message);
+    } on StateError catch (e) {
+      // Constraint violation - show inline
+      if (mounted) setState(() => _saveError = e.message);
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Save failed: $e')));
-      }
+      // Unexpected error - debug only
+      debugPrint('Unexpected error in save: $e');
+      if (mounted) setState(() => _saveError = 'An unexpected error occurred');
     }
   }
 
@@ -180,6 +190,8 @@ class _KindInstanceEditorDialogState
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Show repository errors inline
+                      if (_saveError != null) InlineError(message: _saveError!),
                       Text(
                         'Amount (${widget.kind.unit})',
                         style: theme.textTheme.titleMedium,

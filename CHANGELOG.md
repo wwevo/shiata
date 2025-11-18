@@ -1,5 +1,46 @@
 # CHANGELOG.md
 
+## [0.8.8] - 2025-11-18
+
+### Added
+- **Central ValidationRules Class**: Reusable validation logic for all editor dialogs (`lib/ui/widgets/validation_rules.dart`)
+  - `required()` - validates non-empty text fields
+  - `nonNegativeAmount()` - validates amount >= 0
+  - `positiveGrams()` - validates grams > 0
+  - `positiveInteger()` - validates integers > 0
+  - `validateRange()` - validates min <= max
+- **InlineError Widget**: Persistent error display component (`lib/ui/widgets/inline_error.dart`)
+  - Errors remain visible in dialogs until resolved (unlike disappearing snackbars)
+  - Users can intervene and correct issues before retrying
+  - Styled with error container colors and error icon
+
+### Changed
+- **All 7 Editor Dialogs** now use dual-layer validation (UI + Repository):
+  - **kind_template_editor_dialog.dart**: Uses ValidationRules, inline errors, try-catch for repository
+  - **product_template_editor_dialog.dart**: TextField → TextFormField, removed UNDO snackbar, added confirmation dialog
+  - **recipe_template_editor_dialog.dart**: TextField → TextFormField, removed UNDO snackbar, added confirmation dialog
+  - **kind_instance_editor_dialog.dart**: Added inline error handling
+  - **product_instance_editor_dialog.dart**: Added inline error handling
+  - **recipe_instance_dialog.dart**: TextField → TextFormField with validators, inline errors
+  - **product_instance_components_editor_dialog.dart**: TextField → TextFormField with validators, inline errors
+- **Error Handling**: Repository errors (ArgumentError/StateError) now displayed inline, not in snackbars
+- **Snackbars**: Now only used for success messages, never for errors
+- **Propagation Confirmation**: "Are you sure?" dialogs added to template editors before propagating changes
+
+### Removed
+- **UNDO Functionality**: Removed all UNDO snackbar code from product and recipe template editors
+  - User must use "Are you sure?" confirmation dialogs instead
+  - Prevents accidental propagation of template changes
+  - Simplifies error recovery (no UNDO state to manage)
+
+### Technical
+- Consistent pattern across all dialogs: Form validation → Repository operation → Inline error display
+- Context-dependent objects (Navigator, ScaffoldMessenger) captured before async gaps
+- All dialogs follow mounted checks and proper error categorization
+- ValidationRules serve as single source of truth for input validation logic
+
+---
+
 ## [0.8.7] - 2025-11-18
 ### Added
 - **Input Validation Layer**: Repository methods now validate user input and prevent data corruption
