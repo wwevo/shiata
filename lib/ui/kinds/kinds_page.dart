@@ -212,29 +212,14 @@ class KindsPage extends ConsumerWidget {
         false;
     if (!confirmed) return;
     try {
-      final snap = await svc.deleteKindWithSideEffects(
+      await svc.deleteKindWithSideEffects(
         kindId: k.id,
         removeFromProducts: removeFromProducts,
         deleteDirectEntries: deleteDirectEntries,
       );
       if (!context.mounted) return;
       messenger.showSnackBar(
-        SnackBar(
-          content: Text('Deleted ${k.name}'),
-          action: snap == null
-              ? null
-              : SnackBarAction(
-                  label: 'UNDO',
-                  onPressed: () async {
-                    await svc.undoKindDeletion(snap);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Reverted kind deletion')),
-                      );
-                    }
-                  },
-                ),
-        ),
+        SnackBar(content: Text('Deleted ${k.name}')),
       );
     } catch (e) {
       if (!context.mounted) return;

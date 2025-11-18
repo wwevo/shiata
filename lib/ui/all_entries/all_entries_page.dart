@@ -14,7 +14,7 @@ import '../widgets/entry_list_item_factory.dart';
 /// - Filter by entry type (nutrients/products/recipes)
 /// - Sort by date (newest/oldest)
 /// - Search filter (uses existing searchQueryProvider)
-/// - Bulk delete with undo support
+/// - Bulk delete
 /// - Scroll position restoration
 class AllEntriesPage extends ConsumerStatefulWidget {
   const AllEntriesPage({super.key});
@@ -343,8 +343,7 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
           '• $nutrientCount nutrient entries\n'
           '• $productCount product entries (with components)\n'
           '• $recipeCount recipe entries (with components)\n\n'
-          'Total: ${_selectedEntries.length} entries\n\n'
-          'You can undo this action from the snackbar.',
+          'Total: ${_selectedEntries.length} entries',
         ),
         actions: [
           TextButton(
@@ -361,19 +360,12 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
 
     if (confirmed != true || !mounted) return;
 
-    // Collect all entries to delete and their data for undo
+    // Collect all entries to delete
     final entriesToDelete = <EntryRecord>[];
-    final childrenToDelete = <EntryRecord>[];
 
     for (final id in _selectedEntries) {
       final entry = allEntries.firstWhere((e) => e.id == id);
       entriesToDelete.add(entry);
-
-      // Collect children for products/recipes
-      if (entry.widgetKind == 'product' || entry.widgetKind == 'recipe') {
-        final children = await repo.listChildrenOfParent(id);
-        childrenToDelete.addAll(children);
-      }
     }
 
     // Delete all entries (parent + children)
@@ -390,19 +382,9 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
       _selectedEntries.clear();
     });
 
-    // Show snackbar with undo
+    // Show snackbar
     messenger.showSnackBar(
-      SnackBar(
-        content: Text('Deleted ${entriesToDelete.length} entries'),
-        action: SnackBarAction(
-          label: 'UNDO',
-          onPressed: () async {
-            // Restore all entries
-            final allToRestore = [...entriesToDelete, ...childrenToDelete];
-            await repo.insertRawEntries(allToRestore);
-          },
-        ),
-      ),
+      SnackBar(content: Text('Deleted ${entriesToDelete.length} entries')),
     );
   }
 }

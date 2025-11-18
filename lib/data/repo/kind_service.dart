@@ -19,17 +19,6 @@ class KindUsage {
   final int directEntriesCount;
 }
 
-class KindDeletionSnapshot {
-  KindDeletionSnapshot({
-    required this.kind,
-    required this.components,
-    required this.directEntries,
-  });
-
-  final KindDef kind;
-  final List<ProductComponent> components;
-  final List<EntryRecord> directEntries;
-}
 
 class KindService {
   KindService({
@@ -58,13 +47,13 @@ class KindService {
     );
   }
 
-  Future<KindDeletionSnapshot?> deleteKindWithSideEffects({
+  Future<void> deleteKindWithSideEffects({
     required String kindId,
     required bool removeFromProducts,
     required bool deleteDirectEntries,
   }) async {
     final k = await kinds.getKind(kindId);
-    if (k == null) return null;
+    if (k == null) return;
     final comps = await products.listProductComponentsByKind(kindId);
     final direct = await entries.listDirectEntriesByKind(kindId);
 
@@ -73,12 +62,6 @@ class KindService {
         !(removeFromProducts || deleteDirectEntries)) {
       throw StateError('Kind is in use and neither mitigation option selected');
     }
-
-    final snap = KindDeletionSnapshot(
-      kind: k,
-      components: comps,
-      directEntries: direct,
-    );
 
     await db.transaction(() async {
       if (deleteDirectEntries && direct.isNotEmpty) {
@@ -97,42 +80,13 @@ class KindService {
 
     // Re-propagate affected products (sequentially) if requested
     if (removeFromProducts && productService != null) {
-      final affected = snap.components.map((c) => c.productId).toSet().toList();
+      final affected = comps.map((c) => c.productId).toSet().toList();
       for (final pid in affected) {
         try {
           await productService!.updateAllEntriesForProductToCurrentFormula(pid);
         } catch (_) {
           // best-effort; UI can surface errors separately
         }
-      }
-    }
-
-    return snap;
-  }
-
-  Future<void> undoKindDeletion(KindDeletionSnapshot snap) async {
-    // Restore DB state in a transaction
-    await db.transaction(() async {
-      // Re-insert kind
-      await kinds.upsertKind(snap.kind);
-      // Restore product_components
-      for (final c in snap.components) {
-        await db.customStatement(
-          'INSERT OR REPLACE INTO product_components (product_id, kind_id, amount_per_gram) VALUES (?, ?, ?);',
-          [c.productId, c.kindId, c.amountPerGram],
-        );
-      }
-      // Restore direct entries
-      await entries.insertRawEntries(snap.directEntries);
-    });
-
-    // Re-propagate products to include restored kind where applicable
-    if (productService != null) {
-      final affected = snap.components.map((c) => c.productId).toSet().toList();
-      for (final pid in affected) {
-        try {
-          await productService!.updateAllEntriesForProductToCurrentFormula(pid);
-        } catch (_) {}
       }
     }
   }

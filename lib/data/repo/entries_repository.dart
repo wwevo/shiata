@@ -125,7 +125,7 @@ class EntriesRepository {
     _notify();
   }
 
-  /// Insert raw entry records (used for undo). Assumes ids are unique.
+  /// Insert raw entry records (used for import). Assumes ids are unique.
   Future<void> insertRawEntries(List<EntryRecord> entriesToInsert) async {
     if (entriesToInsert.isEmpty) return;
     await _ready;

@@ -540,7 +540,7 @@ class EntryListItemFactory {
     }
   }
 
-  /// Handles entry deletion with undo support
+  /// Handles entry deletion
   static Future<void> _deleteEntry(
     BuildContext context,
     WidgetRef ref,
@@ -559,10 +559,10 @@ class EntryListItemFactory {
         title: const Text('Delete entry?'),
         content: Text(
           isProduct
-              ? 'This will remove the product entry and its components. You can undo from the snackbar.'
+              ? 'This will remove the product entry and its components.'
               : isRecipe
-              ? 'This will remove the recipe entry and its components. You can undo from the snackbar.'
-              : 'This will remove the entry. You can undo from the snackbar.',
+              ? 'This will remove the recipe entry and its components.'
+              : 'This will remove the entry.',
         ),
         actions: [
           TextButton(
@@ -580,116 +580,24 @@ class EntryListItemFactory {
     if (confirm != true) return;
 
     if (isProduct) {
-      final original = entry;
-      Map<String, Object?> parentPayload = const {};
-      String? productId;
-      int grams = 0;
-      bool staticFlag = false;
-      try {
-        final map = jsonDecode(original.payloadJson) as Map<String, dynamic>;
-        parentPayload = map;
-        productId = map['product_id'] as String?;
-        grams = (map['grams'] as num?)?.toInt() ?? 0;
-      } catch (_) {}
-      staticFlag = original.isStatic;
-      final targetLocal = DateTime.fromMillisecondsSinceEpoch(
-        original.targetAt,
-        isUtc: true,
-      ).toLocal();
-      final service = ref.read(productServiceProvider);
-      await repo.deleteChildrenOfParent(original.id);
-      await repo.delete(original.id);
-      if (!context.mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Product deleted'),
-          action: SnackBarAction(
-            label: 'UNDO',
-            onPressed: () async {
-              try {
-                if (service != null && productId != null && grams > 0) {
-                  await service.createProductEntry(
-                    productId: productId,
-                    productGrams: grams,
-                    targetAtLocal: targetLocal,
-                    isStatic: staticFlag,
-                  );
-                } else {
-                  await repo.create(
-                    widgetKind: original.widgetKind,
-                    targetAtLocal: targetLocal,
-                    payload: parentPayload,
-                    showInCalendar: original.showInCalendar,
-                    schemaVersion: original.schemaVersion,
-                  );
-                }
-              } catch (_) {}
-            },
-          ),
-        ),
-      );
-    } else if (isRecipe) {
-      String recipeId = '';
-      try {
-        final map = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
-        recipeId = (map['recipe_id'] as String?) ?? '';
-      } catch (_) {}
-      final targetLocal = DateTime.fromMillisecondsSinceEpoch(
-        entry.targetAt,
-        isUtc: true,
-      ).toLocal();
-
       await repo.deleteChildrenOfParent(entry.id);
       await repo.delete(entry.id);
       if (!context.mounted) return;
-      final recipeSvc = ref.read(recipeServiceProvider);
       messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Recipe deleted'),
-          action: SnackBarAction(
-            label: 'UNDO',
-            onPressed: () async {
-              try {
-                if (recipeSvc != null && recipeId.isNotEmpty) {
-                  await recipeSvc.createRecipeEntry(
-                    recipeId: recipeId,
-                    targetAtLocal: targetLocal,
-                    showParentInCalendar: true,
-                  );
-                }
-              } catch (_) {}
-            },
-          ),
-        ),
+        const SnackBar(content: Text('Product deleted')),
       );
-    } else {
-      final original = entry;
+    } else if (isRecipe) {
+      await repo.deleteChildrenOfParent(entry.id);
       await repo.delete(entry.id);
       if (!context.mounted) return;
       messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Entry deleted'),
-          action: SnackBarAction(
-            label: 'UNDO',
-            onPressed: () async {
-              final local = DateTime.fromMillisecondsSinceEpoch(
-                original.targetAt,
-                isUtc: true,
-              ).toLocal();
-              try {
-                final payload =
-                    jsonDecode(original.payloadJson) as Map<String, Object?>;
-                await repo.create(
-                  widgetKind: original.widgetKind,
-                  targetAtLocal: local,
-                  payload: payload,
-                  showInCalendar: original.showInCalendar,
-                  schemaVersion: original.schemaVersion,
-                );
-              } catch (_) {}
-            },
-          ),
-        ),
+        const SnackBar(content: Text('Recipe deleted')),
+      );
+    } else {
+      await repo.delete(entry.id);
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Entry deleted')),
       );
     }
   }
