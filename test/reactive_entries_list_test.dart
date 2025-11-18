@@ -67,6 +67,10 @@ void main() {
       ]);
     });
 
+    tearDown(() async {
+      await db.close();
+    });
+
     test('watchAllEntriesWithChildren: initial state returns all entries including children', () async {
       print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       print('TEST: watchAllEntriesWithChildren - Initial State with Hierarchy');
