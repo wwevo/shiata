@@ -61,14 +61,10 @@ void main() {
       print('TEST: watchKinds - Reactive CREATE');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-      final stream = kinds.watchKinds();
+      print('INIT:     Initial kinds count: 0');
 
       // Take first 2 emissions: initial + after create
-      final emissions = stream.take(2).toList();
-
-      // Wait for initial emission
-      await stream.first;
-      print('INIT:     Initial kinds count: 0');
+      final emissionsFuture = kinds.watchKinds().take(2).toList();
 
       // ACTION: Create new kind
       await kinds.upsertKind(KindDef(
@@ -84,7 +80,7 @@ void main() {
       print('ACTION:   Created kind "protein"');
 
       // Wait for emissions to complete
-      final results = await emissions;
+      final results = await emissionsFuture;
 
       print('EXPECTED: Stream should emit 2 times (initial + after create)');
       print('ACTUAL:   Initial: ${results[0].length}, Final: ${results[1].length}\n');
@@ -101,11 +97,9 @@ void main() {
       print('TEST: watchProducts - Reactive CREATE');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-      final stream = products.watchProducts();
-      final emissions = stream.take(2).toList();
-
-      await stream.first;
       print('INIT:     Initial products count: 0');
+
+      final emissionsFuture = products.watchProducts().take(2).toList();
 
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
       await products.upsertProduct(ProductDef(
@@ -116,7 +110,7 @@ void main() {
       ));
       print('ACTION:   Created product "apple"');
 
-      final results = await emissions;
+      final results = await emissionsFuture;
 
       print('EXPECTED: Stream should emit new list with +1 product');
       print('ACTUAL:   Initial: ${results[0].length}, Final: ${results[1].length}\n');
@@ -131,11 +125,9 @@ void main() {
       print('TEST: watchRecipes - Reactive CREATE');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-      final stream = recipes.watchRecipes();
-      final emissions = stream.take(2).toList();
-
-      await stream.first;
       print('INIT:     Initial recipes count: 0');
+
+      final emissionsFuture = recipes.watchRecipes().take(2).toList();
 
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
       await recipes.upsertRecipe(RecipeDef(
@@ -146,7 +138,7 @@ void main() {
       ));
       print('ACTION:   Created recipe "smoothie"');
 
-      final results = await emissions;
+      final results = await emissionsFuture;
 
       print('EXPECTED: Stream should emit new list with +1 recipe');
       print('ACTUAL:   Initial: ${results[0].length}, Final: ${results[1].length}\n');
@@ -170,13 +162,10 @@ void main() {
         updatedAt: now,
       ));
 
-      final stream = recipes.watchComponents('smoothie');
+      print('INIT:     Initial components count: 0');
 
       // Take 3 emissions: initial (empty) + after add + after update
-      final emissions = stream.take(3).toList();
-
-      await stream.first;
-      print('INIT:     Initial components count: 0');
+      final emissionsFuture = recipes.watchComponents('smoothie').take(3).toList();
 
       // ACTION: Add components
       await recipes.setComponents('smoothie', [
@@ -191,7 +180,7 @@ void main() {
       ]);
       print('ACTION:   Removed vitamin_c component, updated protein amount');
 
-      final results = await emissions;
+      final results = await emissionsFuture;
 
       print('EXPECTED: Stream should emit 3 times with counts [0, 2, 1]');
       print('ACTUAL:   Counts: [${results[0].length}, ${results[1].length}, ${results[2].length}]');
@@ -219,10 +208,7 @@ void main() {
       );
       print('INIT:     Created entry with id: ${entry.id}');
 
-      final stream = entries.watchById(entry.id);
-      final emissions = stream.take(2).toList();
-
-      await stream.first;
+      final emissionsFuture = entries.watchById(entry.id).take(2).toList();
 
       // ACTION: Update entry
       await entries.update(entry.id, {
@@ -230,7 +216,7 @@ void main() {
       });
       print('ACTION:   Updated amount from 25.0 to 35.0');
 
-      final results = await emissions;
+      final results = await emissionsFuture;
 
       print('EXPECTED: Stream should emit updated entry');
       print('ACTUAL:   Initial payload: ${results[0]?.payloadJson}');
@@ -254,16 +240,13 @@ void main() {
       );
       print('INIT:     Created entry with id: ${entry.id}');
 
-      final stream = entries.watchById(entry.id);
-      final emissions = stream.take(2).toList();
-
-      await stream.first;
+      final emissionsFuture = entries.watchById(entry.id).take(2).toList();
 
       // ACTION: Delete entry
       await entries.delete(entry.id);
       print('ACTION:   Deleted entry');
 
-      final results = await emissions;
+      final results = await emissionsFuture;
 
       print('EXPECTED: Stream should emit null after deletion');
       print('ACTUAL:   Initial: entry exists = ${results[0] != null}');
