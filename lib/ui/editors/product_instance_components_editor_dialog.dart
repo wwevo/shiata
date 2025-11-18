@@ -393,6 +393,7 @@ class _InstanceComponentsEditorDialogState
                 ],
               ),
             ),
+          ),
       actions: editorDialogActions(
         context: context,
         onSave: ({required closeAfter}) =>
