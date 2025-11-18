@@ -61,6 +61,11 @@ class RecipesRepository {
 
   Future<void> upsertRecipe(RecipeDef r) async {
     await _ready;
+    // Validate inputs
+    if (r.name.trim().isEmpty) {
+      throw ArgumentError('Recipe name cannot be empty');
+    }
+
     await db.customStatement(
       'INSERT INTO recipes (id, name, created_at, updated_at, is_active, icon, color) VALUES (?, ?, ?, ?, ?, ?, ?) '
       'ON CONFLICT(id) DO UPDATE SET name=excluded.name, updated_at=excluded.updated_at, is_active=excluded.is_active, icon=excluded.icon, color=excluded.color;',

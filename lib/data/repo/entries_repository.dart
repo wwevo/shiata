@@ -158,6 +158,35 @@ class EntriesRepository {
     bool isStatic = false,
   }) async {
     await _ready;
+
+    // Validate payload amount
+    if (payload.containsKey('amount')) {
+      final amount = payload['amount'];
+      if (amount is num && amount < 0) {
+        throw ArgumentError('Entry amount must be >= 0, got: $amount');
+      }
+    }
+
+    // Validate productGrams
+    if (productGrams != null && productGrams <= 0) {
+      throw ArgumentError('Entry productGrams must be > 0, got: $productGrams');
+    }
+
+    // Validate productId exists
+    if (productId != null && productId.isNotEmpty) {
+      final productRows = await db
+          .customSelect(
+            'SELECT COUNT(*) as count FROM products WHERE id = ?;',
+            variables: [Variable.withString(productId)],
+            readsFrom: const {},
+          )
+          .get();
+      final productExists = (productRows.first.data['count'] as int) > 0;
+      if (!productExists) {
+        throw ArgumentError('Product not found: $productId');
+      }
+    }
+
     final nowUtc = DateTime.now().toUtc().millisecondsSinceEpoch;
     final targetUtc = targetAtLocal.toUtc().millisecondsSinceEpoch;
     final id = const Uuid().v4();

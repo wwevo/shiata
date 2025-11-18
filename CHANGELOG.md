@@ -1,5 +1,34 @@
 # CHANGELOG.md
 
+## [0.8.7] - 2025-11-18
+### Added
+- **Input Validation Layer**: Repository methods now validate user input and prevent data corruption
+    - **KindsRepository.upsertKind()**: Validates `name.trim().isNotEmpty`, `unit.trim().isNotEmpty`, `min <= max`
+    - **ProductsRepository.upsertProduct()**: Validates `name.trim().isNotEmpty`
+    - **RecipesRepository.upsertRecipe()**: Validates `name.trim().isNotEmpty`
+    - **EntriesRepository.create()**: Validates `amount >= 0` (if in payload), `productGrams > 0` (if set), `productId` exists (if set)
+    - All validation errors throw `ArgumentError` with helpful messages
+
+### Added
+- **Referential Integrity Constraints**: Delete operations now check for dependencies
+    - **KindsRepository.deleteKind()**: Prevents deletion if kind is used by entries - throws `StateError` with count
+    - **ProductsRepository.deleteProduct()**: Prevents deletion if product is used by entries - throws `StateError` with count
+    - Consistent error handling: both use identical pattern for predictability
+
+### Changed
+- **validation_test.dart**: Updated all 10 validation tests to expect thrown errors (ArgumentError/StateError)
+    - Tests now verify that validation layer works correctly
+    - All tests should PASS with new validation implementation
+    - Edge case tests (far future dates, large values) remain unchanged - not validated
+
+### Technical
+- Input validation prevents: nonsensical constraints, empty names/units, negative amounts, zero grams, invalid foreign keys
+- Constraint checks prevent: orphaned entries, data corruption from premature deletions
+- Error messages include helpful context (e.g., "used by 5 entries", "min (100) must be <= max (0)")
+- Philosophy: "Fail fast with helpful errors" - catch user mistakes at repository layer, not in UI
+
+---
+
 ## [0.8.6] - 2025-11-18
 ### Added
 - **Comprehensive Validation Tests**: New `validation_test.dart` with 13 tests that intentionally provoke errors

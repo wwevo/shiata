@@ -114,6 +114,11 @@ class ProductsRepository {
 
   Future<void> upsertProduct(ProductDef p) async {
     await _ready;
+    // Validate inputs
+    if (p.name.trim().isEmpty) {
+      throw ArgumentError('Product name cannot be empty');
+    }
+
     await db.customStatement(
       'INSERT INTO products (id, name, created_at, updated_at, is_active, icon, color) VALUES (?, ?, ?, ?, ?, ?, ?) '
       'ON CONFLICT(id) DO UPDATE SET name=excluded.name, updated_at=excluded.updated_at, is_active=excluded.is_active, icon=excluded.icon, color=excluded.color;',
@@ -199,6 +204,21 @@ class ProductsRepository {
 
   Future<void> deleteProduct(String productId) async {
     await _ready;
+    // Check if product is used by any entries
+    final entryRows = await db
+        .customSelect(
+          'SELECT COUNT(*) as count FROM entries WHERE product_id = ?;',
+          variables: [Variable.withString(productId)],
+          readsFrom: const {},
+        )
+        .get();
+    final entryCount = entryRows.first.data['count'] as int;
+    if (entryCount > 0) {
+      throw StateError(
+        'Cannot delete product "$productId": used by $entryCount ${entryCount == 1 ? 'entry' : 'entries'}',
+      );
+    }
+
     await db.transaction(() async {
       await db.customStatement(
         'DELETE FROM product_components WHERE product_id = ?;',

@@ -59,6 +59,17 @@ class KindsRepository {
 
   Future<void> upsertKind(KindDef k) async {
     await _ready;
+    // Validate inputs
+    if (k.name.trim().isEmpty) {
+      throw ArgumentError('Kind name cannot be empty');
+    }
+    if (k.unit.trim().isEmpty) {
+      throw ArgumentError('Kind unit cannot be empty');
+    }
+    if (k.min > k.max) {
+      throw ArgumentError('Kind min (${k.min}) must be <= max (${k.max})');
+    }
+
     await db.customStatement(
       'INSERT INTO kinds (id, name, unit, color, icon, min, max, default_show_in_calendar) VALUES (?, ?, ?, ?, ?, ?, ?, ?) '
       'ON CONFLICT(id) DO UPDATE SET name=excluded.name, unit=excluded.unit, color=excluded.color, icon=excluded.icon, min=excluded.min, max=excluded.max, default_show_in_calendar=excluded.default_show_in_calendar;',
@@ -78,6 +89,21 @@ class KindsRepository {
 
   Future<void> deleteKind(String id) async {
     await _ready;
+    // Check if kind is used by any entries
+    final entryRows = await db
+        .customSelect(
+          'SELECT COUNT(*) as count FROM entries WHERE widget_kind = ?;',
+          variables: [Variable.withString(id)],
+          readsFrom: const {},
+        )
+        .get();
+    final entryCount = entryRows.first.data['count'] as int;
+    if (entryCount > 0) {
+      throw StateError(
+        'Cannot delete kind "$id": used by $entryCount ${entryCount == 1 ? 'entry' : 'entries'}',
+      );
+    }
+
     // Consider FK in product_components; for now, allow cascade-like cleanup manually.
     await db.transaction(() async {
       await db.customStatement(

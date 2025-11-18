@@ -49,31 +49,23 @@ void main() {
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
       print('SCENARIO: User accidentally enters min=100, max=0');
-      print('CURRENT:  No validation - silently accepts nonsensical data');
       print('EXPECTED: Should throw ArgumentError with helpful message\n');
 
-      // What CURRENTLY happens (no validation)
-      await kinds.upsertKind(KindDef(
-        id: 'broken_kind',
-        name: 'Broken Kind',
-        unit: 'g',
-        color: null,
-        icon: null,
-        min: 100,  // ❌ min > max!
-        max: 0,    // ❌ nonsensical
-        defaultShowInCalendar: false,
-      ));
+      expect(
+        () async => await kinds.upsertKind(KindDef(
+          id: 'broken_kind',
+          name: 'Broken Kind',
+          unit: 'g',
+          color: null,
+          icon: null,
+          min: 100,  // ❌ min > max!
+          max: 0,    // ❌ nonsensical
+          defaultShowInCalendar: false,
+        )),
+        throwsArgumentError,
+      );
 
-      final retrieved = await kinds.getKind('broken_kind');
-      print('ACTUAL:   Kind created successfully with min=${retrieved!.min}, max=${retrieved.max}');
-      print('ISSUE:    User can now never enter valid values (all values are out of range!)');
-
-      expect(retrieved.min, 100);
-      expect(retrieved.max, 0);
-      expect(retrieved.min > retrieved.max, isTrue);  // ❌ This should never be true!
-
-      print('\nRESULT:   ⚠️  DOCUMENTS BUG - No validation allows nonsensical constraints');
-      print('FIX:      Add validation: if (min > max) throw ArgumentError("min must be <= max")');
+      print('RESULT:   ✅ PASS - Validation prevents nonsensical constraints');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
 
@@ -83,28 +75,23 @@ void main() {
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
       print('SCENARIO: User submits form without filling in name field');
-      print('CURRENT:  No validation - creates kind with empty display name');
       print('EXPECTED: Should throw ArgumentError("name cannot be empty")\n');
 
-      await kinds.upsertKind(KindDef(
-        id: 'nameless',
-        name: '',  // ❌ Empty name!
-        unit: 'g',
-        color: null,
-        icon: null,
-        min: 0,
-        max: 1000,
-        defaultShowInCalendar: false,
-      ));
+      expect(
+        () async => await kinds.upsertKind(KindDef(
+          id: 'nameless',
+          name: '',  // ❌ Empty name!
+          unit: 'g',
+          color: null,
+          icon: null,
+          min: 0,
+          max: 1000,
+          defaultShowInCalendar: false,
+        )),
+        throwsArgumentError,
+      );
 
-      final retrieved = await kinds.getKind('nameless');
-      print('ACTUAL:   Kind created with name="${retrieved!.name}"');
-      print('ISSUE:    UI will show empty label - confusing for user!');
-
-      expect(retrieved.name, isEmpty);
-
-      print('\nRESULT:   ⚠️  DOCUMENTS BUG - No validation allows empty names');
-      print('FIX:      Add validation: if (name.trim().isEmpty) throw ArgumentError(...)');
+      print('RESULT:   ✅ PASS - Validation prevents empty names');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
 
@@ -114,28 +101,23 @@ void main() {
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
       print('SCENARIO: User creates kind but forgets to specify unit');
-      print('CURRENT:  No validation - creates kind without unit');
       print('EXPECTED: Should throw ArgumentError("unit cannot be empty")\n');
 
-      await kinds.upsertKind(KindDef(
-        id: 'unitless',
-        name: 'Unitless Kind',
-        unit: '',  // ❌ No unit!
-        color: null,
-        icon: null,
-        min: 0,
-        max: 1000,
-        defaultShowInCalendar: false,
-      ));
+      expect(
+        () async => await kinds.upsertKind(KindDef(
+          id: 'unitless',
+          name: 'Unitless Kind',
+          unit: '',  // ❌ No unit!
+          color: null,
+          icon: null,
+          min: 0,
+          max: 1000,
+          defaultShowInCalendar: false,
+        )),
+        throwsArgumentError,
+      );
 
-      final retrieved = await kinds.getKind('unitless');
-      print('ACTUAL:   Kind created with unit="${retrieved!.unit}"');
-      print('ISSUE:    UI shows "100" instead of "100g" - confusing!');
-
-      expect(retrieved.unit, isEmpty);
-
-      print('\nRESULT:   ⚠️  DOCUMENTS BUG - No validation allows unitless kinds');
-      print('FIX:      Add validation: if (unit.trim().isEmpty) throw ArgumentError(...)');
+      print('RESULT:   ✅ PASS - Validation prevents unitless kinds');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
 
@@ -145,25 +127,20 @@ void main() {
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
       print('SCENARIO: User clicks "Create Product" without entering name');
-      print('CURRENT:  No validation - creates nameless product');
       print('EXPECTED: Should throw ArgumentError("name cannot be empty")\n');
 
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
-      await products.upsertProduct(ProductDef(
-        id: 'nameless_product',
-        name: '',  // ❌ Empty name!
-        createdAt: now,
-        updatedAt: now,
-      ));
+      expect(
+        () async => await products.upsertProduct(ProductDef(
+          id: 'nameless_product',
+          name: '',  // ❌ Empty name!
+          createdAt: now,
+          updatedAt: now,
+        )),
+        throwsArgumentError,
+      );
 
-      final retrieved = await products.getProduct('nameless_product');
-      print('ACTUAL:   Product created with name="${retrieved!.name}"');
-      print('ISSUE:    Product list shows empty items - user can\'t identify them!');
-
-      expect(retrieved.name, isEmpty);
-
-      print('\nRESULT:   ⚠️  DOCUMENTS BUG - No validation allows nameless products');
-      print('FIX:      Add validation before insert');
+      print('RESULT:   ✅ PASS - Validation prevents nameless products');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
 
@@ -173,25 +150,20 @@ void main() {
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
       print('SCENARIO: User submits recipe form with blank name field');
-      print('CURRENT:  No validation - creates nameless recipe');
       print('EXPECTED: Should throw ArgumentError("name cannot be empty")\n');
 
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
-      await recipes.upsertRecipe(RecipeDef(
-        id: 'nameless_recipe',
-        name: '',  // ❌ Empty name!
-        createdAt: now,
-        updatedAt: now,
-      ));
+      expect(
+        () async => await recipes.upsertRecipe(RecipeDef(
+          id: 'nameless_recipe',
+          name: '',  // ❌ Empty name!
+          createdAt: now,
+          updatedAt: now,
+        )),
+        throwsArgumentError,
+      );
 
-      final retrieved = await recipes.getRecipe('nameless_recipe');
-      print('ACTUAL:   Recipe created with name="${retrieved!.name}"');
-      print('ISSUE:    Recipe dropdown shows "" - unusable UI!');
-
-      expect(retrieved.name, isEmpty);
-
-      print('\nRESULT:   ⚠️  DOCUMENTS BUG - No validation allows nameless recipes');
-      print('FIX:      Add validation before insert');
+      print('RESULT:   ✅ PASS - Validation prevents nameless recipes');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
 
@@ -201,23 +173,18 @@ void main() {
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
       print('SCENARIO: User types "-50" in amount field (typo or confusion)');
-      print('CURRENT:  No validation - creates entry with negative value');
       print('EXPECTED: Should throw ArgumentError("amount must be >= 0")\n');
 
-      final entry = await entries.create(
-        widgetKind: 'protein',
-        targetAtLocal: DateTime.now(),
-        payload: {'amount': -50.0},  // ❌ Negative amount!
+      expect(
+        () async => await entries.create(
+          widgetKind: 'protein',
+          targetAtLocal: DateTime.now(),
+          payload: {'amount': -50.0},  // ❌ Negative amount!
+        ),
+        throwsArgumentError,
       );
 
-      print('ACTUAL:   Entry created with amount=-50.0');
-      print('ISSUE:    Pie chart shows negative slice? Stats are wrong!');
-
-      expect(entry.payloadJson, contains('-50'));
-
-      print('\nRESULT:   ⚠️  DOCUMENTS BUG - No validation allows negative amounts');
-      print('FIX:      Add validation in create(): if (amount < 0) throw ArgumentError(...)');
-      print('NOTE:     This should probably be validated at UI level too!');
+      print('RESULT:   ✅ PASS - Validation prevents negative amounts');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
 
@@ -227,7 +194,6 @@ void main() {
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
       print('SCENARIO: User enters "0g" for product amount');
-      print('CURRENT:  No validation - creates entry with 0g');
       print('EXPECTED: Should throw ArgumentError("grams must be > 0")\n');
 
       // Setup product
@@ -239,21 +205,18 @@ void main() {
         updatedAt: now,
       ));
 
-      final entry = await entries.create(
-        widgetKind: 'product_instance',
-        targetAtLocal: DateTime.now(),
-        payload: {},
-        productId: 'banana',
-        productGrams: 0,  // ❌ Zero grams!
+      expect(
+        () async => await entries.create(
+          widgetKind: 'product_instance',
+          targetAtLocal: DateTime.now(),
+          payload: {},
+          productId: 'banana',
+          productGrams: 0,  // ❌ Zero grams!
+        ),
+        throwsArgumentError,
       );
 
-      print('ACTUAL:   Entry created with productGrams=0');
-      print('ISSUE:    Entry shows "Ate 0g of Banana" - pointless!');
-
-      expect(entry.productGrams, 0);
-
-      print('\nRESULT:   ⚠️  DOCUMENTS BUG - No validation allows 0g products');
-      print('FIX:      Add validation: if (productGrams <= 0) throw ArgumentError(...)');
+      print('RESULT:   ✅ PASS - Validation prevents 0g products');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
   });
@@ -361,12 +324,8 @@ void main() {
       print('TEST: Constraint - Delete Kind With Entries (Data Integrity)');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-      print('SCENARIO: User deletes "Protein" kind, but has 100 protein entries');
-      print('CURRENT:  Kind is deleted, entries remain with orphaned widgetKind');
-      print('EXPECTED: Should either:\n');
-      print('          A) Prevent deletion with error "Kind is in use by N entries"');
-      print('          B) Cascade delete (with confirmation warning!)');
-      print('          C) Mark kind as inactive instead of deleting\n');
+      print('SCENARIO: User deletes "Protein" kind, but has 2 protein entries');
+      print('EXPECTED: Should prevent deletion with error "Kind is in use by N entries"\n');
 
       // Setup: Create kind and entries
       await kinds.upsertKind(KindDef(
@@ -391,26 +350,15 @@ void main() {
         payload: {'amount': 75.0},
       );
 
-      print('SETUP:    Created kind "protein" with 2 entries');
+      print('SETUP:    Created kind "protein" with 2 entries\n');
 
-      // Try to delete kind
-      await kinds.deleteKind('protein');
+      // Try to delete kind - should throw
+      expect(
+        () async => await kinds.deleteKind('protein'),
+        throwsStateError,
+      );
 
-      final kindGone = await kinds.getKind('protein');
-      final allEntries = await entries.watchAllInstanceEntries().first;
-
-      print('ACTUAL:   Kind deleted successfully');
-      print('          Entries still exist: ${allEntries.length} entries');
-      print('          Entries now have orphaned widgetKind="protein"');
-
-      expect(kindGone, isNull);
-      expect(allEntries.length, 2);
-      expect(allEntries.first.widgetKind, 'protein');  // ❌ Orphaned!
-
-      print('\nRESULT:   ⚠️  DOCUMENTS ISSUE - Orphaned entries allowed');
-      print('ISSUE:    UI can\'t display kind metadata (name, unit, color, icon)');
-      print('          User sees raw id "protein" instead of "Protein (g)"');
-      print('FIX:      Add FK constraint check before delete OR cascade delete');
+      print('RESULT:   ✅ PASS - Constraint prevents orphaning entries');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
 
@@ -419,8 +367,8 @@ void main() {
       print('TEST: Constraint - Delete Product With Entries (Data Integrity)');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-      print('SCENARIO: User deletes "Banana" product, but logged eating 5 bananas');
-      print('EXPECTED: Should prevent deletion OR warn user\n');
+      print('SCENARIO: User deletes "Banana" product, but logged eating 1 banana');
+      print('EXPECTED: Should prevent deletion with error\n');
 
       // Setup
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
@@ -439,24 +387,15 @@ void main() {
         productGrams: 100,
       );
 
-      print('SETUP:    Created product "banana" with 1 entry');
+      print('SETUP:    Created product "banana" with 1 entry\n');
 
-      // Try to delete
-      await products.deleteProduct('banana');
+      // Try to delete - should throw
+      expect(
+        () async => await products.deleteProduct('banana'),
+        throwsStateError,
+      );
 
-      final productGone = await products.getProduct('banana');
-      final allEntries = await entries.watchAllInstanceEntries().first;
-
-      print('ACTUAL:   Product deleted');
-      print('          Entry still exists with productId="banana" (orphaned)');
-
-      expect(productGone, isNull);
-      expect(allEntries.length, 1);
-      expect(allEntries.first.productId, 'banana');  // ❌ Orphaned!
-
-      print('\nRESULT:   ⚠️  DOCUMENTS ISSUE - Orphaned product entries');
-      print('ISSUE:    UI can\'t show product name, components missing!');
-      print('FIX:      Check for references before delete');
+      print('RESULT:   ✅ PASS - Constraint prevents orphaning product entries');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
 
@@ -466,31 +405,20 @@ void main() {
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
       print('SCENARIO: Bug/corruption creates entry with productId that doesn\'t exist');
-      print('CURRENT:  No FK constraint - accepts any productId value');
       print('EXPECTED: Should validate productId exists before creating entry\n');
 
-      await entries.create(
-        widgetKind: 'product_instance',
-        targetAtLocal: DateTime.now(),
-        payload: {},
-        productId: 'nonexistent_product',  // ❌ Product doesn't exist!
-        productGrams: 100,
+      expect(
+        () async => await entries.create(
+          widgetKind: 'product_instance',
+          targetAtLocal: DateTime.now(),
+          payload: {},
+          productId: 'nonexistent_product',  // ❌ Product doesn't exist!
+          productGrams: 100,
+        ),
+        throwsArgumentError,
       );
 
-      final allEntries = await entries.watchAllInstanceEntries().first;
-      final product = await products.getProduct('nonexistent_product');
-
-      print('ACTUAL:   Entry created with invalid productId');
-      print('          Product lookup returns: ${product == null ? "null" : "exists"}');
-      print('ISSUE:    UI crashes or shows "Unknown Product"');
-
-      expect(product, isNull);
-      expect(allEntries.first.productId, 'nonexistent_product');
-
-      print('\nRESULT:   ⚠️  DOCUMENTS BUG - No FK validation');
-      print('FIX:      Validate productId exists before insert:');
-      print('          if (productId != null && await getProduct(productId) == null)');
-      print('            throw ArgumentError("Product not found: \$productId")');
+      print('RESULT:   ✅ PASS - Validation prevents entries with invalid productId');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
   });
