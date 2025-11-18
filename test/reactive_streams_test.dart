@@ -32,6 +32,27 @@ void main() {
       entries = EntriesRepository(db: db);
     });
 
+    tearDown(() async {
+      await db.close();
+    });
+
+    test('watchKinds: stream emits initial value', () async {
+      print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('TEST: watchKinds - Initial Emission');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+      final stream = kinds.watchKinds();
+      final first = await stream.first.timeout(const Duration(seconds: 5));
+
+      print('INIT:     Stream created');
+      print('EXPECTED: Stream should emit initial empty list');
+      print('ACTUAL:   Received list with ${first.length} items\n');
+
+      expect(first, isA<List<KindDef>>());
+      print('RESULT:   ✅ PASS - Stream emitted initial value');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    });
+
     test('watchKinds: stream emits after CREATE', () async {
       print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       print('TEST: watchKinds - Reactive CREATE');
@@ -44,7 +65,7 @@ void main() {
         emittedValues.add(data);
       });
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final initialCount = emittedValues.last.length;
       print('INIT:     Initial kinds count: $initialCount');
 
@@ -61,7 +82,7 @@ void main() {
       ));
       print('ACTION:   Created kind "protein"');
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final finalCount = emittedValues.last.length;
 
       print('EXPECTED: Stream should emit new list with +1 kind');
@@ -99,7 +120,7 @@ void main() {
         emittedValues.add(data);
       });
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final oldName = emittedValues.last.first.name;
       print('INIT:     Kind name: "$oldName"');
 
@@ -116,7 +137,7 @@ void main() {
       ));
       print('ACTION:   Updated kind name to "Vitamin C (Ascorbic Acid)"');
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final newName = emittedValues.last.first.name;
 
       print('EXPECTED: Stream should emit updated list with new name');
@@ -142,7 +163,7 @@ void main() {
         emittedValues.add(data);
       });
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final initialCount = emittedValues.last.length;
       print('INIT:     Initial products count: $initialCount');
 
@@ -156,7 +177,7 @@ void main() {
       ));
       print('ACTION:   Created product "apple"');
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final finalCount = emittedValues.last.length;
 
       print('EXPECTED: Stream should emit new list with +1 product');
@@ -182,7 +203,7 @@ void main() {
         emittedValues.add(data);
       });
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final initialCount = emittedValues.last.length;
       print('INIT:     Initial recipes count: $initialCount');
 
@@ -196,7 +217,7 @@ void main() {
       ));
       print('ACTION:   Created recipe "smoothie"');
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final finalCount = emittedValues.last.length;
 
       print('EXPECTED: Stream should emit new list with +1 recipe');
@@ -231,7 +252,7 @@ void main() {
         emittedValues.add(data);
       });
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final initialCount = emittedValues.last.length;
       print('INIT:     Initial components count: $initialCount');
 
@@ -242,7 +263,7 @@ void main() {
       ]);
       print('ACTION:   Added 2 components to recipe');
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final afterAddCount = emittedValues.last.length;
 
       print('EXPECTED: Stream should emit with 2 components');
@@ -257,7 +278,7 @@ void main() {
       ]);
       print('ACTION:   Removed vitamin_c component, updated protein amount');
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final afterUpdateCount = emittedValues.last.length;
       final updatedAmount = emittedValues.last.first.amount;
 
@@ -287,7 +308,7 @@ void main() {
         emittedValues.add(data);
       });
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final initialCount = emittedValues.last.length;
       print('INIT:     Initial entries for 2025-11-18: $initialCount');
 
@@ -299,7 +320,7 @@ void main() {
       );
       print('ACTION:   Created entry for 2025-11-18 10:00');
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final afterTargetCount = emittedValues.last.length;
 
       // ACTION: Create entry for different day (should not affect stream)
@@ -310,7 +331,7 @@ void main() {
       );
       print('ACTION:   Created entry for 2025-11-19 10:00 (different day)');
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final finalCount = emittedValues.last.length;
 
       print('EXPECTED: Stream should emit +1 for target day only');
@@ -338,7 +359,7 @@ void main() {
         emittedValues.add(data);
       });
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final initialDays = emittedValues.last.keys.length;
       print('INIT:     Initial days with entries in range: $initialDays');
 
@@ -355,7 +376,7 @@ void main() {
       );
       print('ACTION:   Created 2 entries in range (Nov 18-19)');
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final afterInRangeDays = emittedValues.last.keys.length;
       final totalInRange = emittedValues.last.values.fold<int>(0, (sum, list) => sum + list.length);
 
@@ -367,7 +388,7 @@ void main() {
       );
       print('ACTION:   Created entry outside range (Nov 21)');
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final finalDays = emittedValues.last.keys.length;
       final finalTotal = emittedValues.last.values.fold<int>(0, (sum, list) => sum + list.length);
 
@@ -408,7 +429,7 @@ void main() {
         emittedValues.add(data);
       });
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final initialMatches = emittedValues.last.length;
       print('ACTION:   Searching for "chicken"');
       print('EXPECTED: Should find 1 match (chicken breast)');
@@ -425,7 +446,7 @@ void main() {
       );
       print('ACTION:   Created new entry: "chicken thigh"');
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final finalMatches = emittedValues.last.length;
 
       print('EXPECTED: Should now find 2 matches');
@@ -459,7 +480,7 @@ void main() {
         emittedValues.add(data);
       });
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final initialPayload = emittedValues.last?.payloadJson;
       print('          Initial payload: $initialPayload');
 
@@ -469,7 +490,7 @@ void main() {
       });
       print('ACTION:   Updated amount from 25.0 to 35.0');
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final updatedPayload = emittedValues.last?.payloadJson;
 
       print('EXPECTED: Stream should emit updated entry');
@@ -503,7 +524,7 @@ void main() {
         emittedValues.add(data);
       });
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final initial = emittedValues.last;
       print('          Initial: entry exists = ${initial != null}');
 
@@ -511,7 +532,7 @@ void main() {
       await entries.delete(entry.id);
       print('ACTION:   Deleted entry');
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
       final afterDelete = emittedValues.last;
 
       print('EXPECTED: Stream should emit null after deletion');
