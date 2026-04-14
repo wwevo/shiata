@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../data/repo/kinds_repository.dart';
+import '../../utils/formatters.dart';
 import '../widgets/editor_dialog_actions.dart';
 import '../widgets/inline_error.dart';
 import '../widgets/validation_rules.dart';
@@ -68,9 +69,9 @@ class _KindTemplateEditorDialogState
     final repo = ref.read(kindsRepositoryProvider);
     if (repo == null) return;
 
-    final min = int.tryParse(_min.text.trim()) ?? 0;
-    final max = int.tryParse(_max.text.trim()) ?? 0;
-    final color = int.tryParse(_color.text.trim());
+    final min = parseInt(_min.text) ?? 0;
+    final max = parseInt(_max.text) ?? 0;
+    final color = parseInt(_color.text);
 
     final def = KindDef(
       id: _id.text.trim(),
@@ -190,7 +191,7 @@ class _KindTemplateEditorDialogState
                 ),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return null; // optional
-                  return int.tryParse(v) == null ? 'Must be an integer' : null;
+                  return parseInt(v) == null ? 'Must be an integer' : null;
                 },
               ),
             ],
@@ -207,6 +208,6 @@ class _KindTemplateEditorDialogState
 
   String? _intValidator(String? v) {
     if (v == null || v.trim().isEmpty) return 'Required';
-    return int.tryParse(v.trim()) == null ? 'Must be an integer' : null;
+    return parseInt(v) == null ? 'Must be an integer' : null;
   }
 }

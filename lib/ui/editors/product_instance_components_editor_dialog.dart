@@ -119,7 +119,7 @@ class _InstanceComponentsEditorDialogState
     // 2. Create pending adds
     for (final kind in _pendingAdds) {
       final ctrl = _controllers['pending_${kind.id}']!;
-      final val = double.tryParse(ctrl.text.trim()) ?? 0.0;
+      final val = parseDouble(ctrl.text) ?? 0.0;
       await repo.create(
         widgetKind: kind.id,
         targetAtLocal: DateTime.fromMillisecondsSinceEpoch(
@@ -136,7 +136,7 @@ class _InstanceComponentsEditorDialogState
     for (final c in _children) {
       if (_pendingDeletes.contains(c.id)) continue;
       final ctrl = _controllers[c.id]!;
-      final val = double.tryParse(ctrl.text.trim()) ?? 0.0;
+      final val = parseDouble(ctrl.text) ?? 0.0;
       try {
         final map = jsonDecode(c.payloadJson) as Map<String, dynamic>;
         // preserve unit if present, or derive from kind metadata

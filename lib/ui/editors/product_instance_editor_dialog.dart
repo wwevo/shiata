@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../data/repo/product_service.dart';
+import '../../utils/formatters.dart';
 import '../widgets/editor_dialog_actions.dart';
 import '../widgets/inline_error.dart';
 
@@ -157,7 +158,7 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
     // UI validation first
     if (!_formKey.currentState!.validate()) return;
 
-    final grams = int.tryParse(_gramsController.text) ?? widget.defaultGrams;
+    final grams = parseInt(_gramsController.text) ?? widget.defaultGrams;
     final service = ref.read(productServiceProvider);
     if (service == null) return;
 
@@ -289,7 +290,7 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
                               ),
                               keyboardType: TextInputType.number,
                               validator: (v) {
-                                final val = int.tryParse(v ?? '');
+                                final val = parseInt(v);
                                 if (val == null) return 'Enter an integer';
                                 if (val <= 0 || val > 2000) {
                                   return 'Must be 1–2000';
@@ -304,7 +305,7 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
                               IconButton(
                                 onPressed: () {
                                   final val =
-                                      int.tryParse(_gramsController.text) ??
+                                      parseInt(_gramsController.text) ??
                                       widget.defaultGrams;
                                   final next = (val + 10).clamp(1, 2000);
                                   _gramsController.text = next.toString();
@@ -315,7 +316,7 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog> {
                               IconButton(
                                 onPressed: () {
                                   final val =
-                                      int.tryParse(_gramsController.text) ??
+                                      parseInt(_gramsController.text) ??
                                       widget.defaultGrams;
                                   final next = (val - 10).clamp(1, 2000);
                                   _gramsController.text = next.toString();

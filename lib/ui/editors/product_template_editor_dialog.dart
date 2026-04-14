@@ -138,26 +138,29 @@ class _ProductTemplateEditorDialogState
 
       if (!context.mounted) return;
 
-      // Ask to propagate to non-static instances
-      final doProp = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Confirm propagation'),
-          content: const Text(
-            'Apply these changes to all non-static entries for this product?',
+      // Ask to propagate to non-static instances if they exist
+      bool doProp = false;
+      if (svc != null && await svc.hasNonStaticEntriesForProduct(productId)) {
+        doProp = (await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Confirm propagation'),
+            content: const Text(
+              'Apply these changes to all non-static entries for this product?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Yes, update'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Yes, update'),
-            ),
-          ],
-        ),
-      );
+        )) ?? false;
+      }
 
       if (doProp == true && svc != null) {
         await svc.updateAllEntriesForProductToCurrentFormula(productId);

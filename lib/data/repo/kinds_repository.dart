@@ -38,6 +38,8 @@ class KindsRepository {
     if (!_changes.isClosed) _changes.add(null);
   }
 
+  Stream<void> watchChanges() => _changes.stream;
+
   /// Dump kinds for export (ordered by name).
   Future<List<Map<String, Object?>>> dumpKinds() async {
     final list = await listKinds();

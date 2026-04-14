@@ -4,6 +4,8 @@
 /// Use these validators in TextFormField widgets for instant user feedback.
 library;
 
+import 'package:shiata/utils/formatters.dart';
+
 class ValidationRules {
   /// Validates that a text field is not empty.
   ///
@@ -23,7 +25,7 @@ class ValidationRules {
     if (value == null || value.trim().isEmpty) {
       return 'Amount is required';
     }
-    final num = double.tryParse(value.trim());
+    final num = parseDouble(value);
     if (num == null) {
       return 'Must be a valid number';
     }
@@ -41,9 +43,9 @@ class ValidationRules {
     if (value == null || value.trim().isEmpty) {
       return 'Grams is required';
     }
-    final num = int.tryParse(value.trim());
+    final num = parseInt(value);
     if (num == null) {
-      return 'Must be a valid number';
+      return 'Must be a valid integer';
     }
     if (num <= 0) {
       return 'Grams must be > 0';
@@ -59,7 +61,7 @@ class ValidationRules {
     if (value == null || value.trim().isEmpty) {
       return 'Value is required';
     }
-    final num = int.tryParse(value.trim());
+    final num = parseInt(value);
     if (num == null) {
       return 'Must be a valid integer';
     }

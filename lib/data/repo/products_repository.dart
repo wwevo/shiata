@@ -48,6 +48,8 @@ class ProductsRepository {
     if (!_changes.isClosed) _changes.add(null);
   }
 
+  Stream<void> watchChanges() => _changes.stream;
+
   /// Dump products with embedded components for export.
   Future<List<Map<String, Object?>>> dumpProductsWithComponents() async {
     final list = await listProducts(onlyActive: false);

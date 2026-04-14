@@ -55,6 +55,11 @@ class ProductService {
     return parent.id;
   }
 
+  Future<bool> hasNonStaticEntriesForProduct(String productId) async {
+    final parents = await entries.listParentsByProductId(productId);
+    return parents.any((p) => !p.isStatic);
+  }
+
   /// Update a parent product entry (grams/static) and recompute its children amounts.
   Future<void> updateParentAndChildren({
     required String parentEntryId,
