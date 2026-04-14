@@ -25,9 +25,23 @@ String fmtDouble(num value) {
 /// - "abc" → null
 /// - null → null
 double? parseDouble(String? text) {
-  final trimmed = (text ?? '').trim();
+  final trimmed = (text ?? '').trim().replaceAll(',', '.');
   if (trimmed.isEmpty) return null;
   return double.tryParse(trimmed);
+}
+
+/// Parses a string to an integer, supporting comma/dot separators if they result in a whole number.
+///
+/// Examples:
+/// - "100" → 100
+/// - "100,0" → 100
+/// - "100.5" → null (not an integer)
+/// - "" → null
+int? parseInt(String? text) {
+  final d = parseDouble(text);
+  if (d == null) return null;
+  if (d % 1 != 0) return null;
+  return d.toInt();
 }
 
 /// Formats a DateTime to HH:mm format.

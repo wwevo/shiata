@@ -59,6 +59,8 @@ class RecipesRepository {
     if (!_changes.isClosed) _changes.add(null);
   }
 
+  Stream<void> watchChanges() => _changes.stream;
+
   Future<void> upsertRecipe(RecipeDef r) async {
     await _ready;
     // Validate inputs

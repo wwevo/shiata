@@ -210,6 +210,20 @@
           "per100": 4.0
         }
       ]
+    },
+    {
+      "id": "butter",
+      "name": "Butter",
+      "components": [
+        {
+          "kindId": "fat",
+          "per100": 82.0
+        },
+        {
+          "kindId": "water",
+          "per100": 16.0
+        }
+      ]
     }
   ],
   "kinds": [
@@ -361,6 +375,16 @@
       "icon": "grass",
       "min": 0,
       "max": 5000,
+      "defaultShowInCalendar": false
+    },
+    {
+      "id": "water",
+      "name": "Water",
+      "unit": "mL",
+      "color": 4280415987,
+      "icon": "water_drop",
+      "min": 0,
+      "max": 2500,
       "defaultShowInCalendar": false
     },
     {

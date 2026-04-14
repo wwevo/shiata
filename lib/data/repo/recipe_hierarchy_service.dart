@@ -19,6 +19,11 @@ class RecipeHierarchyService {
   final RecipesRepository recipes;
   final RecipeService recipeService;
 
+  Future<bool> hasNonStaticEntriesForRecipe(String recipeId) async {
+    final instances = await entries.listParentsByRecipeId(recipeId);
+    return instances.any((i) => !i.isStatic);
+  }
+
   /// Propagate template changes to non-static instances.
   /// When a recipe template is updated, this recalculates all non-static instances.
   /// Returns the number of instances that were updated.

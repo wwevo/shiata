@@ -127,7 +127,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
       for (final c in _components) {
         if (c.type == RecipeComponentType.kind) {
           final ctrl = _controllers['kind_${c.compId}']!;
-          final val = double.tryParse(ctrl.text.trim()) ?? c.amount ?? 0.0;
+          final val = parseDouble(ctrl.text) ?? c.amount ?? 0.0;
           updatedComponents.add(
             RecipeComponentDef.kind(
               recipeId: recipeId,
@@ -137,7 +137,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
           );
         } else {
           final ctrl = _controllers['product_${c.compId}']!;
-          final val = int.tryParse(ctrl.text.trim()) ?? c.grams ?? 0;
+          final val = parseInt(ctrl.text) ?? c.grams ?? 0;
           updatedComponents.add(
             RecipeComponentDef.product(
               recipeId: recipeId,
@@ -151,27 +151,30 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
 
       if (!context.mounted) return;
 
-      // Ask to propagate to non-static instances
+      // Ask to propagate to non-static instances if they exist
       final svc = ref.read(recipeHierarchyServiceProvider);
-      final doProp = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Confirm propagation'),
-          content: const Text(
-            'Apply these changes to all non-static recipe instances?',
+      bool doProp = false;
+      if (svc != null && await svc.hasNonStaticEntriesForRecipe(recipeId)) {
+        doProp = (await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Confirm propagation'),
+            content: const Text(
+              'Apply these changes to all non-static recipe instances?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Yes, update'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Yes, update'),
-            ),
-          ],
-        ),
-      );
+        )) ?? false;
+      }
 
       if (doProp == true && svc != null) {
         await svc.propagateTemplateChange(recipeId);

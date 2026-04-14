@@ -266,11 +266,11 @@ class RecipeInstantiateDialogState
     final kindOverrides = <String, double>{};
     final productOverrides = <String, int>{};
     _kindCtrls.forEach((k, v) {
-      final d = double.tryParse(v.text.trim());
+      final d = parseDouble(v.text);
       if (d != null) kindOverrides[k] = d;
     });
     _productCtrls.forEach((k, v) {
-      final g = int.tryParse(v.text.trim());
+      final g = parseInt(v.text);
       if (g != null) productOverrides[k] = g;
     });
 

@@ -28,43 +28,49 @@ class SearchService {
   /// Searches kinds by name (case-insensitive).
   Stream<List<KindDef>> searchKinds(String query) async* {
     final normalized = query.toLowerCase().trim();
-    if (normalized.isEmpty) {
-      yield await kindsRepo.listKinds();
-      return;
+
+    Future<List<KindDef>> fetch() async {
+      final allKinds = await kindsRepo.listKinds();
+      if (normalized.isEmpty) return allKinds;
+      return allKinds
+          .where((k) => k.name.toLowerCase().contains(normalized))
+          .toList();
     }
 
-    final allKinds = await kindsRepo.listKinds();
-    yield allKinds
-        .where((k) => k.name.toLowerCase().contains(normalized))
-        .toList();
+    yield await fetch();
+    yield* kindsRepo.watchChanges().asyncMap((_) => fetch());
   }
 
   /// Searches products by name (case-insensitive), only active products.
   Stream<List<ProductDef>> searchProducts(String query) async* {
     final normalized = query.toLowerCase().trim();
-    if (normalized.isEmpty) {
-      yield await productsRepo.listProducts(onlyActive: true);
-      return;
+
+    Future<List<ProductDef>> fetch() async {
+      final allProducts = await productsRepo.listProducts(onlyActive: true);
+      if (normalized.isEmpty) return allProducts;
+      return allProducts
+          .where((p) => p.name.toLowerCase().contains(normalized))
+          .toList();
     }
 
-    final allProducts = await productsRepo.listProducts(onlyActive: true);
-    yield allProducts
-        .where((p) => p.name.toLowerCase().contains(normalized))
-        .toList();
+    yield await fetch();
+    yield* productsRepo.watchChanges().asyncMap((_) => fetch());
   }
 
   /// Searches recipes by name (case-insensitive), only active recipes.
   Stream<List<RecipeDef>> searchRecipes(String query) async* {
     final normalized = query.toLowerCase().trim();
-    if (normalized.isEmpty) {
-      yield await recipesRepo.listRecipes(onlyActive: true);
-      return;
+
+    Future<List<RecipeDef>> fetch() async {
+      final allRecipes = await recipesRepo.listRecipes(onlyActive: true);
+      if (normalized.isEmpty) return allRecipes;
+      return allRecipes
+          .where((r) => r.name.toLowerCase().contains(normalized))
+          .toList();
     }
 
-    final allRecipes = await recipesRepo.listRecipes(onlyActive: true);
-    yield allRecipes
-        .where((r) => r.name.toLowerCase().contains(normalized))
-        .toList();
+    yield await fetch();
+    yield* recipesRepo.watchChanges().asyncMap((_) => fetch());
   }
 
   /// Searches entries for a specific day (local date).
