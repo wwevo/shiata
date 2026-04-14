@@ -40,7 +40,7 @@ class DbHandle extends AsyncNotifier<QueryExecutor?> {
       // Attempt to close if supported.
       if (exec is QueryExecutorUser) {
         await exec.close();
-      } else if (exec is dynamic) {
+      } else {
         try {
           await exec.close();
         } catch (_) {}
@@ -75,4 +75,6 @@ class DbHandle extends AsyncNotifier<QueryExecutor?> {
   }
 }
 
-final dbHandleProvider = AsyncNotifierProvider<DbHandle, QueryExecutor?>(DbHandle.new);
+final dbHandleProvider = AsyncNotifierProvider<DbHandle, QueryExecutor?>(
+  DbHandle.new,
+);

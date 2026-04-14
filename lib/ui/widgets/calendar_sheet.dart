@@ -8,7 +8,14 @@ import 'handle_bar.dart';
 import 'month_calendar.dart';
 
 class CalendarSheet extends StatelessWidget {
-  const CalendarSheet({super.key, required this.t, required this.config, required this.isActive, required this.onHandleTap});
+  const CalendarSheet({
+    super.key,
+    required this.t,
+    required this.config,
+    required this.isActive,
+    required this.onHandleTap,
+  });
+
   final double t;
   final UXConfig config;
   final bool isActive; // true while dragging and past threshold
@@ -18,7 +25,11 @@ class CalendarSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final visuals = config.visuals;
-    final elevation = lerpDouble(visuals.elevationCollapsed, visuals.elevationExpanded, t)!;
+    final elevation = lerpDouble(
+      visuals.elevationCollapsed,
+      visuals.elevationExpanded,
+      t,
+    )!;
     return Material(
       color: theme.colorScheme.surface,
       elevation: elevation,
@@ -45,13 +56,16 @@ class CalendarSheet extends StatelessWidget {
                     maintainAnimation: true,
                     maintainSize: false,
                     child: Column(
-                                      children: [
-                                        // Calendar grid takes top portion
-                                        Flexible(flex: 3, child: MonthCalendar(grid: config.calendarGrid)),
-                                        // Day details panel uses remaining portion
-                                        const Flexible(flex: 2, child: DayDetailsPanel()),
-                                      ],
-                                    ),
+                      children: [
+                        // Calendar grid takes top portion
+                        Flexible(
+                          flex: 3,
+                          child: MonthCalendar(grid: config.calendarGrid),
+                        ),
+                        // Day details panel uses remaining portion
+                        const Flexible(flex: 2, child: DayDetailsPanel()),
+                      ],
+                    ),
                   ),
                 ),
               ),

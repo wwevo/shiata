@@ -5,7 +5,16 @@ import 'package:drift/drift.dart';
 import '../db/raw_db.dart';
 
 class RecipeDef {
-  RecipeDef({required this.id, required this.name, required this.createdAt, required this.updatedAt, this.isActive = true, this.icon, this.color});
+  RecipeDef({
+    required this.id,
+    required this.name,
+    required this.createdAt,
+    required this.updatedAt,
+    this.isActive = true,
+    this.icon,
+    this.color,
+  });
+
   final String id;
   final String name;
   final int createdAt;
@@ -18,12 +27,19 @@ class RecipeDef {
 enum RecipeComponentType { kind, product }
 
 class RecipeComponentDef {
-  RecipeComponentDef.kind({required this.recipeId, required this.compId, required double this.amount})
-      : type = RecipeComponentType.kind,
-        grams = null;
-  RecipeComponentDef.product({required this.recipeId, required this.compId, required int this.grams})
-      : type = RecipeComponentType.product,
-        amount = null;
+  RecipeComponentDef.kind({
+    required this.recipeId,
+    required this.compId,
+    required double this.amount,
+  }) : type = RecipeComponentType.kind,
+       grams = null;
+
+  RecipeComponentDef.product({
+    required this.recipeId,
+    required this.compId,
+    required int this.grams,
+  }) : type = RecipeComponentType.product,
+       amount = null;
 
   final String recipeId;
   final RecipeComponentType type;
@@ -38,16 +54,30 @@ class RecipesRepository {
   final Future<void> _ready;
 
   final _changes = StreamController<void>.broadcast();
+
   void _notify() {
     if (!_changes.isClosed) _changes.add(null);
   }
 
   Future<void> upsertRecipe(RecipeDef r) async {
     await _ready;
+    // Validate inputs
+    if (r.name.trim().isEmpty) {
+      throw ArgumentError('Recipe name cannot be empty');
+    }
+
     await db.customStatement(
       'INSERT INTO recipes (id, name, created_at, updated_at, is_active, icon, color) VALUES (?, ?, ?, ?, ?, ?, ?) '
       'ON CONFLICT(id) DO UPDATE SET name=excluded.name, updated_at=excluded.updated_at, is_active=excluded.is_active, icon=excluded.icon, color=excluded.color;',
-      [r.id, r.name, r.createdAt, r.updatedAt, r.isActive ? 1 : 0, r.icon, r.color],
+      [
+        r.id,
+        r.name,
+        r.createdAt,
+        r.updatedAt,
+        r.isActive ? 1 : 0,
+        r.icon,
+        r.color,
+      ],
     );
     _notify();
   }
@@ -55,7 +85,10 @@ class RecipesRepository {
   Future<void> deleteRecipe(String id) async {
     await _ready;
     await db.transaction(() async {
-      await db.customStatement('DELETE FROM recipe_components WHERE recipe_id = ?;', [id]);
+      await db.customStatement(
+        'DELETE FROM recipe_components WHERE recipe_id = ?;',
+        [id],
+      );
       await db.customStatement('DELETE FROM recipes WHERE id = ?;', [id]);
     });
     _notify();
@@ -63,7 +96,13 @@ class RecipesRepository {
 
   Future<RecipeDef?> getRecipe(String id) async {
     await _ready;
-    final rows = await db.customSelect('SELECT * FROM recipes WHERE id = ? LIMIT 1;', variables: [Variable.withString(id)], readsFrom: const {}).get();
+    final rows = await db
+        .customSelect(
+          'SELECT * FROM recipes WHERE id = ? LIMIT 1;',
+          variables: [Variable.withString(id)],
+          readsFrom: const {},
+        )
+        .get();
     if (rows.isEmpty) return null;
     final d = rows.first.data;
     return RecipeDef(
@@ -80,7 +119,9 @@ class RecipesRepository {
   Future<List<RecipeDef>> listRecipes({bool onlyActive = true}) async {
     await _ready;
     final where = onlyActive ? 'WHERE is_active = 1' : '';
-    final rows = await db.customSelect('SELECT * FROM recipes $where ORDER BY name ASC;').get();
+    final rows = await db
+        .customSelect('SELECT * FROM recipes $where ORDER BY name ASC;')
+        .get();
     return rows.map((r) {
       final d = r.data;
       return RecipeDef(
@@ -104,24 +145,68 @@ class RecipesRepository {
 
   Future<List<RecipeComponentDef>> getComponents(String recipeId) async {
     await _ready;
-    final rows = await db.customSelect('SELECT * FROM recipe_components WHERE recipe_id = ?;', variables: [Variable.withString(recipeId)], readsFrom: const {}).get();
+    final rows = await db
+        .customSelect(
+          'SELECT * FROM recipe_components WHERE recipe_id = ?;',
+          variables: [Variable.withString(recipeId)],
+          readsFrom: const {},
+        )
+        .get();
     final list = <RecipeComponentDef>[];
     for (final r in rows) {
       final d = r.data;
       final type = (d['type'] as String);
       if (type == 'kind') {
-        list.add(RecipeComponentDef.kind(recipeId: d['recipe_id'] as String, compId: d['comp_id'] as String, amount: (d['amount'] as num?)?.toDouble() ?? 0.0));
+        list.add(
+          RecipeComponentDef.kind(
+            recipeId: d['recipe_id'] as String,
+            compId: d['comp_id'] as String,
+            amount: (d['amount'] as num?)?.toDouble() ?? 0.0,
+          ),
+        );
       } else {
-        list.add(RecipeComponentDef.product(recipeId: d['recipe_id'] as String, compId: d['comp_id'] as String, grams: (d['grams'] as num?)?.toInt() ?? 0));
+        list.add(
+          RecipeComponentDef.product(
+            recipeId: d['recipe_id'] as String,
+            compId: d['comp_id'] as String,
+            grams: (d['grams'] as num?)?.toInt() ?? 0,
+          ),
+        );
       }
     }
     return list;
   }
 
-  Future<void> setComponents(String recipeId, List<RecipeComponentDef> comps) async {
+  /// Watch recipe components (reactive).
+  /// Returns a stream that automatically updates when components are added/updated/deleted.
+  ///
+  /// Use this instead of getComponents() in UI widgets to ensure automatic refresh:
+  /// ```dart
+  /// StreamBuilder<List<RecipeComponentDef>>(
+  ///   stream: recipesRepo.watchComponents(recipeId),
+  ///   builder: (context, snapshot) {
+  ///     final components = snapshot.data ?? [];
+  ///     // UI updates automatically when components change
+  ///   }
+  /// )
+  /// ```
+  Stream<List<RecipeComponentDef>> watchComponents(String recipeId) async* {
+    yield await getComponents(recipeId);
+    await for (final _ in _changes.stream) {
+      yield await getComponents(recipeId);
+    }
+  }
+
+  Future<void> setComponents(
+    String recipeId,
+    List<RecipeComponentDef> comps,
+  ) async {
     await _ready;
     await db.transaction(() async {
-      await db.customStatement('DELETE FROM recipe_components WHERE recipe_id = ?;', [recipeId]);
+      await db.customStatement(
+        'DELETE FROM recipe_components WHERE recipe_id = ?;',
+        [recipeId],
+      );
       for (final c in comps) {
         if (c.type == RecipeComponentType.kind) {
           await db.customStatement(
@@ -139,7 +224,31 @@ class RecipesRepository {
     _notify();
   }
 
-  void dispose() {
-    _changes.close();
+  /// Export all recipes with components as JSON-serializable maps
+  Future<List<Map<String, Object?>>> dumpRecipes() async {
+    final list = await listRecipes(onlyActive: false);
+    final out = <Map<String, Object?>>[];
+    for (final r in list) {
+      final comps = await getComponents(r.id);
+      out.add({
+        'id': r.id,
+        'name': r.name,
+        'createdAt': r.createdAt,
+        'updatedAt': r.updatedAt,
+        'isActive': r.isActive,
+        'icon': r.icon,
+        'color': r.color,
+        'components': [
+          for (final c in comps)
+            {
+              'type': c.type == RecipeComponentType.kind ? 'kind' : 'product',
+              'compId': c.compId,
+              'amount': c.amount,
+              'grams': c.grams,
+            },
+        ],
+      });
+    }
+    return out;
   }
 }

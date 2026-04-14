@@ -10,36 +10,50 @@ import '../providers.dart';
 import 'entries_repository.dart';
 import 'kinds_repository.dart';
 import 'products_repository.dart';
+import 'recipes_repository.dart';
 
 class ImportResult {
   ImportResult({
     required this.kindsUpserted,
     required this.productsUpserted,
+    required this.recipesUpserted,
     required this.componentsWritten,
     required this.warnings,
   });
+
   final int kindsUpserted;
   final int productsUpserted;
+  final int recipesUpserted;
   final int componentsWritten;
   final List<String> warnings;
 }
 
 class ImportExportService {
-  ImportExportService({required this.db, required this.kinds, required this.products, required this.entries});
+  ImportExportService({
+    required this.db,
+    required this.kinds,
+    required this.products,
+    required this.recipes,
+    required this.entries,
+  });
+
   final AppDb db;
   final KindsRepository kinds;
   final ProductsRepository products;
+  final RecipesRepository recipes;
   final EntriesRepository entries;
 
   /// Export full bundle including entries.
   Future<Map<String, Object?>> exportBundle() async {
     final kindsList = await kinds.dumpKinds();
     final productsList = await products.dumpProductsWithComponents();
+    final recipesList = await recipes.dumpRecipes();
     final entriesList = await entries.dumpEntries();
     return <String, Object?>{
       'version': 1,
       'kinds': kindsList,
       'products': productsList,
+      'recipes': recipesList,
       'entries': entriesList,
     };
   }
@@ -62,11 +76,14 @@ class ImportExportService {
 
     int kindsUpserted = 0;
     int productsUpserted = 0;
+    int recipesUpserted = 0;
     int componentsWritten = 0;
 
-    // Wipe existing data first (entries → components → products → kinds)
+    // Wipe existing data first (entries → recipe_components → recipes → product_components → products → kinds)
     await db.transaction(() async {
       await db.customStatement('DELETE FROM entries;');
+      await db.customStatement('DELETE FROM recipe_components;');
+      await db.customStatement('DELETE FROM recipes;');
       await db.customStatement('DELETE FROM product_components;');
       await db.customStatement('DELETE FROM products;');
       await db.customStatement('DELETE FROM kinds;');
@@ -83,22 +100,26 @@ class ImportExportService {
       final color = colorVal is int
           ? colorVal
           : (colorVal is String && int.tryParse(colorVal) != null)
-              ? int.parse(colorVal)
-              : null;
+          ? int.parse(colorVal)
+          : null;
       final icon = (item['icon'] as String?)?.trim();
       final min = _asInt(item['min']) ?? 0;
       final max = _asInt(item['max']) ?? 0;
-      final defaultShow = item['defaultShowInCalendar'] == true || item['defaultShowInCalendar'] == 1;
-      await kinds.upsertKind(KindDef(
-        id: id,
-        name: name,
-        unit: unit,
-        color: color,
-        icon: (icon == null || icon.isEmpty) ? null : icon,
-        min: min,
-        max: max,
-        defaultShowInCalendar: defaultShow,
-      ));
+      final defaultShow =
+          item['defaultShowInCalendar'] == true ||
+          item['defaultShowInCalendar'] == 1;
+      await kinds.upsertKind(
+        KindDef(
+          id: id,
+          name: name,
+          unit: unit,
+          color: color,
+          icon: (icon == null || icon.isEmpty) ? null : icon,
+          min: min,
+          max: max,
+          defaultShowInCalendar: defaultShow,
+        ),
+      );
       kindsUpserted++;
     }
 
@@ -109,12 +130,9 @@ class ImportExportService {
       if (item is! Map) continue;
       final id = (item['id'] ?? '').toString().trim();
       final name = (item['name'] ?? '').toString().trim();
-      await products.upsertProduct(ProductDef(
-        id: id,
-        name: name,
-        createdAt: now,
-        updatedAt: now,
-      ));
+      await products.upsertProduct(
+        ProductDef(id: id, name: name, createdAt: now, updatedAt: now),
+      );
       productsUpserted++;
 
       final comps = <ProductComponent>[];
@@ -123,10 +141,80 @@ class ImportExportService {
         if (c is! Map) continue;
         final kindId = (c['kindId'] ?? '').toString().trim();
         final per100Raw = c['per100'];
-        final per100 = (per100Raw is num) ? per100Raw.toDouble() : double.tryParse(per100Raw?.toString() ?? '0') ?? 0.0;
-        comps.add(ProductComponent(productId: id, kindId: kindId, amountPerGram: per100));
+        final per100 = (per100Raw is num)
+            ? per100Raw.toDouble()
+            : double.tryParse(per100Raw?.toString() ?? '0') ?? 0.0;
+        comps.add(
+          ProductComponent(
+            productId: id,
+            kindId: kindId,
+            amountPerGram: per100,
+          ),
+        );
       }
       await products.setComponents(id, comps);
+      componentsWritten += comps.length;
+    }
+
+    // Recipes + components
+    final recipesArr = (root['recipes'] as List?) ?? const [];
+    for (final item in recipesArr) {
+      if (item is! Map) continue;
+      final id = (item['id'] ?? '').toString().trim();
+      final name = (item['name'] ?? '').toString().trim();
+      final createdAt = _asInt(item['createdAt']) ?? now;
+      final updatedAt = _asInt(item['updatedAt']) ?? now;
+      final isActive = item['isActive'] == true || item['isActive'] == 1;
+      final icon = (item['icon'] as String?)?.trim();
+      final colorVal = item['color'];
+      final color = colorVal is int
+          ? colorVal
+          : (colorVal is String && int.tryParse(colorVal) != null)
+          ? int.parse(colorVal)
+          : null;
+      await recipes.upsertRecipe(
+        RecipeDef(
+          id: id,
+          name: name,
+          createdAt: createdAt,
+          updatedAt: updatedAt,
+          isActive: isActive,
+          icon: (icon == null || icon.isEmpty) ? null : icon,
+          color: color,
+        ),
+      );
+      recipesUpserted++;
+
+      final comps = <RecipeComponentDef>[];
+      final compsArr = (item['components'] as List?) ?? const [];
+      for (final c in compsArr) {
+        if (c is! Map) continue;
+        final type = (c['type'] ?? '').toString().trim();
+        final compId = (c['compId'] ?? '').toString().trim();
+        if (type == 'kind') {
+          final amountRaw = c['amount'];
+          final amount = (amountRaw is num)
+              ? amountRaw.toDouble()
+              : double.tryParse(amountRaw?.toString() ?? '0') ?? 0.0;
+          comps.add(
+            RecipeComponentDef.kind(
+              recipeId: id,
+              compId: compId,
+              amount: amount,
+            ),
+          );
+        } else if (type == 'product') {
+          final gramsVal = _asInt(c['grams']) ?? 0;
+          comps.add(
+            RecipeComponentDef.product(
+              recipeId: id,
+              compId: compId,
+              grams: gramsVal,
+            ),
+          );
+        }
+      }
+      await recipes.setComponents(id, comps);
       componentsWritten += comps.length;
     }
 
@@ -144,14 +232,146 @@ class ImportExportService {
     return ImportResult(
       kindsUpserted: kindsUpserted,
       productsUpserted: productsUpserted,
+      recipesUpserted: recipesUpserted,
       componentsWritten: componentsWritten,
       warnings: const <String>[],
     );
   }
 
-  /// One-tap backup to single-slot file (JSON bundle). Returns the path.
-  Future<String> backupToFile({String fileName = 'backup.json'}) async {
-    final bundle = await exportBundle();
+  /// Export selected items with automatic dependency resolution.
+  /// Dependencies are automatically included:
+  /// - Products include their component kinds
+  /// - Recipes include their ingredient products and those products' component kinds
+  Future<Map<String, Object?>> exportSelected({
+    List<String>? kindIds,
+    List<String>? productIds,
+    List<String>? recipeIds,
+    List<String>? entryIds,
+    bool includeEntries = false,
+  }) async {
+    final selectedKindIds = <String>{...?kindIds};
+    final selectedProductIds = <String>{...?productIds};
+    final selectedRecipeIds = <String>{...?recipeIds};
+
+    // Resolve dependencies: products → component kinds
+    for (final productId in List<String>.from(selectedProductIds)) {
+      final components = await products.getComponents(productId);
+      for (final c in components) {
+        selectedKindIds.add(c.kindId);
+      }
+    }
+
+    // Resolve dependencies: recipes → ingredient products → component kinds
+    for (final recipeId in List<String>.from(selectedRecipeIds)) {
+      final components = await recipes.getComponents(recipeId);
+      for (final c in components) {
+        if (c.type == RecipeComponentType.product) {
+          selectedProductIds.add(c.compId);
+          // Also get that product's component kinds
+          final prodComponents = await products.getComponents(c.compId);
+          for (final pc in prodComponents) {
+            selectedKindIds.add(pc.kindId);
+          }
+        } else if (c.type == RecipeComponentType.kind) {
+          selectedKindIds.add(c.compId);
+        }
+      }
+    }
+
+    // Now export only the selected items
+    final kindsList = <Map<String, Object?>>[];
+    for (final id in selectedKindIds) {
+      final k = await kinds.getKind(id);
+      if (k != null) {
+        kindsList.add({
+          'id': k.id,
+          'name': k.name,
+          'unit': k.unit,
+          'color': k.color,
+          'icon': k.icon,
+          'min': k.min,
+          'max': k.max,
+          'defaultShowInCalendar': k.defaultShowInCalendar,
+        });
+      }
+    }
+
+    final productsList = <Map<String, Object?>>[];
+    for (final id in selectedProductIds) {
+      final p = await products.getProduct(id);
+      if (p != null) {
+        final comps = await products.getComponents(id);
+        productsList.add({
+          'id': p.id,
+          'name': p.name,
+          'components': [
+            for (final c in comps)
+              {'kindId': c.kindId, 'per100': c.amountPerGram},
+          ],
+        });
+      }
+    }
+
+    final recipesList = <Map<String, Object?>>[];
+    for (final id in selectedRecipeIds) {
+      final r = await recipes.getRecipe(id);
+      if (r != null) {
+        final comps = await recipes.getComponents(id);
+        recipesList.add({
+          'id': r.id,
+          'name': r.name,
+          'createdAt': r.createdAt,
+          'updatedAt': r.updatedAt,
+          'isActive': r.isActive,
+          'icon': r.icon,
+          'color': r.color,
+          'components': [
+            for (final c in comps)
+              {
+                'type': c.type == RecipeComponentType.kind ? 'kind' : 'product',
+                'compId': c.compId,
+                'amount': c.amount,
+                'grams': c.grams,
+              },
+          ],
+        });
+      }
+    }
+
+    final bundle = <String, Object?>{
+      'version': 1,
+      'kinds': kindsList,
+      'products': productsList,
+      'recipes': recipesList,
+    };
+
+    // Include specific entries if entryIds provided
+    if (entryIds != null && entryIds.isNotEmpty) {
+      final entriesList = <Map<String, Object?>>[];
+      final allEntries = await entries.dumpEntries();
+
+      for (final entryData in allEntries) {
+        final entryId = entryData['id'] as String;
+        if (entryIds.contains(entryId)) {
+          entriesList.add(entryData);
+        }
+      }
+
+      bundle['entries'] = entriesList;
+    } else if (includeEntries) {
+      // Include all entries related to selected items
+      // TODO: Implement filtered entry export based on selected kinds/products/recipes
+      bundle['entries'] = const <Map<String, Object?>>[];
+    }
+
+    return bundle;
+  }
+
+  /// Save any bundle to a file. Returns the full path.
+  Future<String> saveBundleToFile(
+    Map<String, Object?> bundle, {
+    String fileName = 'export.json',
+  }) async {
     final encoder = const JsonEncoder.withIndent('  ');
     final text = encoder.convert(bundle);
     final dirPath = await _appDocsDirPath();
@@ -159,6 +379,12 @@ class ImportExportService {
     final file = File(path);
     await file.writeAsString(text);
     return path;
+  }
+
+  /// One-tap backup to single-slot file (JSON bundle). Returns the path.
+  Future<String> backupToFile({String fileName = 'backup.json'}) async {
+    final bundle = await exportBundle();
+    return saveBundleToFile(bundle, fileName: fileName);
   }
 
   /// Restore from the single-slot backup file (destructive). Returns the path used.
@@ -181,7 +407,11 @@ class ImportExportService {
 
   EntryRecord _entryFromMap(Map raw) {
     int asInt(Object? v) => _asInt(v) ?? 0;
-    bool asBool(Object? v) => (v is bool) ? v : (v is num) ? v != 0 : v == '1' || v == 'true';
+    bool asBool(Object? v) => (v is bool)
+        ? v
+        : (v is num)
+        ? v != 0
+        : v == '1' || v == 'true';
     return EntryRecord(
       id: (raw['id'] ?? '').toString(),
       widgetKind: (raw['widget_kind'] ?? '').toString(),
@@ -189,13 +419,17 @@ class ImportExportService {
       targetAt: asInt(raw['target_at']),
       showInCalendar: asBool(raw['show_in_calendar']),
       payloadJson: (raw['payload_json'] ?? '{}').toString(),
-      schemaVersion: asInt(raw['schema_version']),
       updatedAt: asInt(raw['updated_at']),
-      sourceEventId: (raw['source_event_id'] as String?) ?? (raw['sourceEventId'] as String?),
-      sourceEntryId: (raw['source_entry_id'] as String?) ?? (raw['sourceEntryId'] as String?),
-      sourceWidgetKind: (raw['source_widget_kind'] as String?) ?? (raw['sourceWidgetKind'] as String?),
-      productId: (raw['product_id'] as String?) ?? (raw['productId'] as String?),
+      sourceEntryId:
+          (raw['source_entry_id'] as String?) ??
+          (raw['sourceEntryId'] as String?),
+      sourceWidgetKind:
+          (raw['source_widget_kind'] as String?) ??
+          (raw['sourceWidgetKind'] as String?),
+      productId:
+          (raw['product_id'] as String?) ?? (raw['productId'] as String?),
       productGrams: _asInt(raw['product_grams']),
+      recipeId: (raw['recipe_id'] as String?) ?? (raw['recipeId'] as String?),
       isStatic: asBool(raw['is_static']),
     );
   }
@@ -213,7 +447,16 @@ final importExportServiceProvider = Provider<ImportExportService?>((ref) {
   final db = ref.watch(appDbProvider);
   final kr = ref.watch(kindsRepositoryProvider);
   final pr = ref.watch(productsRepositoryProvider);
+  final rr = ref.watch(recipesRepositoryProvider);
   final er = ref.watch(entriesRepositoryProvider);
-  if (db == null || kr == null || pr == null || er == null) return null;
-  return ImportExportService(db: db, kinds: kr, products: pr, entries: er);
+  if (db == null || kr == null || pr == null || rr == null || er == null) {
+    return null;
+  }
+  return ImportExportService(
+    db: db,
+    kinds: kr,
+    products: pr,
+    recipes: rr,
+    entries: er,
+  );
 });

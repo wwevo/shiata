@@ -20,19 +20,19 @@ class AppDb extends GeneratedDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) async {
-          // Create all objects
-          await ensureInitialized();
-        },
-        onUpgrade: (m, from, to) async {
-          // Apply lightweight migrations inside ensureInitialized
-          await ensureInitialized();
-        },
-        beforeOpen: (details) async {
-          // Ensure indexes and seeds exist
-          await ensureInitialized();
-        },
-      );
+    onCreate: (m) async {
+      // Create all objects
+      await ensureInitialized();
+    },
+    onUpgrade: (m, from, to) async {
+      // Apply lightweight migrations inside ensureInitialized
+      await ensureInitialized();
+    },
+    beforeOpen: (details) async {
+      // Ensure indexes and seeds exist
+      await ensureInitialized();
+    },
+  );
 
   /// Create tables if they don't exist and apply lightweight migrations.
   Future<void> ensureInitialized() async {
@@ -45,9 +45,7 @@ class AppDb extends GeneratedDatabase {
         target_at INTEGER NOT NULL,
         show_in_calendar INTEGER NOT NULL DEFAULT 1,
         payload_json TEXT NOT NULL,
-        schema_version INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
-        source_event_id TEXT NULL,
         source_entry_id TEXT NULL,
         source_widget_kind TEXT NULL
       );
@@ -55,15 +53,41 @@ class AppDb extends GeneratedDatabase {
 
     // Lightweight column additions for 0.3.0 — check columns and add if missing
     final cols = await customSelect('PRAGMA table_info(entries);').get();
-    final colNames = cols.map((r) => (r.data['name'] as String).toLowerCase()).toSet();
+    final colNames = cols
+        .map((r) => (r.data['name'] as String).toLowerCase())
+        .toSet();
     if (!colNames.contains('product_id')) {
-      await customStatement('ALTER TABLE entries ADD COLUMN product_id TEXT NULL;');
+      await customStatement(
+        'ALTER TABLE entries ADD COLUMN product_id TEXT NULL;',
+      );
     }
     if (!colNames.contains('product_grams')) {
-      await customStatement('ALTER TABLE entries ADD COLUMN product_grams INTEGER NULL;');
+      await customStatement(
+        'ALTER TABLE entries ADD COLUMN product_grams INTEGER NULL;',
+      );
     }
     if (!colNames.contains('is_static')) {
-      await customStatement('ALTER TABLE entries ADD COLUMN is_static INTEGER NOT NULL DEFAULT 0;');
+      await customStatement(
+        'ALTER TABLE entries ADD COLUMN is_static INTEGER NOT NULL DEFAULT 0;',
+      );
+    }
+    if (!colNames.contains('recipe_id')) {
+      await customStatement(
+        'ALTER TABLE entries ADD COLUMN recipe_id TEXT NULL;',
+      );
+    }
+
+    // v0.8.9: Remove unused columns (if they exist)
+    // Note: ALTER TABLE DROP COLUMN requires SQLite 3.35+ (2021)
+    if (colNames.contains('source_event_id')) {
+      await customStatement(
+        'ALTER TABLE entries DROP COLUMN source_event_id;',
+      );
+    }
+    if (colNames.contains('schema_version')) {
+      await customStatement(
+        'ALTER TABLE entries DROP COLUMN schema_version;',
+      );
     }
 
     // kinds table (0.4.0)
@@ -140,6 +164,9 @@ class AppDb extends GeneratedDatabase {
     );
     await _safeCreateIndex(
       'CREATE INDEX IF NOT EXISTS idx_entries_product_id ON entries(product_id);',
+    );
+    await _safeCreateIndex(
+      'CREATE INDEX IF NOT EXISTS idx_entries_recipe_id ON entries(recipe_id);',
     );
   }
 

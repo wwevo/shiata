@@ -20,15 +20,20 @@ final selectedDayProvider = StateProvider<DateTime?>((ref) {
 });
 
 // App section navigation (main sections of the app)
-enum AppSection { calendar, products, kinds, recipes }
-final currentSectionProvider = StateProvider<AppSection>((_) => AppSection.calendar);
+enum AppSection { calendar, products, kinds, recipes, allEntries, database }
+
+final currentSectionProvider = StateProvider<AppSection>(
+  (_) => AppSection.calendar,
+);
 
 // View mode: toggles between overview and calendar within the calendar section
 enum ViewMode { overview, calendar }
+
 final viewModeProvider = StateProvider<ViewMode>((_) => ViewMode.overview);
 
 // Middle content mode
 enum MiddleMode { main, search }
+
 final middleModeProvider = StateProvider<MiddleMode>((_) => MiddleMode.main);
 
 // Search query
@@ -36,5 +41,16 @@ final searchQueryProvider = StateProvider<String>((_) => '');
 
 // Expanded product parents in Day Details (by parent entry id)
 final expandedProductsProvider = StateProvider<Set<String>>((_) => <String>{});
-// CAS: whether the Nutrients grid is expanded (session-scoped)
-final nutrientsExpandedProvider = StateProvider<bool>((_) => false);
+// Global expanded entries (for recursive list items across all pages)
+final expandedEntriesProvider = StateProvider<Set<String>>((_) => <String>{});
+
+// All Entries page filters
+enum EntrySortMode { newest, oldest }
+
+final entrySortModeProvider = StateProvider<EntrySortMode>(
+  (_) => EntrySortMode.newest,
+);
+
+// Entry type filter: empty = show all, non-empty = show only selected types
+// Valid types: 'kind' (direct nutrient entries), 'product', 'recipe'
+final entryTypeFilterProvider = StateProvider<Set<String>>((_) => <String>{});

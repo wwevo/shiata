@@ -6,6 +6,7 @@ import 'db_handle.dart';
 /// Observes app lifecycle and opens/closes the encrypted DB accordingly.
 class DbLifecycleObserver extends StatefulWidget {
   const DbLifecycleObserver({super.key, required this.child});
+
   final Widget child;
 
   @override

@@ -8,6 +8,7 @@ import 'products_repository.dart';
 
 class ProductService {
   ProductService({required this.entries, required this.products});
+
   final EntriesRepository entries;
   final ProductsRepository products;
 
@@ -33,7 +34,6 @@ class ProductService {
         'grams': productGrams,
       },
       showInCalendar: true,
-      schemaVersion: 1,
       productId: productId,
       productGrams: productGrams,
       isStatic: isStatic,
@@ -46,11 +46,8 @@ class ProductService {
       await entries.create(
         widgetKind: c.kindId,
         targetAtLocal: targetAtLocal,
-        payload: {
-          'amount': amount,
-        },
+        payload: {'amount': amount},
         showInCalendar: false,
-        schemaVersion: 1,
         sourceEntryId: parent.id,
         sourceWidgetKind: 'product',
       );
@@ -88,10 +85,12 @@ class ProductService {
       final amount = (c.amountPerGram * productGrams) / 100.0;
       await entries.create(
         widgetKind: c.kindId,
-        targetAtLocal: DateTime.fromMillisecondsSinceEpoch(parent.targetAt, isUtc: true).toLocal(),
+        targetAtLocal: DateTime.fromMillisecondsSinceEpoch(
+          parent.targetAt,
+          isUtc: true,
+        ).toLocal(),
         payload: {'amount': amount},
         showInCalendar: false,
-        schemaVersion: 1,
         sourceEntryId: parentEntryId,
         sourceWidgetKind: 'product',
       );
@@ -120,23 +119,40 @@ class ProductService {
   }
 
   /// Recompute children for all non-static instances of a product using current template components.
-  Future<void> updateAllEntriesForProductToCurrentFormula(String productId) async {
+  /// Also updates parent entry name to match current template.
+  Future<void> updateAllEntriesForProductToCurrentFormula(
+    String productId,
+  ) async {
+    final def = await products.getProduct(productId);
+    if (def == null) return;
+
     final parents = await entries.listParentsByProductId(productId);
     final comps = await products.getComponents(productId);
+
     for (final parent in parents) {
       if (parent.isStatic) continue; // skip static instances
       final grams = parent.productGrams ?? 0;
       if (grams <= 0) continue;
-      // Update parent payload grams (keep as-is) and recreate children
+
+      // Update parent payload with current name from template
+      final payload = jsonDecode(parent.payloadJson) as Map<String, dynamic>;
+      payload['name'] = def.name;
+      await entries.update(parent.id, {
+        'payload_json': jsonEncode(payload),
+      });
+
+      // Recreate children with current formula
       await entries.deleteChildrenOfParent(parent.id);
       for (final c in comps) {
-        final amount = (c.amountPerGram * grams) ~/ 100;
+        final amount = (c.amountPerGram * grams) / 100.0;
         await entries.create(
           widgetKind: c.kindId,
-          targetAtLocal: DateTime.fromMillisecondsSinceEpoch(parent.targetAt, isUtc: true).toLocal(),
+          targetAtLocal: DateTime.fromMillisecondsSinceEpoch(
+            parent.targetAt,
+            isUtc: true,
+          ).toLocal(),
           payload: {'amount': amount},
           showInCalendar: false,
-          schemaVersion: 1,
           sourceEntryId: parent.id,
           sourceWidgetKind: 'product',
         );

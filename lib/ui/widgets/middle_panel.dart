@@ -8,6 +8,7 @@ import 'top_sheet_host.dart';
 
 class MiddlePanel extends ConsumerStatefulWidget {
   const MiddlePanel({super.key});
+
   @override
   ConsumerState<MiddlePanel> createState() => _MiddlePanelState();
 }
@@ -17,7 +18,8 @@ class _MiddlePanelState extends ConsumerState<MiddlePanel> {
   double _lastDy = 0;
   double _velocity = 0;
 
-  TopSheetHostState? get _host => context.findAncestorStateOfType<TopSheetHostState>();
+  TopSheetHostState? get _host =>
+      context.findAncestorStateOfType<TopSheetHostState>();
 
   void _onDragStart(DragStartDetails d) {
     _lastDy = d.localPosition.dy;
@@ -77,12 +79,6 @@ class _MiddlePanelState extends ConsumerState<MiddlePanel> {
       ),
     );
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        content,
-        overlay,
-      ],
-    );
+    return Stack(fit: StackFit.expand, children: [content, overlay]);
   }
 }

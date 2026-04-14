@@ -1,35 +1,607 @@
 # CHANGELOG.md
 
+## [0.8.9] - 2025-11-18
+
+### Removed
+- **All UNDO Functionality** (~120 lines)
+  - Removed "UNDO" buttons from all deletion snackbars
+  - Removed `undoKindDeletion()` method and `KindDeletionSnapshot` class
+  - Deletions are now permanent (kinds, products, recipes, entries)
+  - Simplified deletion flow: confirm dialog → delete → success snackbar
+  - Affected files: `kind_service.dart`, `kinds_page.dart`, `all_entries_page.dart`, `entry_list_item_factory.dart`
+
+- **Unused Variables & Methods** (~50 lines)
+  - `nutrientsExpandedProvider` - never read anywhere
+  - `SearchService.searchAllEntries()` - duplicate of repository method
+  - `EntriesRepository.detachChildrenOfParent()` - never called
+  - `EntriesRepository.watchAllInstanceEntries()` - replaced by `watchAllEntriesWithChildren()`
+  - `dispose()` methods in all 4 repositories - never invoked (Riverpod Provider doesn't call dispose)
+
+- **Hierarchy Services** (~410 lines)
+  - **Deleted files**:
+    - `lib/data/repo/product_hierarchy_service.dart` (~152 lines) - unused in app code
+    - `lib/data/repo/nutrient_summary.dart` (~83 lines) - only used by deleted services
+  - **Cleaned file**:
+    - `lib/data/repo/recipe_hierarchy_service.dart` (280 → 105 lines)
+    - Removed: `RecipeInstanceHierarchy`, `getRecipeInstance()`, `aggregateNutrients()`, `resetToTemplate()`
+    - Kept: `propagateTemplateChange()` (used by recipe_template_editor_dialog.dart)
+  - App uses `ProductService.updateAllEntriesForProductToCurrentFormula()` instead of old hierarchy services
+
+- **Unused Database Fields** (~30 lines)
+  - `source_event_id` - never used in business logic, never displayed
+  - `schema_version` - always hardcoded to 1, never checked
+  - Updated schema in `raw_db.dart` with automatic migration (DROP COLUMN if exists)
+  - Removed from: `EntryRecord` model, all `entries.create()` calls, import/export mapping
+
+### Changed
+- **Test Rewrite**: `test/propagation_test.dart` now uses current `ProductService` API
+  - Removed dependencies on old hierarchy services (RecipeHierarchyService, WidgetRegistry)
+  - Added new test: Product name propagation
+  - All 3 tests pass: dynamic/static propagation, small values preserved, name updates
+
+### Technical
+- **Total removed: ~610 lines of dead code**
+- Database migration runs automatically on app start (SQLite 3.35+ required for DROP COLUMN)
+- All changes backward compatible (old backups import successfully)
+- Zero functionality lost (removed code was unused or replaced)
+
+---
+
+## [0.8.8] - 2025-11-18
+
+### Added
+- **Central ValidationRules Class**: Reusable validation logic for all editor dialogs (`lib/ui/widgets/validation_rules.dart`)
+  - `required()` - validates non-empty text fields
+  - `nonNegativeAmount()` - validates amount >= 0
+  - `positiveGrams()` - validates grams > 0
+  - `positiveInteger()` - validates integers > 0
+  - `validateRange()` - validates min <= max
+- **InlineError Widget**: Persistent error display component (`lib/ui/widgets/inline_error.dart`)
+  - Errors remain visible in dialogs until resolved (unlike disappearing snackbars)
+  - Users can intervene and correct issues before retrying
+  - Styled with error container colors and error icon
+
+### Changed
+- **All 7 Editor Dialogs** now use dual-layer validation (UI + Repository):
+  - **kind_template_editor_dialog.dart**: Uses ValidationRules, inline errors, try-catch for repository
+  - **product_template_editor_dialog.dart**: TextField → TextFormField, removed UNDO snackbar, added confirmation dialog
+  - **recipe_template_editor_dialog.dart**: TextField → TextFormField, removed UNDO snackbar, added confirmation dialog
+  - **kind_instance_editor_dialog.dart**: Added inline error handling
+  - **product_instance_editor_dialog.dart**: Added inline error handling
+  - **recipe_instance_dialog.dart**: TextField → TextFormField with validators, inline errors
+  - **product_instance_components_editor_dialog.dart**: TextField → TextFormField with validators, inline errors
+- **Error Handling**: Repository errors (ArgumentError/StateError) now displayed inline, not in snackbars
+- **Snackbars**: Now only used for success messages, never for errors
+- **Propagation Confirmation**: "Are you sure?" dialogs added to template editors before propagating changes
+
+### Removed
+- **UNDO Functionality**: Removed all UNDO snackbar code from product and recipe template editors
+  - User must use "Are you sure?" confirmation dialogs instead
+  - Prevents accidental propagation of template changes
+  - Simplifies error recovery (no UNDO state to manage)
+
+### Technical
+- Consistent pattern across all dialogs: Form validation → Repository operation → Inline error display
+- Context-dependent objects (Navigator, ScaffoldMessenger) captured before async gaps
+- All dialogs follow mounted checks and proper error categorization
+- ValidationRules serve as single source of truth for input validation logic
+
+---
+
+## [0.8.7] - 2025-11-18
+### Added
+- **Input Validation Layer**: Repository methods now validate user input and prevent data corruption
+    - **KindsRepository.upsertKind()**: Validates `name.trim().isNotEmpty`, `unit.trim().isNotEmpty`, `min <= max`
+    - **ProductsRepository.upsertProduct()**: Validates `name.trim().isNotEmpty`
+    - **RecipesRepository.upsertRecipe()**: Validates `name.trim().isNotEmpty`
+    - **EntriesRepository.create()**: Validates `amount >= 0` (if in payload), `productGrams > 0` (if set), `productId` exists (if set)
+    - All validation errors throw `ArgumentError` with helpful messages
+
+### Added
+- **Referential Integrity Constraints**: Delete operations now check for dependencies
+    - **KindsRepository.deleteKind()**: Prevents deletion if kind is used by entries - throws `StateError` with count
+    - **ProductsRepository.deleteProduct()**: Prevents deletion if product is used by entries - throws `StateError` with count
+    - Consistent error handling: both use identical pattern for predictability
+
+### Changed
+- **validation_test.dart**: Updated all 10 validation tests to expect thrown errors (ArgumentError/StateError)
+    - Tests now verify that validation layer works correctly
+    - All tests should PASS with new validation implementation
+    - Edge case tests (far future dates, large values) remain unchanged - not validated
+
+### Technical
+- Input validation prevents: nonsensical constraints, empty names/units, negative amounts, zero grams, invalid foreign keys
+- Constraint checks prevent: orphaned entries, data corruption from premature deletions
+- Error messages include helpful context (e.g., "used by 5 entries", "min (100) must be <= max (0)")
+- Philosophy: "Fail fast with helpful errors" - catch user mistakes at repository layer, not in UI
+
+---
+
+## [0.8.6] - 2025-11-18
+### Added
+- **Comprehensive Validation Tests**: New `validation_test.dart` with 13 tests that intentionally provoke errors
+    - **Philosophy**: "Tests must find bugs by provoking errors" - Documents current behavior and expected fixes
+    - **User Input Validation** (7 tests): Invalid constraints (min>max), empty names, negative amounts, zero grams
+    - **Edge Cases** (2 tests): Far future dates (100 years), extremely large values
+    - **Data Integrity** (3 tests): Orphaned entries from deleted kinds/products, invalid foreign keys
+    - **Regression Tests** (1 test): Empty search results recovery (v0.8.4 fix validation)
+    - Each test documents: SCENARIO (what user does wrong), CURRENT (what happens), EXPECTED (what should happen), FIX (how to implement)
+
+### Technical
+- Tests use scientific format: SCENARIO → SETUP → ACTUAL → EXPECTED → RESULT
+- All tests currently PASS (documenting lack of validation is intentional)
+- Tests serve as specification for future validation layer implementation
+- "Der größte Bug sitzt immer vor dem Bildschirm!" - User-centric testing approach
+
+---
+
+## [0.8.5] - 2025-11-18
+### Fixed
+- **Recipe Components Reactivity**: Fixed critical bug where recipe template summaries didn't update after component changes
+    - `_RecipeTemplateSummary` widget was using FutureBuilder (loaded once, never updated)
+    - Now uses StreamBuilder with `watchComponents(recipeId)` for automatic updates
+    - Component summaries now refresh immediately when adding/removing/editing ingredients
+    - This completes the systematic audit of FutureBuilder bugs started in v0.8.4
+
+### Added
+- **RecipesRepository**: `watchComponents(String recipeId)` - reactive stream for recipe components
+    - Automatically updates when components are added/removed/modified
+    - Use this instead of `getComponents()` in UI widgets for automatic refresh
+    - Pattern documented in method docstring following established conventions
+- **EntriesRepository**: `dispose()` method - closes stream controller for proper cleanup
+    - Matches pattern from other repositories (Kinds, Products, Recipes)
+- **Comprehensive documentation**: New "Reactive UI Patterns" section in CLAUDE.md
+    - StreamBuilder vs FutureBuilder: when to use each, critical bug patterns
+    - The Reactive List Pattern: repository patterns, hierarchical lists with expand support
+    - Available watch methods catalog for all repositories
+    - Audit checklist for reviewing list implementations
+    - Migration guide for fixing FutureBuilder bugs
+- **CLAUDE.md Rule 4 enhanced**: "NEVER INVENT - ALWAYS READ FIRST"
+    - Added explicit check before calling ANY method
+    - Mandatory STOP and ASK if method/feature is missing
+    - Example showing proper verification workflow
+
+### Technical
+- **Systematic list audit completed**: Reviewed all 34 UI files for FutureBuilder vs StreamBuilder usage
+    - 9 files correctly using StreamBuilder (AllEntriesPage, DatabasePage, RecipesPage, etc.)
+    - 1 FutureBuilder bug found and fixed (RecipesPage line 224)
+    - 1 acceptable FutureBuilder usage in dialogs (RecipeTemplateEditorDialog)
+- **Reactive pattern validated**: Existing `reactive_entries_list_test.dart` proves the pattern works
+    - 6 comprehensive tests covering CREATE/UPDATE/DELETE reactivity with hierarchies
+    - Tests use explicit delays to avoid race conditions
+    - Pattern is safe in real UI due to Flutter's event loop timing
+
+---
+
+## [0.8.4] - 2025-11-18
+### Changed
+- **All Entries Page**: Complete redesign with filtering, sorting, and bulk operations
+    - Now shows all instance entries by default (no search required)
+    - **Reactive updates**: Page updates automatically on any database change
+    - **Full expand support**: Products/Recipes show nested children when expanded
+    - Filter chips for entry type (Nutrients/Products/Recipes)
+    - Sort modes: Newest First / Oldest First (persists across navigation)
+    - Type filters persist across navigation
+    - Checkbox selection mode with bulk delete
+    - Scroll position restoration when navigating away and back
+    - Bulk delete with confirmation dialog showing breakdown by type
+    - Undo support for bulk deletions
+    - Search integration: filters work alongside search query
+- **Database Page**: Fixed critical reactivity bug
+    - **Was using FutureBuilder** (loaded once, never updated)
+    - **Now uses StreamBuilder** with reactive updates
+    - List updates automatically when entries are created/deleted/modified
+    - Expand functionality now works correctly with full hierarchy
+
+### Added
+- **EntriesRepository**: `watchAllEntriesWithChildren()` - reactive stream for ALL entries including children
+    - Use this for pages that need expand functionality (Database, AllEntries)
+    - Automatically updates on any entry change (create/update/delete)
+    - Pattern documented in method docstring for reusability
+- **EntriesRepository**: `watchAllInstanceEntries()` - reactive stream for top-level instances only
+- **Filter state providers**: `entrySortModeProvider`, `entryTypeFilterProvider` for reusable filtering
+- **Entry sort modes**: Newest/Oldest sort options (enum `EntrySortMode`)
+
+### Fixed
+- **Database Page**: Critical bug where list didn't update after creating/deleting entries
+- **All Entries Page**: Expand functionality now works (products/recipes show children)
+
+### Technical
+- **Reactive list pattern**: StreamBuilder + watchAllEntriesWithChildren()
+    - Build childrenByParent map from ALL entries
+    - Filter to top-level entries for display
+    - Pass childrenByParent to EntryListItemFactory for expand support
+- All Entries Page now ConsumerStatefulWidget for scroll and selection state
+- Filter logic consolidated: Type → Search → Sort pipeline
+- FilterChip and ChoiceChip patterns following WeeklyOverviewPanel design
+- Bulk delete follows DatabasePage patterns (no FAB, regular button with conditional visibility)
+- Removed obsolete `_getAllEntries()` Future method from DatabasePage
+
+---
+
+## [0.8.3] - 2025-11-17
+### Added
+- **Checkbox mode for entry lists**: EntryListItemFactory now supports selection mode
+    - New `EntryDisplayMode.checkbox` enum value
+    - `selectedIds` parameter for tracking selection
+    - `onSelectionChanged` callback for selection updates
+    - Used in Database page for fine-grained export selection
+
+### Changed
+- **Database page**: Enhanced export capabilities
+    - Fine-grained export: select specific kinds, products, recipes, and entries
+    - "Select All / Deselect All" buttons for each category
+    - Auto-dependency selection: selecting entries automatically includes referenced kinds/products/recipes
+    - Export summary shows counts by category
+
+### Fixed
+- Export service now correctly handles fine-grained exports with dependency resolution
+- Database page entry list now uses checkbox mode from EntryListItemFactory
+
+### Technical
+- Automatic code reformatting across all files for consistency
+- Added tests for import/export operations
+- ImportExportService enhanced with `exportSelected()` method
+
+---
+
+## [0.8.2] - 2025-11-17
+### Added
+- **Recursive entry list item factory**: Universal solution for consistent, nestable list items
+    - Single buildEntry() method handles all entry types at arbitrary depth
+    - Expandable/collapsible behavior built-in for products and recipes
+    - Support for future nesting: recipes→recipes, products→products, etc.
+    - Global expandedEntriesProvider for unified expand state management
+    - EntryListItemConfig for configurable metadata display (date, time, static flag)
+
+### Changed
+- **DayDetailsPanel**: Complete refactor using recursive factory (681→131 lines, 81% reduction)
+- **WeeklyOverviewPanel**: Complete refactor using recursive factory (735→300 lines, 59% reduction)
+- **AllEntriesPage**: Added date grouping with headers, uses recursive factory
+- **SearchResults**: Refactored to use recursive factory
+- **List item consistency**: All entry types display identically across ALL pages
+    - Day details: Time-only metadata (date implied by selected day)
+    - Weekly/Search/All Entries: Full date+time metadata
+    - Nested entries: Proper indentation and compact display
+    - Edit/delete buttons: Consistent placement and behavior
+
+### Fixed
+- Entry nesting now works consistently across all views
+- Expand/collapse state persists across page navigation
+- No more duplicate rendering logic for products and recipes
+
+### Technical
+- Eliminated ~1000 lines of duplicated code across 4 pages
+- Depth-aware rendering with automatic indentation (52px per level)
+- Recursive children lookup via childrenByParent map
+- Follows CLAUDE.md patterns: Card + ListTile + CircleAvatar
+- Extensible architecture for future nesting scenarios
+
+---
+
+## [0.8.1] - 2025-11-17
+### Added
+- **Calendar search**: Day-specific search filtering in CalendarFullScreen
+    - Search bar filters only entries for the currently selected day
+    - Uses searchEntriesForDay() for targeted results
+    - Maintains all day details panel functionality while searching
+- **Weekly overview search**: 7-day range search in WeeklyOverviewPanel
+    - Search bar filters entries from the last 7 days
+    - Uses searchEntriesInDateRange() for date-bound results
+    - Preserves pie chart and aggregation features during search
+
+### Changed
+- **CalendarFullScreen**: Removed global SearchResults, now always shows DayDetailsPanel
+    - Search filtering is integrated directly into day details
+    - Cleaner UI with consistent panel structure
+- **DayDetailsPanel**: Enhanced with inline search support
+    - Conditionally uses SearchService when query is present
+    - Falls back to standard repo.watchByDay() when no query
+- **WeeklyOverviewPanel**: Enhanced with inline search support
+    - Handles both Map and List stream types for flexibility
+    - Search results maintain proper parent-child hierarchy
+
+### Technical
+- Inline search pattern completed across all calendar views
+- SearchService integration in calendar components
+- Stream type polymorphism in WeeklyOverviewPanel for search compatibility
+
+---
+
+## [0.8.0] - 2025-11-17
+### Added
+- **Comprehensive search service**: Context-aware filtering across all app sections
+    - New centralized SearchService handles all search operations
+    - Inline search filtering on Kinds, Products, and Recipes pages
+    - Search query persists when switching between sections
+    - Empty query shows full unfiltered lists
+- **"All Entries" section**: New dedicated page to view and search all database entries
+    - Access via new bottom bar button (Icons.view_list)
+    - Lists all calendar entries with standard Card + ListTile pattern
+    - Full search support with entry details (date, time, static flag)
+    - Edit and delete operations with undo support
+- **Search field clear button**: X icon to quickly clear search query
+    - Appears dynamically when search query is not empty
+    - Single tap clears field and resets all filters
+
+### Changed
+- **Bottom navigation bar**: Extended with "All Entries" button (6th section)
+    - Order: Calendar, Handedness, Products, Kinds, Recipes, All Entries, Database
+    - Consistent icon style across all sections
+- **AppSection enum**: Added `allEntries` member
+- **Search UX**: Clear visual feedback when no results found
+    - Context-specific empty state messages (e.g., "No kinds found for 'protein'")
+    - Distinguishes between "no data" and "no search results"
+
+### Technical
+- SearchService architecture: Single source of truth for all search operations
+    - searchKinds(), searchProducts(), searchRecipes() for template filtering
+    - searchEntriesForDay(), searchEntriesInDateRange() for calendar filtering
+    - searchAllEntries() for global entry search
+- Inline filtering pattern: Each page uses SearchService for reactive filtering
+    - Stream-based updates ensure UI stays in sync with search query
+    - No separate search result screens, filters applied directly to page content
+- Bottom controls refactored to ConsumerStatefulWidget for TextEditingController management
+    - Bidirectional sync between controller and searchQueryProvider
+    - Prevents cursor jumps during external query updates
+
+---
+
+## [0.7.9] - 2025-11-17
+### Fixed
+- **All linter warnings eliminated**: Comprehensive cleanup for production-ready code
+    - **BuildContext async gaps** (15+ instances): Captured ScaffoldMessenger/Navigator before async operations
+    - **Unnecessary type checks**: Removed redundant `is dynamic` checks and simplified type assertions
+    - **Unused imports** (5 files): Cleaned up drift, dart:convert, and repository imports
+    - **Unused local variables** (8 instances): Removed or repurposed unused variables across dialogs
+    - **Deprecated APIs** (4 instances): Replaced DropdownButtonFormField with DropdownButton
+    - **Dead code**: Removed unreachable null coalescing and impossible null checks
+    - **Code style**: Fixed unnecessary multiple underscores, added library directive for formatters
+- **Pie chart readability**: Labels moved outside sections for better visibility
+    - Legend on right side shows full information: "Name: 123.45unit"
+    - Flex ratio (2:1) for better space distribution
+    - Works better with many small pie sections
+- **Export page usability**: Enhanced category selection controls
+    - Added "Select All" / "Deselect All" buttons for Kinds, Products, and Recipes
+    - "Include All" / "Exclude All" button for Calendar Entries
+    - Consistent UI pattern across all export categories
+- **Recipe instance static flag**: Simplified toggle behavior
+    - Static flag now directly controlled by user toggle
+    - Removed automatic static conversion logic
+    - Clear user control over template propagation
+
+### Changed
+- **Code quality documentation**: Extended claude.md with linter best practices
+    - BuildContext async gap patterns and anti-patterns
+    - Deprecated API replacement guidelines (DropdownButtonFormField → DropdownButton)
+    - Type checks and null safety patterns
+    - Unused variable investigation strategy
+    - Pre-commit checklist for zero-warning code
+- **Mounted checks**: Converted `mounted` to `context.mounted` where context is used after check
+    - Makes mounted checks 'related' to context usage for linter compliance
+    - Applied consistently across all editor dialogs
+
+### Technical
+- ProductHierarchyService/RecipeHierarchyService: Made propagateTemplateChange return int
+    - Provides user feedback statistics about propagation operations
+- Editor dialogs: Context captures moved to function start (before any async operations)
+    - Ensures proper context lifetime handling across async boundaries
+- All code now passes `flutter analyze` with zero warnings/info messages
+
+---
+
+## [0.7.8] - 2025-11-17
+### Added
+- **Recipe instance editing**: Complete CRUD support for recipe instances
+    - Edit button now available in day details, weekly overview, and search results
+    - Edit dialog loads current values from instance (kind amounts, product grams)
+    - Update operation recreates children from template with new overrides
+    - Supports toggling isStatic flag during edit
+- **Static/Dynamic toggle UI**: User control over template propagation
+    - Recipe instance dialog: Static toggle with reset dialog when switching static→dynamic
+    - Product instance dialog: Enhanced existing toggle with reset dialog
+    - Reset dialogs offer to reload template defaults when making instances dynamic
+    - User can cancel toggle or keep current values
+- **Visual indicators for static instances**: 🔒 "Static" badge in all views
+    - Day details panel: Lock icon + "Static" label in entry subtitle
+    - Weekly overview: Same indicator pattern
+    - Search results: Same indicator pattern
+    - Consistent styling (14px icon, 60% opacity, labelSmall text)
+- **Template-instance propagation system**: Centralized children management
+    - DB schema: Added `recipe_id` column to entries table with index for fast queries
+    - ProductHierarchyService: Manages product instance hierarchies and propagation
+    - RecipeHierarchyService: Manages recipe instance hierarchies with recursive aggregation
+    - Propagation hooks in template editors with undo support
+- **Scientific test methodology**: All tests now show complete data flow
+    - Format: INIT → ACTION → EXPECTED → ACTUAL → RESULT
+    - 8 comprehensive tests covering template propagation, static instances, recursive aggregation
+    - Tests validate recipe_id column, listParentsByRecipeId query, instance editing
+
+### Fixed
+- **Integer division bug**: Product instances were nulling small nutrient values
+    - Changed `~/` to `/` in ProductService (line 133: `amountPerGram * grams / 100.0`)
+    - Prevents vitamins/minerals from being rounded to zero (e.g., 0.05mg now preserved)
+- **Widget lifecycle crashes**: Undo operations were accessing disposed widgets
+    - Added mounted checks after all async operations in template editors
+    - Prevents "Looking up a deactivated widget's ancestor" errors
+- **Recipe instances always static**: isStatic was hardcoded to `true`
+    - RecipeService now accepts `isStatic` parameter (defaults to false)
+    - Template propagation now works correctly for recipe instances
+
+### Changed
+- **RecipeService**: Added `updateRecipeInstance()` method
+    - Updates parent entry (targetAt, isStatic, payload)
+    - Deletes ALL old children including nested product hierarchies
+    - Recreates children from template with new kind/product overrides
+    - Properly cascades product deletion through ProductService
+- **RecipeInstantiateDialog**: Enhanced for both create and edit modes
+    - Optional `entryId` parameter triggers edit mode
+    - `_loadExisting()` populates controllers with current instance values
+    - Loads kind amounts from child payloads, product grams from productGrams column
+    - Dialog title adapts: "Edit" vs "Instantiate"
+    - Different snackbar messages for create vs update
+
+### Technical
+- Added `dart:convert` import to RecipeService for jsonEncode
+- Recipe instance dialog now requires `entryId`, `recipeId`, and `initialTarget` to all be optional
+- Edit buttons added to 3 views with proper imports of RecipeInstantiateDialog
+- Tests expanded from 6 to 8 with new recipe editing coverage
+
+---
+
+## [0.7.7] - 2025-11-16
+### Fixed
+- **Pie chart proportions**: Fixed incorrect proportions when mixing different units
+    - Weight units now normalized to grams for accurate proportions (mg÷1000, µg÷1000000)
+    - Display values still show original units (e.g., "500mg" instead of "0.5g")
+    - Prevents visual distortion when comparing nutrients with different scales
+- **Calendar view**: Fixed missing values for nutrient kinds in day details
+    - Kind entries now display amount with unit (previously showed only "—")
+- **Number formatting**: Adaptive precision for small values
+    - Values < 1 now show 2 decimal places (e.g., "0.50mg" instead of "0mg")
+    - Values ≥ 1 show 0 decimal places (e.g., "100mg" instead of "100.00mg")
+    - Applied consistently across calendar view, weekly overview, child rows, and search
+- **Recipe instances**: Now display component weight summaries with recursive aggregation
+    - Shows total product grams plus top 2 nutrient kinds with **labels**
+    - **Recursive**: Nutrients from products within recipes are now included
+    - **Unit-aware sorting**: Top nutrients sorted by normalized values (10g > 100mg)
+    - Format example: "Breakfast Smoothie • 250g • Protein: 30g • Vitamin C: 500mg"
+    - Applied to calendar view, weekly overview, and recipe templates page
+    - Search shows name only (performance optimization)
+- **Weekly overview**: Fixed recipe summaries not displaying
+    - Recipe instances now show component weights (was showing only name)
+
+### Changed
+- **Documentation**: Simplified claude.md from 119 to 66 lines
+    - Removed redundant sections (workflow, testing checklist, common pitfalls)
+    - Focused on core patterns and architecture essentials
+    - Added unit normalization pattern documentation
+
+## [0.7.6] - 2025-11-15
+### Code Quality & Architecture
+- **Pattern compliance audit**: Comprehensive review and harmonization of all editor dialogs
+    - Unified inline editing pattern across all template editors
+    - Consistent transient state management (changes only committed on explicit Save)
+    - Save-based creation pattern: Products/Recipes now created on Save instead of before opening editor
+    - Fixed: Cancel now properly reverts all changes without leaving orphaned data
+
+### Fixed
+- **Product instance components editor**: Critical fix for immediate database writes
+    - Now uses transient local state like other editors
+    - Add/Delete operations no longer write to DB until Save is clicked
+    - Cancel button now correctly reverts all pending changes
+    - Added missing Delete button for component removal
+
+### Changed
+- **Recipe template editor**: Switched from popup-based to inline editing
+    - Consistent with product template editor UX
+    - Values now editable directly in list items (faster workflow)
+    - Simplified Add dialogs to only select component (amount set inline)
+- **Product/Recipe creation**: No longer creates empty templates before editor opens
+    - Template created on first Save instead
+    - Prevents orphaned empty entries if user clicks Cancel
+    - Cleaner separation: user action (Save) triggers database write
+
+### Technical
+- **Code cleanup**: Removed 5 obsolete editor screens (1061 lines of dead code)
+    - Deleted: `product_instance_editor.dart`, `kind_instance_editor.dart`
+    - Deleted: `product_instance_components_editor.dart`, `product_template_editor.dart`, `recipe_template_editor.dart`
+    - All functionality consolidated into `*_dialog.dart` variants
+- **Centralized formatters**: Created `lib/utils/formatters.dart`
+    - Eliminated duplication of `fmtDouble`, `parseDouble`, `fmtTime` across 11+ files
+    - Single source of truth for number/time formatting
+- **Repository consistency**: Added missing `dispose()` method to `ProductsRepository`
+
+---
+
+## [0.7.5] - 2025-11-15
+### Changed
+- **Universal actions-on-the-side pattern**: All list pages now use explicit Edit/Delete buttons instead of clickable list items
+    - Kinds page: Edit/Delete buttons (already correct)
+    - Products page: Edit/Delete buttons (already correct)
+    - Recipes page: Edit/Delete buttons (already correct)
+    - Day details panel: Added Edit button for kind entries, removed clickable behavior
+    - Weekly overview panel: Added Edit button for kind entries, removed clickable behavior
+    - Search results: Added Edit/Delete buttons, removed clickable behavior
+    - Database page: Checkboxes for selection (appropriate pattern)
+- **Weekly overview collapsible views**: Products and recipes now expand to show child entries
+    - Matches day details panel behavior with AnimatedRotation chevron
+    - onTap only handles expand/collapse for parent items (products/recipes)
+    - Kind entries have no onTap handler
+- **Pie chart height balance**: Chart section now exactly matches calendar height (420px)
+    - Filter chips included within the fixed height container
+    - Pie chart uses Expanded to fill remaining space after chips
+
+### Technical
+- Created shared icon resolver helper in `lib/ui/widgets/icon_resolver.dart`
+    - Eliminated ~120 lines of duplicate code across kinds/recipes/database pages
+    - Centralized icon resolution for consistency
+- Standardized all list items: Card + CircleAvatar + ListView.builder throughout
+
+---
+
+## [0.7.0] - 2025-11-15
+### Added
+- **Database Management Page**: New centralized database section accessible from bottom navigation
+    - Full database export/import operations with JSON support
+    - Quick backup/restore to single-slot file
+    - Database wipe functionality with double confirmation
+    - All operations now include recipes in addition to kinds, products, and entries
+- **Database section navigation**: New "Database" button in bottom navigation bar (storage icon)
+    - Added `database` to `AppSection` enum
+    - Integrated with existing section-based navigation
+
+### Changed
+- **Import/Export consolidation**: Removed scattered import/export UI from individual pages
+    - Removed export/import buttons from Kinds page
+    - Removed export/import buttons from Products page
+    - Removed backup/restore/wipe popup menu from bottom controls
+    - All database operations now centralized in Database section
+
+### Technical
+- Enhanced `ImportExportService` with complete recipes support
+    - Added `RecipesRepository` parameter to service constructor
+    - Updated `exportBundle()` to include recipes with components
+    - Updated `importBundle()` to import recipes with both kind and product components
+    - Added `recipesUpserted` field to `ImportResult` class
+- Added `dumpRecipes()` method to `RecipesRepository`
+    - Exports all recipes with their components (kinds and products)
+    - Follows same pattern as `dumpProductsWithComponents()`
+- Updated `importExportServiceProvider` to include `RecipesRepository`
+- Created new `lib/ui/database/database_page.dart` with comprehensive database management UI
+
+---
+
 ## [0.6.7] - 2025-11-14
 ### Added
 - **Weekly Overview Panel**: New 7-day summary view with pie chart and entry list
-  - Filter chips to select which nutrient kinds appear in pie chart
-  - Pie chart shows aggregated values for selected nutrients over last 7 days (including today)
-  - Scrollable list of all entries from last 7 days with proper product/recipe names
-  - Smart date range handling (includes entries from today)
+    - Filter chips to select which nutrient kinds appear in pie chart
+    - Pie chart shows aggregated values for selected nutrients over last 7 days (including today)
+    - Scrollable list of all entries from last 7 days with proper product/recipe names
+    - Smart date range handling (includes entries from today)
 - **Section-based navigation**: Complete redesign of app navigation architecture
-  - Calendar, Products, Kinds, and Recipes are now sections instead of stacked pages
-  - Instant section switching with no navigation stack buildup
-  - Bottom toolbar always visible across all sections
+    - Calendar, Products, Kinds, and Recipes are now sections instead of stacked pages
+    - Instant section switching with no navigation stack buildup
+    - Bottom toolbar always visible across all sections
 - **Smart Calendar/Overview toggle**: First button in bottom bar now context-aware
-  - When in calendar section: toggles between overview and calendar views
-  - When in other sections: returns to calendar section (remembers last view mode)
+    - When in calendar section: toggles between overview and calendar views
+    - When in other sections: returns to calendar section (remembers last view mode)
 - **Save & Close buttons**: Edit dialogs now offer two save options
-  - "Save": saves changes but keeps dialog open for multiple edits
-  - "Save & Close": saves changes and closes the dialog
-  - Applied to both kind and product instance editors
+    - "Save": saves changes but keeps dialog open for multiple edits
+    - "Save & Close": saves changes and closes the dialog
+    - Applied to both kind and product instance editors
 
 ### Changed
 - **List styles standardized**: Products and Recipes pages now match Kinds page design
-  - Card wrapper with consistent spacing
-  - Leading CircleAvatar icons (purple basket for products, brown menu for recipes)
-  - Non-clickable list items with explicit Edit/Delete buttons
-  - ListView.builder instead of ListView.separated
+    - Card wrapper with consistent spacing
+    - Leading CircleAvatar icons (purple basket for products, brown menu for recipes)
+    - Non-clickable list items with explicit Edit/Delete buttons
+    - ListView.builder instead of ListView.separated
 - **Search functionality restored**: Works in both overview and calendar modes
-  - Proper product/recipe name extraction from JSON payload
-  - Shows in calendar view when user types in search field
+    - Proper product/recipe name extraction from JSON payload
+    - Shows in calendar view when user types in search field
 - **Pie chart units**: Now displays correct units (mg, ug, g) instead of hardcoded 'g'
-  - Extracts unit from kind metadata
+    - Extracts unit from kind metadata
 
 ### Fixed
 - Products and recipes now show actual names in all lists (weekly overview, search results, day details)
@@ -50,11 +622,11 @@
 ## [0.5.5] - 2025-11-14
 ### Changed
 - Harmonized all 7 dialog editors to consistent code style:
-  - Standardized helper method names: `_fmtDouble` (no abbreviations like `_fmtD` or inline `fmt`).
-  - Added structure comments (`// Helper methods`, `// State variables`) to all dialogs.
-  - Unified DateTime label format: `Text('${_targetAt.toLocal()}')`.
-  - Improved mounted checks after async operations.
-  - Consistent method ordering across all dialog editors.
+    - Standardized helper method names: `_fmtDouble` (no abbreviations like `_fmtD` or inline `fmt`).
+    - Added structure comments (`// Helper methods`, `// State variables`) to all dialogs.
+    - Unified DateTime label format: `Text('${_targetAt.toLocal()}')`.
+    - Improved mounted checks after async operations.
+    - Consistent method ordering across all dialog editors.
 
 ---
 
@@ -112,8 +684,8 @@
 - Database-backed Kinds with live `WidgetRegistry` (no hardcoded seeds at runtime).
 - Kinds Manager UI (list/create/edit/delete) with unit picker, min/max, icon/color fields.
 - Safe Kind deletion with usage-aware dialog and Undo:
-  - Remove from product templates and update existing entries.
-  - Delete direct calendar instances of the kind.
+    - Remove from product templates and update existing entries.
+    - Delete direct calendar instances of the kind.
 - Import/Export v1 (JSON) now includes `entries` alongside `kinds` and `products`.
 - One‑tap backup/restore (single slot) stored as `backup.json` in the app documents folder.
 - Temporary "Wipe DB" action (debug/dev) to reset local database.
@@ -125,9 +697,9 @@
 
 ### Implementation
 - New services/repo helpers:
-  - `KindsRepository`, `ProductsRepository`, `EntriesRepository` expanded for dump/import and usage checks.
-  - `KindService` orchestrates deletion + Undo and re-propagation of affected products.
-  - `ImportExportService` exports/imports bundles and provides single-slot backup/restore.
+    - `KindsRepository`, `ProductsRepository`, `EntriesRepository` expanded for dump/import and usage checks.
+    - `KindService` orchestrates deletion + Undo and re-propagation of affected products.
+    - `ImportExportService` exports/imports bundles and provides single-slot backup/restore.
 - DB lifecycle handled by `DbLifecycleObserver` + `DbHandle`; added helper to resolve DB path for wipe/backup.
 
 ### Notes
@@ -251,4 +823,3 @@
 - The top sheet remains mounted at all times; no loading spinners.
 - All motion and visuals are driven by a single controller value `t ∈ [0..1]` for smoothness.
 - Next phase: Middle-section navigation modes (`MainList`, `WidgetDetail(widgetId)`, `SearchResults(query)`); calendar day taps open widget detail (chooser if multiple entries).
-

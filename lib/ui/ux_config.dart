@@ -71,7 +71,8 @@ class UXConfig {
       handle: handle ?? this.handle,
       calendarGrid: calendarGrid ?? this.calendarGrid,
       visuals: visuals ?? this.visuals,
-      actionSheetPresentation: actionSheetPresentation ?? this.actionSheetPresentation,
+      actionSheetPresentation:
+          actionSheetPresentation ?? this.actionSheetPresentation,
       sideSheet: sideSheet ?? this.sideSheet,
       actionSheet: actionSheet ?? this.actionSheet,
     );
@@ -83,6 +84,7 @@ class TopSheetConfig {
     this.expandedHeight = 420.0,
     this.collapsedHeight = 24.0,
   });
+
   final double expandedHeight; // full calendar height
   final double collapsedHeight; // visible handle area height
 }
@@ -92,9 +94,11 @@ class Thresholds {
     this.openKeepFraction = 0.75,
     this.paintVisibleMinT = 0.06, // below this, we stop painting the grid
   });
+
   /// Fraction (0..1). On release, if current expansion >= this threshold,
   /// the sheet completes opening; otherwise collapses.
   final double openKeepFraction;
+
   /// Minimum t at which the calendar grid will still paint.
   final double paintVisibleMinT;
 }
@@ -107,9 +111,12 @@ class AnimationsConfig {
     this.expandCurve = Curves.easeOut,
     this.collapseCurve = Curves.easeOut,
   });
+
   final Duration controllerBaseDuration; // used by the core AnimationController
-  final Duration settleOpenDuration; // small finish to 1.0 when threshold passed
-  final Duration settleCloseDuration; // finish to 0.0 when threshold not reached
+  final Duration
+  settleOpenDuration; // small finish to 1.0 when threshold passed
+  final Duration
+  settleCloseDuration; // finish to 0.0 when threshold not reached
   final Curve expandCurve;
   final Curve collapseCurve;
 }
@@ -120,8 +127,10 @@ class HapticsConfig {
     this.onDownwardCrossing = HapticType.selectionClick,
     this.fireOnUpwardOnly = true,
   });
+
   final bool enableThresholdHaptic;
   final HapticType onDownwardCrossing;
+
   /// If true, fire only when crossing upward (below->above threshold). If false,
   /// also fire on the way back down.
   final bool fireOnUpwardOnly;
@@ -131,11 +140,13 @@ enum HapticType { selectionClick, lightImpact, mediumImpact, heavyImpact }
 
 class HandleConfig {
   const HandleConfig({
-    this.touchAreaHeight = 24.0, // full tap target height at the bottom of sheet
+    this.touchAreaHeight =
+        24.0, // full tap target height at the bottom of sheet
     this.barHeight = 4.0, // the small visual bar height
     this.barWidthInactive = 36.0,
     this.barWidthActive = 44.0, // grows past threshold while dragging
   });
+
   final double touchAreaHeight;
   final double barHeight;
   final double barWidthInactive;
@@ -152,6 +163,7 @@ class CalendarGridConfig {
     this.paintMinHeightPx = 40.0, // below this skip painting
     this.paintMinCellPx = 6.0, // below this skip painting
   });
+
   final double padding;
   final double crossAxisSpacing;
   final double mainAxisSpacing;
@@ -167,6 +179,7 @@ class VisualsConfig {
     this.elevationExpanded = 6.0,
     this.opacityCurve = Curves.easeInOut,
   });
+
   final double elevationCollapsed;
   final double elevationExpanded;
   final Curve opacityCurve;
@@ -179,7 +192,8 @@ class SideSheetConfig {
     this.maxWidth = 420.0,
     this.tabletMaxWidth = 520.0,
     this.widthFraction = 0.86, // fraction of screen width (phones)
-    this.horizontalMargin = 16.0, // ensure some margin from the edge on small screens
+    this.horizontalMargin =
+        16.0, // ensure some margin from the edge on small screens
   });
 
   /// Minimum panel width regardless of screen size.
@@ -217,6 +231,7 @@ class ActionSheetConfig {
 enum SectionLayout {
   /// Flexible wrap layout that adapts to content (default).
   wrap,
+
   /// Fixed grid layout with responsive columns.
   grid,
 }
@@ -229,8 +244,10 @@ final uxConfigProvider = Provider<UXConfig>((ref) => const UXConfig());
 enum ActionSheetPresentation {
   /// Classic bottom sheet using `showModalBottomSheet`.
   bottom,
+
   /// Side sheet sliding from the left/right edge (default), width-constrained.
   side,
+
   /// Pick automatically based on size class (phones bottom, tablets side).
   auto,
 }

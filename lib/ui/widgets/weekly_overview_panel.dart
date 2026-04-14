@@ -7,12 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
-import '../editors/kind_instance_editor_dialog.dart';
-import '../editors/product_instance_editor_dialog.dart';
 import '../main_screen_providers.dart';
+import 'entry_list_item_factory.dart';
 
 // Provider for selected kinds filter (which kinds to show in pie chart)
-final selectedKindsForChartProvider = StateProvider<Set<String>>((_) => {'protein', 'fat', 'carbohydrate'});
+final selectedKindsForChartProvider = StateProvider<Set<String>>(
+  (_) => {'protein', 'fat', 'carbohydrate'},
+);
 
 /// Weekly overview panel showing:
 /// - Filter chips to select which kinds to include in pie chart
@@ -21,15 +22,11 @@ final selectedKindsForChartProvider = StateProvider<Set<String>>((_) => {'protei
 class WeeklyOverviewPanel extends ConsumerWidget {
   const WeeklyOverviewPanel({super.key});
 
-  String _fmtTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repo = ref.watch(entriesRepositoryProvider);
+    final searchService = ref.watch(searchServiceProvider);
+    final searchQuery = ref.watch(searchQueryProvider);
     final registry = ref.watch(widgetRegistryProvider);
     final theme = Theme.of(context);
 
@@ -40,149 +37,265 @@ class WeeklyOverviewPanel extends ConsumerWidget {
     // Calculate date range: last 7 days (inclusive of today)
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final sevenDaysAgo = today.subtract(const Duration(days: 6)); // 7 days total including today
-    final tomorrow = today.add(const Duration(days: 1)); // End date is exclusive, so we need tomorrow to include today
+    final sevenDaysAgo = today.subtract(
+      const Duration(days: 6),
+    ); // 7 days total including today
+    final tomorrow = today.add(
+      const Duration(days: 1),
+    ); // End date is exclusive, so we need tomorrow to include today
 
     final selectedKinds = ref.watch(selectedKindsForChartProvider);
 
-    return StreamBuilder<Map<DateTime, List<EntryRecord>>>(
-      stream: repo.watchByDayRange(sevenDaysAgo, tomorrow, onlyShowInCalendar: false),
-      builder: (context, snapshot) {
-        final entriesMap = snapshot.data ?? const <DateTime, List<EntryRecord>>{};
+    // Use search service if query is present, otherwise use repository directly
+    final Stream<dynamic> entriesStream =
+        searchQuery.trim().isNotEmpty && searchService != null
+        ? searchService.searchEntriesInDateRange(
+            searchQuery,
+            sevenDaysAgo,
+            tomorrow,
+          )
+        : repo.watchByDayRange(
+            sevenDaysAgo,
+            tomorrow,
+            onlyShowInCalendar: false,
+          );
 
-        // Flatten map to list
-        final allEntries = <EntryRecord>[];
-        for (final dayEntries in entriesMap.values) {
-          allEntries.addAll(dayEntries);
+    return StreamBuilder<dynamic>(
+      stream: entriesStream,
+      builder: (context, snapshot) {
+        // Handle both Map<DateTime, List<EntryRecord>> and List<EntryRecord>
+        List<EntryRecord> allEntries;
+        if (snapshot.data is Map<DateTime, List<EntryRecord>>) {
+          final entriesMap = snapshot.data as Map<DateTime, List<EntryRecord>>;
+          allEntries = [];
+          for (final dayEntries in entriesMap.values) {
+            allEntries.addAll(dayEntries);
+          }
+        } else {
+          allEntries = (snapshot.data as List<EntryRecord>?) ?? [];
         }
 
         // Filter only parent entries (no children) for display list
-        final parentEntries = allEntries.where((e) => e.sourceEntryId == null).toList()
-          ..sort((a, b) => b.targetAt.compareTo(a.targetAt)); // Most recent first
+        final parentEntries =
+            allEntries.where((e) => e.sourceEntryId == null).toList()..sort(
+              (a, b) => b.targetAt.compareTo(a.targetAt),
+            ); // Most recent first
 
-        // Get all available kinds from registry
-        final allKinds = registry.all
-            .where((k) => k.id != 'product' && k.id != 'recipe')
-            .toList();
+        // Build children map for nested entries
+        final childrenByParent = <String, List<EntryRecord>>{};
+        for (final c in allEntries) {
+          if (c.sourceEntryId != null) {
+            (childrenByParent[c.sourceEntryId!] ??= []).add(c);
+          }
+        }
 
-        // Aggregate amounts for selected kinds only
-        // Use ALL entries (including children from products) for aggregation
-        final aggregated = <String, double>{};
+        // Aggregate ALL amounts (regardless of selection) to determine which kinds have data
+        final allAmounts = <String, double>{};
         for (final e in allEntries) {
           if (e.widgetKind == 'product' || e.widgetKind == 'recipe') continue;
-          if (!selectedKinds.contains(e.widgetKind)) continue;
 
           try {
             final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
             final amount = (map['amount'] as num?)?.toDouble() ?? 0.0;
-            aggregated[e.widgetKind] = (aggregated[e.widgetKind] ?? 0.0) + amount;
+            allAmounts[e.widgetKind] =
+                (allAmounts[e.widgetKind] ?? 0.0) + amount;
           } catch (_) {}
         }
 
-        final chartData = aggregated;
+        // Only show filter chips for kinds that actually have data in the last 7 days
+        final availableKindIds = allAmounts.keys.toSet();
+
+        // Aggregate selected kinds for pie chart
+        final selectedAmounts = <String, double>{};
+        for (final kindId in selectedKinds) {
+          if (allAmounts.containsKey(kindId)) {
+            selectedAmounts[kindId] = allAmounts[kindId]!;
+          }
+        }
+
+        // Normalize values for pie chart (convert mg→g, µg→g)
+        final normalizedAmounts = <String, double>{};
+        for (final entry in selectedAmounts.entries) {
+          final kind = registry.byId(entry.key);
+          final unit = kind?.unit ?? '';
+          double normalized = entry.value;
+
+          // Normalize to grams for consistent pie chart proportions
+          switch (unit) {
+            case 'mg':
+              normalized = entry.value / 1000;
+              break;
+            case 'µg':
+              normalized = entry.value / 1000000;
+              break;
+            default:
+              normalized = entry.value;
+          }
+
+          normalizedAmounts[entry.key] = normalized;
+        }
+
+        final total = normalizedAmounts.values.fold(0.0, (sum, v) => sum + v);
 
         return Column(
-          key: ValueKey(selectedKinds.hashCode), // Force rebuild when filter changes
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Filter chips for kind selection
-            if (allKinds.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: Wrap(
-                  spacing: 8,
-                  children: allKinds.map((kind) {
-                    final isSelected = selectedKinds.contains(kind.id);
-                    return FilterChip(
-                      label: Text(kind.displayName),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        final newSet = {...selectedKinds};
-                        if (selected) {
-                          newSet.add(kind.id);
-                        } else {
-                          newSet.remove(kind.id);
-                        }
-                        ref.read(selectedKindsForChartProvider.notifier).state = newSet;
-                      },
-                      avatar: CircleAvatar(
-                        backgroundColor: isSelected ? kind.accentColor : Colors.grey,
-                        radius: 8,
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            // Pie chart section
+            // Chart and filter section
             Container(
-              height: 280,
-              padding: const EdgeInsets.all(16),
-              child: chartData.isEmpty
-                  ? Center(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.3,
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  // Filter chips
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: registry.kinds
+                          .where((kind) => availableKindIds.contains(kind.id))
+                          .map((kind) {
+                            final isSelected = selectedKinds.contains(kind.id);
+
+                            return FilterChip(
+                              label: Text(kind.displayName),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                final newSet = {...selectedKinds};
+                                if (selected) {
+                                  newSet.add(kind.id);
+                                } else {
+                                  newSet.remove(kind.id);
+                                }
+                                ref
+                                        .read(
+                                          selectedKindsForChartProvider
+                                              .notifier,
+                                        )
+                                        .state =
+                                    newSet;
+                              },
+                            );
+                          })
+                          .toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Pie chart or empty message
+                  if (normalizedAmounts.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(24),
                       child: Text(
-                        'No data for last 7 days',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    )
-                  : Row(
-                      children: [
-                        Expanded(
-                          child: PieChart(
-                            PieChartData(
-                              sections: chartData.entries.map((entry) {
-                                final kind = registry.byId(entry.key);
-                                final color = kind?.accentColor ?? theme.colorScheme.primary;
-                                final unit = kind?.unit ?? '';
-                                return PieChartSectionData(
-                                  value: entry.value,
-                                  title: '${entry.value.toStringAsFixed(0)}$unit',
-                                  color: color,
-                                  radius: 100,
-                                  titleStyle: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                );
-                              }).toList(),
-                              sectionsSpace: 2,
-                              centerSpaceRadius: 40,
-                            ),
+                        selectedKinds.isEmpty
+                            ? 'Select nutrients above to see chart'
+                            : 'No data for selected nutrients',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: chartData.entries.map((entry) {
-                            final kind = registry.byId(entry.key);
-                            final color = kind?.accentColor ?? theme.colorScheme.primary;
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 16,
-                                    height: 16,
-                                    decoration: BoxDecoration(
-                                      color: color,
-                                      shape: BoxShape.circle,
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        children: [
+                          // Pie chart
+                          SizedBox(
+                            width: 140,
+                            height: 140,
+                            child: PieChart(
+                              PieChartData(
+                                sections: normalizedAmounts.entries.map((
+                                  entry,
+                                ) {
+                                  final kind = registry.byId(entry.key);
+                                  final color =
+                                      kind?.accentColor ??
+                                      theme.colorScheme.primary;
+                                  final percentage =
+                                      (entry.value / total * 100);
+
+                                  return PieChartSectionData(
+                                    value: entry.value,
+                                    title: '${percentage.toStringAsFixed(0)}%',
+                                    color: color,
+                                    radius: 50,
+                                    titleStyle: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.onPrimary,
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    kind?.displayName ?? entry.key,
-                                    style: theme.textTheme.bodyMedium,
-                                  ),
-                                ],
+                                  );
+                                }).toList(),
+                                sectionsSpace: 2,
+                                centerSpaceRadius: 0,
                               ),
-                            );
-                          }).toList(),
-                        ),
-                      ],
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          // Legend
+                          Expanded(
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: normalizedAmounts.entries.map((
+                                  entry,
+                                ) {
+                                  final kind = registry.byId(entry.key);
+                                  final color =
+                                      kind?.accentColor ??
+                                      theme.colorScheme.primary;
+                                  final unit = kind?.unit ?? '';
+
+                                  // Display original value (not normalized)
+                                  final originalValue =
+                                      selectedAmounts[entry.key]!;
+                                  final formattedValue = originalValue < 1
+                                      ? originalValue.toStringAsFixed(2)
+                                      : originalValue.toStringAsFixed(0);
+
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 4,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 16,
+                                          height: 16,
+                                          decoration: BoxDecoration(
+                                            color: color,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            '${kind?.displayName ?? entry.key}: $formattedValue$unit',
+                                            style: theme.textTheme.bodyMedium,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                ],
+              ),
             ),
             const Divider(height: 1),
             // Header for list
@@ -200,94 +313,22 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                       child: Text(
                         'No entries in the last 7 days',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
                         ),
                       ),
                     )
-                  : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  : ListView.builder(
                       itemCount: parentEntries.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (ctx, i) {
-                        final e = parentEntries[i];
-                        final localTime = DateTime.fromMillisecondsSinceEpoch(
-                          e.targetAt,
-                          isUtc: true,
-                        ).toLocal();
-                        final kind = registry.byId(e.widgetKind);
-
-                        IconData icon;
-                        Color bg;
-                        if (e.widgetKind == 'product') {
-                          icon = Icons.shopping_basket;
-                          bg = Colors.purple;
-                        } else if (e.widgetKind == 'recipe') {
-                          icon = Icons.restaurant_menu;
-                          bg = Colors.brown;
-                        } else {
-                          icon = kind?.icon ?? Icons.circle;
-                          bg = kind?.accentColor ?? theme.colorScheme.primary;
-                        }
-
-                        String title = kind?.displayName ?? e.widgetKind;
-                        String summary = '';
-
-                        try {
-                          final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
-
-                          // Extract name for products and recipes
-                          if (e.widgetKind == 'product') {
-                            title = (map['name'] as String?) ?? 'Product';
-                            final grams = (map['grams'] as num?)?.toInt();
-                            if (grams != null) summary = '$grams g';
-                          } else if (e.widgetKind == 'recipe') {
-                            title = (map['name'] as String?) ?? 'Recipe';
-                          } else {
-                            // For kinds, show amount
-                            final amount = (map['amount'] as num?)?.toDouble();
-                            if (amount != null) {
-                              summary = '${amount.toStringAsFixed(1)} ${kind?.unit ?? ''}';
-                            }
-                          }
-                        } catch (_) {}
-
-                        return ListTile(
-                          onTap: () {
-                            if (e.widgetKind == 'product') {
-                              showDialog(
-                                context: context,
-                                builder: (_) => ProductEditorDialog(entryId: e.id),
-                              );
-                            } else if (e.widgetKind != 'recipe') {
-                              final k = registry.byId(e.widgetKind);
-                              if (k != null) {
-                                showDialog(
-                                  context: context,
-                                  builder: (_) => KindInstanceEditorDialog(kind: k, entryId: e.id),
-                                );
-                              }
-                            }
-                          },
-                          leading: CircleAvatar(
-                            backgroundColor: bg,
-                            foregroundColor: Colors.white,
-                            child: Icon(icon, size: 18),
-                          ),
-                          title: Text(
-                            title,
-                            style: theme.textTheme.bodyLarge,
-                          ),
-                          subtitle: Row(
-                            children: [
-                              Text(
-                                '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')} ${_fmtTime(localTime)}',
-                              ),
-                              if (summary.isNotEmpty) ...[
-                                const SizedBox(width: 8),
-                                Text('• $summary'),
-                              ],
-                            ],
-                          ),
+                        return EntryListItemFactory.buildEntry(
+                          context: context,
+                          ref: ref,
+                          entry: parentEntries[i],
+                          childrenByParent: childrenByParent,
+                          registry: registry,
+                          config: EntryListItemConfig.fullDateTime,
                         );
                       },
                     ),

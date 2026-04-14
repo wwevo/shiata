@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/widgets/registry.dart';
 import '../main_screen_providers.dart';
 import '../ux_config.dart';
 import 'create_action_sheet_content.dart';
 
-Future<void> _showSideCreateActionSheet(BuildContext context, WidgetRef ref, DateTime targetDate, {required bool fromRight}) async {
-  final registry = ref.read(widgetRegistryProvider);
-  final items = registry.actionsForDate(context, targetDate);
+Future<void> _showSideCreateActionSheet(
+  BuildContext context,
+  WidgetRef ref,
+  DateTime targetDate, {
+  required bool fromRight,
+}) async {
   final ux = ref.read(uxConfigProvider);
   final cfg = ux.sideSheet;
   final size = MediaQuery.of(context).size;
@@ -26,7 +28,6 @@ Future<void> _showSideCreateActionSheet(BuildContext context, WidgetRef ref, Dat
     barrierDismissible: true,
     barrierLabel: 'Dismiss',
     pageBuilder: (ctx, _, _) {
-      final begin = Offset(fromRight ? 1 : -1, 0);
       return Align(
         alignment: fromRight ? Alignment.centerRight : Alignment.centerLeft,
         child: Material(
@@ -55,25 +56,32 @@ Future<void> _showSideCreateActionSheet(BuildContext context, WidgetRef ref, Dat
       );
     },
     transitionBuilder: (_, anim, _, child) {
-      final tween = Tween<Offset>(begin: Offset(fromRight ? 1 : -1, 0), end: Offset.zero).chain(CurveTween(curve: Curves.easeOutCubic));
+      final tween = Tween<Offset>(
+        begin: Offset(fromRight ? 1 : -1, 0),
+        end: Offset.zero,
+      ).chain(CurveTween(curve: Curves.easeOutCubic));
       return SlideTransition(position: anim.drive(tween), child: child);
     },
   );
 }
 
-Future<void> showCreateActionSheet(BuildContext context, WidgetRef ref, DateTime targetDate) async {
+Future<void> showCreateActionSheet(
+  BuildContext context,
+  WidgetRef ref,
+  DateTime targetDate,
+) async {
   final ux = ref.read(uxConfigProvider);
   final handed = ref.read(handednessProvider);
 
   ActionSheetPresentation mode = ux.actionSheetPresentation;
   if (mode == ActionSheetPresentation.auto) {
     final size = MediaQuery.of(context).size;
-    mode = size.width >= 600 ? ActionSheetPresentation.side : ActionSheetPresentation.bottom;
+    mode = size.width >= 600
+        ? ActionSheetPresentation.side
+        : ActionSheetPresentation.bottom;
   }
 
   if (mode == ActionSheetPresentation.bottom) {
-    final registry = ref.read(widgetRegistryProvider);
-    final items = registry.actionsForDate(context, targetDate);
     await showModalBottomSheet(
       context: context,
       showDragHandle: true,
@@ -83,14 +91,17 @@ Future<void> showCreateActionSheet(BuildContext context, WidgetRef ref, DateTime
     return;
   }
 
-  // Side sheet: align with handedness. Right-handed → from right (LTR/RTL nuance optional).
-  final textDir = Directionality.of(context);
+  // Side sheet: align with handedness. Right-handed → from right.
   bool fromRight;
   if (handed == Handedness.right) {
     fromRight = true;
   } else {
     fromRight = false;
   }
-  // If in RTL, you may want to flip for conventional expectations; we prioritize handedness per request.
-  await _showSideCreateActionSheet(context, ref, targetDate, fromRight: fromRight);
+  await _showSideCreateActionSheet(
+    context,
+    ref,
+    targetDate,
+    fromRight: fromRight,
+  );
 }

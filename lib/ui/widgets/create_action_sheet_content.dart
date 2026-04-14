@@ -17,10 +17,12 @@ class CreateActionSheetContent extends ConsumerStatefulWidget {
   final List<({WidgetKind kind, CreateAction action})>? items;
 
   @override
-  ConsumerState<CreateActionSheetContent> createState() => _CreateActionSheetContentState();
+  ConsumerState<CreateActionSheetContent> createState() =>
+      _CreateActionSheetContentState();
 }
 
-class _CreateActionSheetContentState extends ConsumerState<CreateActionSheetContent> {
+class _CreateActionSheetContentState
+    extends ConsumerState<CreateActionSheetContent> {
   late SectionLayout _layout;
 
   @override
@@ -34,7 +36,11 @@ class _CreateActionSheetContentState extends ConsumerState<CreateActionSheetCont
   @override
   Widget build(BuildContext context) {
     // Use provided items, or fetch from registry if not provided
-    final actionItems = widget.items ?? ref.read(widgetRegistryProvider).actionsForDate(context, widget.targetDate);
+    final actionItems =
+        widget.items ??
+        ref
+            .read(widgetRegistryProvider)
+            .actionsForDate(context, widget.targetDate);
 
     return SafeArea(
       child: Padding(
@@ -48,13 +54,24 @@ class _CreateActionSheetContentState extends ConsumerState<CreateActionSheetCont
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Add entry', style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    'Add entry',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   IconButton(
-                    icon: Icon(_layout == SectionLayout.wrap ? Icons.grid_view : Icons.view_agenda),
+                    icon: Icon(
+                      _layout == SectionLayout.wrap
+                          ? Icons.grid_view
+                          : Icons.view_agenda,
+                    ),
                     onPressed: () => setState(() {
-                      _layout = _layout == SectionLayout.wrap ? SectionLayout.grid : SectionLayout.wrap;
+                      _layout = _layout == SectionLayout.wrap
+                          ? SectionLayout.grid
+                          : SectionLayout.wrap;
                     }),
-                    tooltip: _layout == SectionLayout.wrap ? 'Switch to grid' : 'Switch to wrap',
+                    tooltip: _layout == SectionLayout.wrap
+                        ? 'Switch to grid'
+                        : 'Switch to wrap',
                   ),
                 ],
               ),
@@ -79,7 +96,10 @@ class _CreateActionSheetContentState extends ConsumerState<CreateActionSheetCont
     required SectionLayout layout,
   }) {
     if (items.isEmpty) {
-      return Text('No items available', style: Theme.of(context).textTheme.bodySmall);
+      return Text(
+        'No items available',
+        style: Theme.of(context).textTheme.bodySmall,
+      );
     }
 
     return _buildItemList(
@@ -109,7 +129,11 @@ class _CreateActionSheetContentState extends ConsumerState<CreateActionSheetCont
     return LayoutBuilder(
       builder: (ctx, cons) {
         final width = cons.maxWidth;
-        final col = width >= 480 ? 4 : width >= 360 ? 3 : 2;
+        final col = width >= 480
+            ? 4
+            : width >= 360
+            ? 3
+            : 2;
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -127,7 +151,10 @@ class _CreateActionSheetContentState extends ConsumerState<CreateActionSheetCont
   }
 
   /// Unified chip builder for all item types
-  Widget _buildChip(BuildContext context, ({WidgetKind kind, CreateAction action}) item) {
+  Widget _buildChip(
+    BuildContext context,
+    ({WidgetKind kind, CreateAction action}) item,
+  ) {
     final color = item.action.color ?? item.kind.accentColor;
 
     if (_layout == SectionLayout.wrap) {
@@ -164,10 +191,7 @@ class _CreateActionSheetContentState extends ConsumerState<CreateActionSheetCont
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              item.action.label,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: Text(item.action.label, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'all_entries/all_entries_page.dart';
+import 'database/database_page.dart';
 import 'kinds/kinds_page.dart';
 import 'main_screen_providers.dart';
 import 'products/products_page.dart';
@@ -13,6 +15,8 @@ import 'widgets/weekly_overview_panel.dart';
 /// - Products section
 /// - Kinds section
 /// - Recipes section
+/// - All Entries section
+/// - Database section
 class MainScreen extends ConsumerWidget {
   const MainScreen({super.key});
 
@@ -33,6 +37,10 @@ class MainScreen extends ConsumerWidget {
         return const KindsPage();
       case AppSection.recipes:
         return const RecipesPage();
+      case AppSection.allEntries:
+        return const AllEntriesPage();
+      case AppSection.database:
+        return const DatabasePage();
     }
   }
 }

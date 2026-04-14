@@ -42,21 +42,34 @@ class KindsRepository {
   Future<List<Map<String, Object?>>> dumpKinds() async {
     final list = await listKinds();
     return list
-        .map((k) => {
-              'id': k.id,
-              'name': k.name,
-              'unit': k.unit,
-              'color': k.color,
-              'icon': k.icon,
-              'min': k.min,
-              'max': k.max,
-              'defaultShowInCalendar': k.defaultShowInCalendar,
-            })
+        .map(
+          (k) => {
+            'id': k.id,
+            'name': k.name,
+            'unit': k.unit,
+            'color': k.color,
+            'icon': k.icon,
+            'min': k.min,
+            'max': k.max,
+            'defaultShowInCalendar': k.defaultShowInCalendar,
+          },
+        )
         .toList();
   }
 
   Future<void> upsertKind(KindDef k) async {
     await _ready;
+    // Validate inputs
+    if (k.name.trim().isEmpty) {
+      throw ArgumentError('Kind name cannot be empty');
+    }
+    if (k.unit.trim().isEmpty) {
+      throw ArgumentError('Kind unit cannot be empty');
+    }
+    if (k.min > k.max) {
+      throw ArgumentError('Kind min (${k.min}) must be <= max (${k.max})');
+    }
+
     await db.customStatement(
       'INSERT INTO kinds (id, name, unit, color, icon, min, max, default_show_in_calendar) VALUES (?, ?, ?, ?, ?, ?, ?, ?) '
       'ON CONFLICT(id) DO UPDATE SET name=excluded.name, unit=excluded.unit, color=excluded.color, icon=excluded.icon, min=excluded.min, max=excluded.max, default_show_in_calendar=excluded.default_show_in_calendar;',
@@ -76,9 +89,27 @@ class KindsRepository {
 
   Future<void> deleteKind(String id) async {
     await _ready;
+    // Check if kind is used by any entries
+    final entryRows = await db
+        .customSelect(
+          'SELECT COUNT(*) as count FROM entries WHERE widget_kind = ?;',
+          variables: [Variable.withString(id)],
+          readsFrom: const {},
+        )
+        .get();
+    final entryCount = entryRows.first.data['count'] as int;
+    if (entryCount > 0) {
+      throw StateError(
+        'Cannot delete kind "$id": used by $entryCount ${entryCount == 1 ? 'entry' : 'entries'}',
+      );
+    }
+
     // Consider FK in product_components; for now, allow cascade-like cleanup manually.
     await db.transaction(() async {
-      await db.customStatement('DELETE FROM product_components WHERE kind_id = ?;', [id]);
+      await db.customStatement(
+        'DELETE FROM product_components WHERE kind_id = ?;',
+        [id],
+      );
       await db.customStatement('DELETE FROM kinds WHERE id = ?;', [id]);
     });
     _notify();
@@ -86,11 +117,13 @@ class KindsRepository {
 
   Future<KindDef?> getKind(String id) async {
     await _ready;
-    final rows = await db.customSelect(
-      'SELECT * FROM kinds WHERE id = ? LIMIT 1;',
-      variables: [Variable.withString(id)],
-      readsFrom: const {},
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT * FROM kinds WHERE id = ? LIMIT 1;',
+          variables: [Variable.withString(id)],
+          readsFrom: const {},
+        )
+        .get();
     if (rows.isEmpty) return null;
     final d = rows.first.data;
     return KindDef(
@@ -107,10 +140,12 @@ class KindsRepository {
 
   Future<List<KindDef>> listKinds() async {
     await _ready;
-    final rows = await db.customSelect(
-      'SELECT * FROM kinds ORDER BY name ASC;',
-      readsFrom: const {},
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT * FROM kinds ORDER BY name ASC;',
+          readsFrom: const {},
+        )
+        .get();
     return rows.map((r) {
       final d = r.data;
       return KindDef(
@@ -131,9 +166,5 @@ class KindsRepository {
     await for (final _ in _changes.stream) {
       yield await listKinds();
     }
-  }
-
-  void dispose() {
-    _changes.close();
   }
 }

@@ -1,20 +1,24 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../data/repo/kinds_repository.dart';
 import '../widgets/editor_dialog_actions.dart';
+import '../widgets/inline_error.dart';
+import '../widgets/validation_rules.dart';
 
 class KindTemplateEditorDialog extends ConsumerStatefulWidget {
   const KindTemplateEditorDialog({super.key, this.existing});
+
   final KindDef? existing;
 
   @override
-  ConsumerState<KindTemplateEditorDialog> createState() => _KindTemplateEditorDialogState();
+  ConsumerState<KindTemplateEditorDialog> createState() =>
+      _KindTemplateEditorDialogState();
 }
 
-class _KindTemplateEditorDialogState extends ConsumerState<KindTemplateEditorDialog> {
+class _KindTemplateEditorDialogState
+    extends ConsumerState<KindTemplateEditorDialog> {
   // State variables
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _id;
@@ -25,6 +29,7 @@ class _KindTemplateEditorDialogState extends ConsumerState<KindTemplateEditorDia
   late bool _defaultShow;
   late final TextEditingController _icon;
   late final TextEditingController _color;
+  String? _saveError;
 
   static const _units = <String>['g', 'mg', 'ug', 'mL'];
 
@@ -54,18 +59,19 @@ class _KindTemplateEditorDialogState extends ConsumerState<KindTemplateEditorDia
   }
 
   Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
+    // Clear previous errors
+    setState(() => _saveError = null);
+
+    // UI validation first
     if (!_formKey.currentState!.validate()) return;
+
     final repo = ref.read(kindsRepositoryProvider);
     if (repo == null) return;
+
     final min = int.tryParse(_min.text.trim()) ?? 0;
     final max = int.tryParse(_max.text.trim()) ?? 0;
-    if (min > max) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Min cannot be greater than max')),
-      );
-      return;
-    }
     final color = int.tryParse(_color.text.trim());
+
     final def = KindDef(
       id: _id.text.trim(),
       name: _name.text.trim(),
@@ -76,13 +82,34 @@ class _KindTemplateEditorDialogState extends ConsumerState<KindTemplateEditorDia
       max: max,
       defaultShowInCalendar: _defaultShow,
     );
-    await repo.upsertKind(def);
-    if (context.mounted) {
-      final isEdit = widget.existing != null;
-      ScaffoldMessenger.of(context).showSnackBar(
+
+    // Capture context-dependent objects before async gap
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final isEdit = widget.existing != null;
+
+    try {
+      // Repository validation happens here
+      await repo.upsertKind(def);
+
+      // Success feedback
+      if (!mounted) return;
+      messenger.showSnackBar(
         SnackBar(content: Text(isEdit ? 'Updated kind' : 'Created kind')),
       );
-      if (closeAfter) Navigator.of(context).pop();
+      if (closeAfter && mounted) navigator.pop();
+    } on ArgumentError catch (e) {
+      // User input error - show inline
+      if (mounted) setState(() => _saveError = e.message);
+    } on StateError catch (e) {
+      // Constraint violation - show inline
+      if (mounted) setState(() => _saveError = e.message);
+    } catch (e) {
+      // Unexpected error - debug only
+      debugPrint('Unexpected error in save: $e');
+      if (mounted) {
+        setState(() => _saveError = 'An unexpected error occurred');
+      }
     }
   }
 
@@ -97,22 +124,28 @@ class _KindTemplateEditorDialogState extends ConsumerState<KindTemplateEditorDia
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Show repository errors inline
+              if (_saveError != null) InlineError(message: _saveError!),
               TextFormField(
                 controller: _id,
                 enabled: !isEdit,
-                decoration: const InputDecoration(labelText: 'Id (stable, e.g., protein)'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Id (stable, e.g., protein)',
+                ),
+                validator: (v) => ValidationRules.required(v, 'Id'),
               ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _name,
                 decoration: const InputDecoration(labelText: 'Name (display)'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                validator: (v) => ValidationRules.required(v, 'Name'),
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: _unit,
-                items: _units.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
+                items: _units
+                    .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                    .toList(),
                 onChanged: (v) => setState(() => _unit = v ?? _unit),
                 decoration: const InputDecoration(labelText: 'Unit'),
               ),
@@ -120,14 +153,18 @@ class _KindTemplateEditorDialogState extends ConsumerState<KindTemplateEditorDia
               TextFormField(
                 controller: _min,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Min (inclusive, int)'),
+                decoration: const InputDecoration(
+                  labelText: 'Min (inclusive, int)',
+                ),
                 validator: _intValidator,
               ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _max,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Max (inclusive, int)'),
+                decoration: const InputDecoration(
+                  labelText: 'Max (inclusive, int)',
+                ),
                 validator: _intValidator,
               ),
               const SizedBox(height: 8),
@@ -140,13 +177,17 @@ class _KindTemplateEditorDialogState extends ConsumerState<KindTemplateEditorDia
               const SizedBox(height: 8),
               TextFormField(
                 controller: _icon,
-                decoration: const InputDecoration(labelText: 'Icon name (Material glyph, optional)'),
+                decoration: const InputDecoration(
+                  labelText: 'Icon name (Material glyph, optional)',
+                ),
               ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _color,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Color ARGB int (e.g., 4283657726)'),
+                decoration: const InputDecoration(
+                  labelText: 'Color ARGB int (e.g., 4283657726)',
+                ),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return null; // optional
                   return int.tryParse(v) == null ? 'Must be an integer' : null;
@@ -156,8 +197,10 @@ class _KindTemplateEditorDialogState extends ConsumerState<KindTemplateEditorDia
           ),
         ),
       ),
-      actions: EditorDialogActions(
-        onSave: ({required closeAfter}) => _save(context, closeAfter: closeAfter),
+      actions: editorDialogActions(
+        context: context,
+        onSave: ({required closeAfter}) =>
+            _save(context, closeAfter: closeAfter),
       ),
     );
   }

@@ -7,6 +7,7 @@ import 'main_screen_providers.dart'; // reuse provider
 /// Dynamically generated middle list from WidgetRegistry
 class MainActionsList extends ConsumerWidget {
   const MainActionsList({super.key, required this.controller});
+
   final ScrollController controller;
 
   @override
@@ -31,13 +32,14 @@ class MainActionsList extends ConsumerWidget {
             child: Center(
               child: Text(
                 'No widgets registered',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
               ),
             ),
-          )
+          ),
         ],
       );
     }
