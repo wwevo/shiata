@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
@@ -56,6 +57,17 @@ class ImportExportService {
       'recipes': recipesList,
       'entries': entriesList,
     };
+  }
+
+  /// Load initial seeds from assets and import them (destructive).
+  Future<ImportResult> seedInitialData() async {
+    const assetPath = 'assets/debug/db_seeds/initial_seeds.json';
+    try {
+      final jsonStr = await rootBundle.loadString(assetPath);
+      return await importBundle(jsonStr);
+    } catch (e) {
+      throw StateError('Failed to load initial seeds from $assetPath: $e');
+    }
   }
 
   /// Destructive import: wipes all data then imports the bundle as-is.

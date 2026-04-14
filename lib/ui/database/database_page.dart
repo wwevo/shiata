@@ -833,8 +833,14 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
 
     try {
       await ref.read(dbHandleProvider.notifier).wipeDb();
+      // Wait for providers to propagate the new DB instance
+      await Future.microtask(() {});
+      final svc = ref.read(importExportServiceProvider);
+      if (svc != null) {
+        await svc.seedInitialData();
+      }
       if (mounted) {
-        _showSnackBar('Database wiped successfully');
+        _showSnackBar('Database wiped and seeded successfully');
       }
     } catch (e) {
       if (mounted) {

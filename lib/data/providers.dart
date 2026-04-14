@@ -18,6 +18,7 @@ final appDbProvider = Provider<AppDb?>((ref) {
     data: (exec) {
       if (exec == null) return null;
       final db = AppDb(exec);
+      ref.onDispose(() => db.close());
       // Ensure schema is initialized once; ignore errors here, surface in repo calls
       // to avoid rebuild loops.
       // Use microtask to avoid synchronous setState during build.

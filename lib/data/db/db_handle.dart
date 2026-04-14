@@ -18,8 +18,8 @@ class DbHandle extends AsyncNotifier<QueryExecutor?> {
   }
 
   Future<void> openDb() async {
-    // If already open, no-op.
-    if (_executor != null) return;
+    // If already open or currently opening, no-op.
+    if (_executor != null || state.isLoading) return;
     state = const AsyncLoading();
     try {
       final exec = await openEncryptedExecutor();
