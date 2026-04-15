@@ -13,6 +13,7 @@ class ProductDef {
     this.isActive = true,
     this.icon,
     this.color,
+    this.isProtected = false,
   });
 
   final String id;
@@ -22,6 +23,7 @@ class ProductDef {
   final bool isActive;
   final String? icon;
   final int? color;
+  final bool isProtected;
 }
 
 class ProductComponent {
@@ -88,6 +90,7 @@ class ProductsRepository {
         isActive: (d['is_active'] as int) != 0,
         icon: d['icon'] as String?,
         color: d['color'] as int?,
+        isProtected: (d['is_protected'] as int? ?? 0) != 0,
       );
     }).toList();
   }
@@ -114,26 +117,47 @@ class ProductsRepository {
     }).toList();
   }
 
-  Future<void> upsertProduct(ProductDef p) async {
+  Future<void> upsertProduct(ProductDef p, {String? oldId}) async {
     await _ready;
     // Validate inputs
     if (p.name.trim().isEmpty) {
       throw ArgumentError('Product name cannot be empty');
     }
 
-    await db.customStatement(
-      'INSERT INTO products (id, name, created_at, updated_at, is_active, icon, color) VALUES (?, ?, ?, ?, ?, ?, ?) '
-      'ON CONFLICT(id) DO UPDATE SET name=excluded.name, updated_at=excluded.updated_at, is_active=excluded.is_active, icon=excluded.icon, color=excluded.color;',
-      [
-        p.id,
-        p.name,
-        p.createdAt,
-        p.updatedAt,
-        p.isActive ? 1 : 0,
-        p.icon,
-        p.color,
-      ],
-    );
+    await db.transaction(() async {
+      if (oldId != null && oldId != p.id) {
+        // Handle ID rename cascade
+        // 1. Check if new ID already exists
+        final existing = await getProduct(p.id);
+        if (existing != null) {
+          throw StateError('Cannot rename product to "${p.id}": ID already exists');
+        }
+
+        // 2. Perform cascade updates
+        await db.customStatement("UPDATE recipe_components SET comp_id = ? WHERE comp_id = ? AND type = 'product';", [p.id, oldId]);
+        await db.customStatement('UPDATE entries SET product_id = ? WHERE product_id = ?;', [p.id, oldId]);
+        await db.customStatement('UPDATE product_components SET product_id = ? WHERE product_id = ?;', [p.id, oldId]);
+
+        // 3. Update the product itself (ID change)
+        await db.customStatement('UPDATE products SET id = ? WHERE id = ?;', [p.id, oldId]);
+      }
+
+      // 4. Upsert the data
+      await db.customStatement(
+        'INSERT INTO products (id, name, created_at, updated_at, is_active, icon, color, is_protected) VALUES (?, ?, ?, ?, ?, ?, ?, ?) '
+        'ON CONFLICT(id) DO UPDATE SET name=excluded.name, updated_at=excluded.updated_at, is_active=excluded.is_active, icon=excluded.icon, color=excluded.color, is_protected=excluded.is_protected;',
+        [
+          p.id,
+          p.name,
+          p.createdAt,
+          p.updatedAt,
+          p.isActive ? 1 : 0,
+          p.icon,
+          p.color,
+          p.isProtected ? 1 : 0,
+        ],
+      );
+    });
     _notify();
   }
 
@@ -156,6 +180,7 @@ class ProductsRepository {
       isActive: (r['is_active'] as int) != 0,
       icon: r['icon'] as String?,
       color: r['color'] as int?,
+      isProtected: (r['is_protected'] as int? ?? 0) != 0,
     );
   }
 
@@ -178,6 +203,7 @@ class ProductsRepository {
         isActive: (d['is_active'] as int) != 0,
         icon: d['icon'] as String?,
         color: d['color'] as int?,
+        isProtected: (d['is_protected'] as int? ?? 0) != 0,
       );
     }).toList();
   }

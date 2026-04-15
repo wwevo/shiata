@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/kinds_repository.dart';
 import '../../utils/formatters.dart';
-import '../widgets/editor_dialog_actions.dart';
-import '../widgets/inline_error.dart';
+import '../widgets/editor_dialog_shell.dart';
 import '../widgets/validation_rules.dart';
 
 class KindTemplateEditorDialog extends ConsumerStatefulWidget {
@@ -19,9 +18,8 @@ class KindTemplateEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _KindTemplateEditorDialogState
-    extends ConsumerState<KindTemplateEditorDialog> {
+    extends ConsumerState<KindTemplateEditorDialog> with EditorDialogShell {
   // State variables
-  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _id;
   late final TextEditingController _name;
   late String _unit;
@@ -30,15 +28,12 @@ class _KindTemplateEditorDialogState
   late bool _defaultShow;
   late final TextEditingController _icon;
   late final TextEditingController _color;
-  String? _saveError;
-
-  static const _units = <String>['g', 'mg', 'ug', 'mL'];
 
   @override
   void initState() {
     super.initState();
     final e = widget.existing;
-    _id = TextEditingController(text: e?.id ?? '');
+    _id = TextEditingController(text: e?.id ?? generateRandomId('kind_'));
     _name = TextEditingController(text: e?.name ?? '');
     _unit = e?.unit ?? 'g';
     _min = TextEditingController(text: (e?.min ?? 0).toString());
@@ -59,123 +54,96 @@ class _KindTemplateEditorDialogState
     super.dispose();
   }
 
-  Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
-    // Clear previous errors
-    setState(() => _saveError = null);
+  Future<void> _onSave({required bool closeAfter}) async {
+    await safeSave(
+      closeAfter: closeAfter,
+      onSave: () async {
+        final repo = ref.read(kindsRepositoryProvider);
+        if (repo == null) return;
 
-    // UI validation first
-    if (!_formKey.currentState!.validate()) return;
+        final min = parseInt(_min.text) ?? 0;
+        final max = parseInt(_max.text) ?? 0;
+        final color = parseInt(_color.text);
 
-    final repo = ref.read(kindsRepositoryProvider);
-    if (repo == null) return;
+        final def = KindDef(
+          id: _id.text.trim(),
+          name: _name.text.trim(),
+          unit: _unit,
+          color: color,
+          icon: _icon.text.trim().isEmpty ? null : _icon.text.trim(),
+          min: min,
+          max: max,
+          defaultShowInCalendar: _defaultShow,
+          isProtected: widget.existing?.isProtected ?? false,
+        );
 
-    final min = parseInt(_min.text) ?? 0;
-    final max = parseInt(_max.text) ?? 0;
-    final color = parseInt(_color.text);
-
-    final def = KindDef(
-      id: _id.text.trim(),
-      name: _name.text.trim(),
-      unit: _unit,
-      color: color,
-      icon: _icon.text.trim().isEmpty ? null : _icon.text.trim(),
-      min: min,
-      max: max,
-      defaultShowInCalendar: _defaultShow,
+        await repo.upsertKind(def);
+      },
     );
-
-    // Capture context-dependent objects before async gap
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-    final isEdit = widget.existing != null;
-
-    try {
-      // Repository validation happens here
-      await repo.upsertKind(def);
-
-      // Success feedback
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text(isEdit ? 'Updated kind' : 'Created kind')),
-      );
-      if (closeAfter && mounted) navigator.pop();
-    } on ArgumentError catch (e) {
-      // User input error - show inline
-      if (mounted) setState(() => _saveError = e.message);
-    } on StateError catch (e) {
-      // Constraint violation - show inline
-      if (mounted) setState(() => _saveError = e.message);
-    } catch (e) {
-      // Unexpected error - debug only
-      debugPrint('Unexpected error in save: $e');
-      if (mounted) {
-        setState(() => _saveError = 'An unexpected error occurred');
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.existing != null;
-    return AlertDialog(
-      title: Text(isEdit ? 'Edit kind' : 'Add kind'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    final unitsAsync = ref.watch(unitsListProvider);
+    final units = unitsAsync.value ?? [];
+
+    return buildShell(
+      context: context,
+      title: isEdit ? 'Edit kind' : 'Add kind',
+      onSave: ({required closeAfter}) => _onSave(closeAfter: closeAfter),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextFormField(
+            controller: _id,
+            enabled: !(widget.existing?.isProtected ?? false),
+            decoration: const InputDecoration(
+              labelText: 'Id (stable, e.g., protein)',
+            ),
+            validator: (v) => ValidationRules.required(v, 'Id'),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _name,
+            decoration: const InputDecoration(labelText: 'Name (display)'),
+            validator: (v) => ValidationRules.required(v, 'Name'),
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            initialValue: units.any((u) => u.id == _unit) ? _unit : null,
+            items: units
+                .map((u) => DropdownMenuItem(value: u.id, child: Text(u.label)))
+                .toList(),
+            onChanged: (v) => setState(() => _unit = v ?? _unit),
+            decoration: const InputDecoration(labelText: 'Unit'),
+            validator: (v) => ValidationRules.required(v, 'Unit'),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _min,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Min (inclusive, int)'),
+            validator: _intValidator,
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _max,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Max (inclusive, int)'),
+            validator: _intValidator,
+          ),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Default: show in calendar'),
+            value: _defaultShow,
+            onChanged: (v) => setState(() => _defaultShow = v),
+          ),
+          const SizedBox(height: 8),
+          ExpansionTile(
+            title: const Text('Presentation'),
             children: [
-              // Show repository errors inline
-              if (_saveError != null) InlineError(message: _saveError!),
-              TextFormField(
-                controller: _id,
-                enabled: !isEdit,
-                decoration: const InputDecoration(
-                  labelText: 'Id (stable, e.g., protein)',
-                ),
-                validator: (v) => ValidationRules.required(v, 'Id'),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _name,
-                decoration: const InputDecoration(labelText: 'Name (display)'),
-                validator: (v) => ValidationRules.required(v, 'Name'),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _unit,
-                items: _units
-                    .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                    .toList(),
-                onChanged: (v) => setState(() => _unit = v ?? _unit),
-                decoration: const InputDecoration(labelText: 'Unit'),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _min,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Min (inclusive, int)',
-                ),
-                validator: _intValidator,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _max,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Max (inclusive, int)',
-                ),
-                validator: _intValidator,
-              ),
-              const SizedBox(height: 8),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Default: show in calendar'),
-                value: _defaultShow,
-                onChanged: (v) => setState(() => _defaultShow = v),
-              ),
-              const SizedBox(height: 8),
               TextFormField(
                 controller: _icon,
                 decoration: const InputDecoration(
@@ -196,12 +164,7 @@ class _KindTemplateEditorDialogState
               ),
             ],
           ),
-        ),
-      ),
-      actions: editorDialogActions(
-        context: context,
-        onSave: ({required closeAfter}) =>
-            _save(context, closeAfter: closeAfter),
+        ],
       ),
     );
   }

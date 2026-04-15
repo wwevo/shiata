@@ -14,6 +14,7 @@ class KindDef {
     required this.min,
     required this.max,
     this.defaultShowInCalendar = false,
+    this.isProtected = false,
   });
 
   final String id;
@@ -24,6 +25,7 @@ class KindDef {
   final int min; // inclusive min
   final int max; // inclusive max
   final bool defaultShowInCalendar;
+  final bool isProtected;
 }
 
 class KindsRepository {
@@ -54,12 +56,13 @@ class KindsRepository {
             'min': k.min,
             'max': k.max,
             'defaultShowInCalendar': k.defaultShowInCalendar,
+            'isProtected': k.isProtected,
           },
         )
         .toList();
   }
 
-  Future<void> upsertKind(KindDef k) async {
+  Future<void> upsertKind(KindDef k, {String? oldId}) async {
     await _ready;
     // Validate inputs
     if (k.name.trim().isEmpty) {
@@ -72,20 +75,42 @@ class KindsRepository {
       throw ArgumentError('Kind min (${k.min}) must be <= max (${k.max})');
     }
 
-    await db.customStatement(
-      'INSERT INTO kinds (id, name, unit, color, icon, min, max, default_show_in_calendar) VALUES (?, ?, ?, ?, ?, ?, ?, ?) '
-      'ON CONFLICT(id) DO UPDATE SET name=excluded.name, unit=excluded.unit, color=excluded.color, icon=excluded.icon, min=excluded.min, max=excluded.max, default_show_in_calendar=excluded.default_show_in_calendar;',
-      [
-        k.id,
-        k.name,
-        k.unit,
-        k.color,
-        k.icon,
-        k.min,
-        k.max,
-        k.defaultShowInCalendar ? 1 : 0,
-      ],
-    );
+    await db.transaction(() async {
+      if (oldId != null && oldId != k.id) {
+        // Handle ID rename cascade
+        // 1. Check if new ID already exists
+        final existing = await getKind(k.id);
+        if (existing != null) {
+          throw StateError('Cannot rename kind to "${k.id}": ID already exists');
+        }
+
+        // 2. Perform cascade updates
+        await db.customStatement('UPDATE product_components SET kind_id = ? WHERE kind_id = ?;', [k.id, oldId]);
+        await db.customStatement("UPDATE recipe_components SET comp_id = ? WHERE comp_id = ? AND type = 'kind';", [k.id, oldId]);
+        await db.customStatement('UPDATE entries SET widget_kind = ? WHERE widget_kind = ?;', [k.id, oldId]);
+        await db.customStatement('UPDATE entries SET source_widget_kind = ? WHERE source_widget_kind = ?;', [k.id, oldId]);
+
+        // 3. Update the kind itself (ID change)
+        await db.customStatement('UPDATE kinds SET id = ? WHERE id = ?;', [k.id, oldId]);
+      }
+
+      // 4. Upsert the data (handles both new kind and existing kind after ID update)
+      await db.customStatement(
+        'INSERT INTO kinds (id, name, unit, color, icon, min, max, default_show_in_calendar, is_protected) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) '
+        'ON CONFLICT(id) DO UPDATE SET name=excluded.name, unit=excluded.unit, color=excluded.color, icon=excluded.icon, min=excluded.min, max=excluded.max, default_show_in_calendar=excluded.default_show_in_calendar, is_protected=excluded.is_protected;',
+        [
+          k.id,
+          k.name,
+          k.unit,
+          k.color,
+          k.icon,
+          k.min,
+          k.max,
+          k.defaultShowInCalendar ? 1 : 0,
+          k.isProtected ? 1 : 0,
+        ],
+      );
+    });
     _notify();
   }
 
@@ -137,6 +162,7 @@ class KindsRepository {
       min: d['min'] as int,
       max: d['max'] as int,
       defaultShowInCalendar: (d['default_show_in_calendar'] as int) != 0,
+      isProtected: (d['is_protected'] as int? ?? 0) != 0,
     );
   }
 
@@ -159,6 +185,7 @@ class KindsRepository {
         min: d['min'] as int,
         max: d['max'] as int,
         defaultShowInCalendar: (d['default_show_in_calendar'] as int) != 0,
+        isProtected: (d['is_protected'] as int? ?? 0) != 0,
       );
     }).toList();
   }

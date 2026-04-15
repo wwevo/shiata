@@ -120,6 +120,7 @@ class ImportExportService {
       final defaultShow =
           item['defaultShowInCalendar'] == true ||
           item['defaultShowInCalendar'] == 1;
+      final isProtected = item['isProtected'] == true || item['isProtected'] == 1;
       await kinds.upsertKind(
         KindDef(
           id: id,
@@ -130,6 +131,7 @@ class ImportExportService {
           min: min,
           max: max,
           defaultShowInCalendar: defaultShow,
+          isProtected: isProtected,
         ),
       );
       kindsUpserted++;
@@ -142,8 +144,29 @@ class ImportExportService {
       if (item is! Map) continue;
       final id = (item['id'] ?? '').toString().trim();
       final name = (item['name'] ?? '').toString().trim();
+      final icon = (item['icon'] as String?)?.trim();
+      final colorVal = item['color'];
+      final color = colorVal is int
+          ? colorVal
+          : (colorVal is String && int.tryParse(colorVal) != null)
+          ? int.parse(colorVal)
+          : null;
+      final isProtected = item['isProtected'] == true || item['isProtected'] == 1;
+      final createdAt = _asInt(item['createdAt']) ?? now;
+      final updatedAt = _asInt(item['updatedAt']) ?? now;
+      final isActive = item['isActive'] != false && item['isActive'] != 0;
+
       await products.upsertProduct(
-        ProductDef(id: id, name: name, createdAt: now, updatedAt: now),
+        ProductDef(
+          id: id,
+          name: name,
+          createdAt: createdAt,
+          updatedAt: updatedAt,
+          isActive: isActive,
+          icon: (icon == null || icon.isEmpty) ? null : icon,
+          color: color,
+          isProtected: isProtected,
+        ),
       );
       productsUpserted++;
 
@@ -184,6 +207,7 @@ class ImportExportService {
           : (colorVal is String && int.tryParse(colorVal) != null)
           ? int.parse(colorVal)
           : null;
+      final isProtected = item['isProtected'] == true || item['isProtected'] == 1;
       await recipes.upsertRecipe(
         RecipeDef(
           id: id,
@@ -193,6 +217,7 @@ class ImportExportService {
           isActive: isActive,
           icon: (icon == null || icon.isEmpty) ? null : icon,
           color: color,
+          isProtected: isProtected,
         ),
       );
       recipesUpserted++;
@@ -304,6 +329,7 @@ class ImportExportService {
           'min': k.min,
           'max': k.max,
           'defaultShowInCalendar': k.defaultShowInCalendar,
+          'isProtected': k.isProtected,
         });
       }
     }
@@ -316,6 +342,12 @@ class ImportExportService {
         productsList.add({
           'id': p.id,
           'name': p.name,
+          'createdAt': p.createdAt,
+          'updatedAt': p.updatedAt,
+          'isActive': p.isActive,
+          'icon': p.icon,
+          'color': p.color,
+          'isProtected': p.isProtected,
           'components': [
             for (final c in comps)
               {'kindId': c.kindId, 'per100': c.amountPerGram},
@@ -337,6 +369,7 @@ class ImportExportService {
           'isActive': r.isActive,
           'icon': r.icon,
           'color': r.color,
+          'isProtected': r.isProtected,
           'components': [
             for (final c in comps)
               {

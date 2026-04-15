@@ -8,8 +8,8 @@ import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
-import '../widgets/editor_dialog_actions.dart';
-import '../widgets/inline_error.dart';
+import '../widgets/add_kind_dialog.dart';
+import '../widgets/editor_dialog_shell.dart';
 import '../widgets/validation_rules.dart';
 
 class InstanceComponentsEditorDialog extends ConsumerStatefulWidget {
@@ -26,14 +26,12 @@ class InstanceComponentsEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _InstanceComponentsEditorDialogState
-    extends ConsumerState<InstanceComponentsEditorDialog> {
+    extends ConsumerState<InstanceComponentsEditorDialog>
+    with EditorDialogShell {
   // State variables
-  final _formKey = GlobalKey<FormState>();
-  bool _loading = true;
-  bool _saving = false;
   List<EntryRecord> _children = const [];
   final Map<String, TextEditingController> _controllers = {};
-  String? _saveError;
+  String? _parentName;
 
   // Pending changes (transient until Save)
   final List<WidgetKind> _pendingAdds = [];
@@ -46,16 +44,26 @@ class _InstanceComponentsEditorDialogState
   }
 
   Future<void> _load() async {
+    setState(() => loading = true);
     final repo = ref.read(entriesRepositoryProvider);
     if (repo == null) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => loading = false);
       return;
     }
+
+    final parent = await repo.getById(widget.parentEntryId);
+    if (parent != null) {
+      try {
+        final map = jsonDecode(parent.payloadJson) as Map<String, dynamic>;
+        _parentName = map['name'] as String?;
+      } catch (_) {}
+    }
+
     final list = await repo.listChildrenOfParent(widget.parentEntryId);
     if (mounted) {
       setState(() {
         _children = list;
-        _loading = false;
+        loading = false;
       });
     }
     // Initialize controllers
@@ -80,121 +88,78 @@ class _InstanceComponentsEditorDialogState
     super.dispose();
   }
 
-  Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
-    // Clear previous errors
-    setState(() => _saveError = null);
+  Future<void> _onSave({required bool closeAfter}) async {
+    await safeSave(
+      closeAfter: closeAfter,
+      onSave: () async {
+        final repo = ref.read(entriesRepositoryProvider);
+        final registry = ref.read(widgetRegistryProvider);
+        if (repo == null) return;
 
-    // UI validation first
-    if (!_formKey.currentState!.validate()) return;
+        // Get parent entry to extract targetAt for new entries
+        final parent = await repo.getById(widget.parentEntryId);
+        if (parent == null) return;
 
-    setState(() => _saving = true);
+        // Mark parent as static on first override
+        await repo.update(widget.parentEntryId, {'is_static': 1});
 
-    // Capture context-dependent objects BEFORE any async operations
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
+        // 1. Delete pending deletes
+        for (final id in _pendingDeletes) {
+          await repo.delete(id);
+        }
 
-    final repo = ref.read(entriesRepositoryProvider);
-    final registry = ref.read(widgetRegistryProvider);
-    if (repo == null) {
-      if (mounted) setState(() => _saving = false);
-      return;
-    }
+        // 2. Create pending adds
+        for (final kind in _pendingAdds) {
+          final ctrl = _controllers['pending_${kind.id}']!;
+          final val = parseDouble(ctrl.text) ?? 0.0;
+          await repo.create(
+            widgetKind: kind.id,
+            targetAtLocal: DateTime.fromMillisecondsSinceEpoch(
+              parent.targetAt,
+              isUtc: true,
+            ).toLocal(),
+            payload: {'amount': val, 'unit': kind.unit},
+            showInCalendar: false,
+            sourceEntryId: widget.parentEntryId,
+          );
+        }
 
-    try {
-      // Get parent entry to extract targetAt for new entries
-      final parent = await repo.getById(widget.parentEntryId);
-      if (parent == null) {
-        if (mounted) setState(() => _saving = false);
-        return;
-      }
+        // 3. Update existing children (excluding deleted ones)
+        for (final c in _children) {
+          if (_pendingDeletes.contains(c.id)) continue;
+          final ctrl = _controllers[c.id]!;
+          final val = parseDouble(ctrl.text) ?? 0.0;
+          try {
+            final map = jsonDecode(c.payloadJson) as Map<String, dynamic>;
+            // preserve unit if present, or derive from kind metadata
+            final unit =
+                (map['unit'] as String?) ?? (registry.byId(c.widgetKind)?.unit);
+            final newPayload = <String, Object?>{'amount': val};
+            if (unit != null) newPayload['unit'] = unit;
+            await repo.update(c.id, {'payload_json': jsonEncode(newPayload)});
+          } catch (_) {
+            await repo.update(c.id, {
+              'payload_json': jsonEncode({
+                'amount': val,
+                'unit': registry.byId(c.widgetKind)?.unit,
+              }),
+            });
+          }
+        }
 
-      // Mark parent as static on first override
-      await repo.update(widget.parentEntryId, {'is_static': 1});
+        // Clear pending changes after successful save
+        _pendingAdds.clear();
+        _pendingDeletes.clear();
 
-    // 1. Delete pending deletes
-    for (final id in _pendingDeletes) {
-      await repo.delete(id);
-    }
-
-    // 2. Create pending adds
-    for (final kind in _pendingAdds) {
-      final ctrl = _controllers['pending_${kind.id}']!;
-      final val = parseDouble(ctrl.text) ?? 0.0;
-      await repo.create(
-        widgetKind: kind.id,
-        targetAtLocal: DateTime.fromMillisecondsSinceEpoch(
-          parent.targetAt,
-          isUtc: true,
-        ).toLocal(),
-        payload: {'amount': val, 'unit': kind.unit},
-        showInCalendar: false,
-        sourceEntryId: widget.parentEntryId,
-      );
-    }
-
-    // 3. Update existing children (excluding deleted ones)
-    for (final c in _children) {
-      if (_pendingDeletes.contains(c.id)) continue;
-      final ctrl = _controllers[c.id]!;
-      final val = parseDouble(ctrl.text) ?? 0.0;
-      try {
-        final map = jsonDecode(c.payloadJson) as Map<String, dynamic>;
-        // preserve unit if present, or derive from kind metadata
-        final unit =
-            (map['unit'] as String?) ?? (registry.byId(c.widgetKind)?.unit);
-        final newPayload = <String, Object?>{'amount': val};
-        if (unit != null) newPayload['unit'] = unit;
-        await repo.update(c.id, {'payload_json': jsonEncode(newPayload)});
-      } catch (_) {
-        await repo.update(c.id, {
-          'payload_json': jsonEncode({
-            'amount': val,
-            'unit': registry.byId(c.widgetKind)?.unit,
-          }),
-        });
-      }
-    }
-
-      // Clear pending changes after successful save
-      _pendingAdds.clear();
-      _pendingDeletes.clear();
-
-      if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Updated components (instance is now Static)'),
-        ),
-      );
-      if (mounted) setState(() => _saving = false);
-      if (closeAfter && mounted) {
-        navigator.pop();
-      }
-    } on ArgumentError catch (e) {
-      // User input error - show inline
-      if (mounted) {
-        setState(() {
-          _saveError = e.message;
-          _saving = false;
-        });
-      }
-    } on StateError catch (e) {
-      // Constraint violation - show inline
-      if (mounted) {
-        setState(() {
-          _saveError = e.message;
-          _saving = false;
-        });
-      }
-    } catch (e) {
-      // Unexpected error - debug only
-      debugPrint('Unexpected error in save: $e');
-      if (mounted) {
-        setState(() {
-          _saveError = 'An unexpected error occurred';
-          _saving = false;
-        });
-      }
-    }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Updated components (instance is now Static)'),
+            ),
+          );
+        }
+      },
+    );
   }
 
   Future<void> _addComponent() async {
@@ -219,7 +184,7 @@ class _InstanceComponentsEditorDialogState
 
     final picked = await showDialog<WidgetKind?>(
       context: context,
-      builder: (ctx) => _AddNutrientDialog(kinds: availableKinds),
+      builder: (ctx) => AddKindDialog(kinds: availableKinds),
     );
     if (picked == null) return;
 
@@ -250,199 +215,137 @@ class _InstanceComponentsEditorDialogState
   Widget build(BuildContext context) {
     final registry = ref.watch(widgetRegistryProvider);
 
-    return AlertDialog(
-      title: const Text('Edit components (Static)'),
-      content: _loading
-          ? const SizedBox(
-              width: 500,
-              height: 400,
-              child: Center(child: CircularProgressIndicator()),
-            )
-          : SizedBox(
-              width: 500,
-              height: 400,
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    // Show repository errors inline
-                    if (_saveError != null) InlineError(message: _saveError!),
-                    Expanded(
-                    child: () {
-                      // Build combined list: existing (minus deleted) + pending adds
-                      final visibleChildren = _children
-                          .where((c) => !_pendingDeletes.contains(c.id))
-                          .toList();
-                      final totalCount =
-                          visibleChildren.length + _pendingAdds.length;
+    return buildShell(
+      context: context,
+      title: 'Edit ${_parentName ?? 'components'}',
+      onSave: ({required closeAfter}) => _onSave(closeAfter: closeAfter),
+      content: Column(
+        children: [
+          () {
+            // Build combined list: existing (minus deleted) + pending adds
+            final visibleChildren = _children
+                .where((c) => !_pendingDeletes.contains(c.id))
+                .toList();
+            final totalCount = visibleChildren.length + _pendingAdds.length;
 
-                      if (totalCount == 0) {
-                        return const Center(child: Text('No components yet'));
-                      }
+            if (totalCount == 0) {
+              return const SizedBox(
+                height: 100,
+                child: Center(child: Text('No components yet')),
+              );
+            }
 
-                      return ListView.separated(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount: totalCount,
-                        separatorBuilder: (context, index) =>
-                            const Divider(height: 1),
-                        itemBuilder: (ctx, i) {
-                          // First show existing children, then pending adds
-                          if (i < visibleChildren.length) {
-                            // Existing child
-                            final e = visibleChildren[i];
-                            final kind = registry.byId(e.widgetKind);
-                            final icon = kind?.icon ?? Icons.circle;
-                            final color =
-                                kind?.accentColor ??
-                                Theme.of(context).colorScheme.primary;
-                            final unit = kind?.unit ?? '';
-                            final ctrl = _controllers[e.id]!;
-                            return ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: color,
-                                foregroundColor: Colors.white,
-                                child: Icon(icon, size: 18),
-                              ),
-                              title: Text(kind?.displayName ?? e.widgetKind),
-                              subtitle: Text(unit.isEmpty ? '' : 'Unit: $unit'),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  SizedBox(
-                                    width: 100,
-                                    child: TextFormField(
-                                      controller: ctrl,
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                            decimal: true,
-                                          ),
-                                      decoration: const InputDecoration(
-                                        hintText: '0',
-                                        isDense: true,
-                                      ),
-                                      validator: ValidationRules.nonNegativeAmount,
-                                    ),
-                                  ),
-                                  IconButton(
-                                    tooltip: 'Remove',
-                                    icon: const Icon(Icons.delete_outline),
-                                    onPressed: () => _removeExisting(e.id),
-                                  ),
-                                ],
-                              ),
-                            );
-                          } else {
-                            // Pending add
-                            final pendingIndex = i - visibleChildren.length;
-                            final kind = _pendingAdds[pendingIndex];
-                            final icon = kind.icon;
-                            final color = kind.accentColor;
-                            final unit = kind.unit;
-                            final ctrl = _controllers['pending_${kind.id}']!;
-                            return ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: color,
-                                foregroundColor: Colors.white,
-                                child: Icon(icon, size: 18),
-                              ),
-                              title: Text(kind.displayName),
-                              subtitle: Text(
-                                unit.isEmpty ? '(new)' : '(new) Unit: $unit',
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  SizedBox(
-                                    width: 100,
-                                    child: TextFormField(
-                                      controller: ctrl,
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                            decimal: true,
-                                          ),
-                                      decoration: const InputDecoration(
-                                        hintText: '0',
-                                        isDense: true,
-                                      ),
-                                      validator: ValidationRules.nonNegativeAmount,
-                                    ),
-                                  ),
-                                  IconButton(
-                                    tooltip: 'Remove',
-                                    icon: const Icon(Icons.delete_outline),
-                                    onPressed: () => _removePending(kind),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                        },
-                      );
-                    }(),
-                  ),
-                  const Divider(height: 1),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: OutlinedButton.icon(
-                      onPressed: _loading ? null : _addComponent,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add nutrient'),
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: totalCount,
+              separatorBuilder: (context, index) => const Divider(height: 1),
+              itemBuilder: (ctx, i) {
+                // First show existing children, then pending adds
+                if (i < visibleChildren.length) {
+                  // Existing child
+                  final e = visibleChildren[i];
+                  final kind = registry.byId(e.widgetKind);
+                  final icon = kind?.icon ?? Icons.circle;
+                  final color =
+                      kind?.accentColor ??
+                      Theme.of(context).colorScheme.primary;
+                  final unit = kind?.unit ?? '';
+                  final ctrl = _controllers[e.id]!;
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: color,
+                      foregroundColor: Colors.white,
+                      child: Icon(icon, size: 18),
                     ),
-                  ),
-                ],
-              ),
+                    title: Text(kind?.displayName ?? e.widgetKind),
+                    subtitle: Text(unit.isEmpty ? '' : 'Unit: $unit'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 100,
+                          child: TextFormField(
+                            controller: ctrl,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: const InputDecoration(
+                              hintText: '0',
+                              isDense: true,
+                            ),
+                            validator: ValidationRules.nonNegativeAmount,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Remove',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _removeExisting(e.id),
+                        ),
+                      ],
+                    ),
+                  );
+                } else {
+                  // Pending add
+                  final pendingIndex = i - visibleChildren.length;
+                  final kind = _pendingAdds[pendingIndex];
+                  final icon = kind.icon;
+                  final color = kind.accentColor;
+                  final unit = kind.unit;
+                  final ctrl = _controllers['pending_${kind.id}']!;
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: color,
+                      foregroundColor: Colors.white,
+                      child: Icon(icon, size: 18),
+                    ),
+                    title: Text(kind.displayName),
+                    subtitle: Text(
+                      unit.isEmpty ? '(new)' : '(new) Unit: $unit',
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 100,
+                          child: TextFormField(
+                            controller: ctrl,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: const InputDecoration(
+                              hintText: '0',
+                              isDense: true,
+                            ),
+                            validator: ValidationRules.nonNegativeAmount,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Remove',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _removePending(kind),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              },
+            );
+          }(),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: OutlinedButton.icon(
+              onPressed: loading ? null : _addComponent,
+              icon: const Icon(Icons.add),
+              label: const Text('Add nutrient'),
             ),
           ),
-      actions: editorDialogActions(
-        context: context,
-        onSave: ({required closeAfter}) =>
-            _save(context, closeAfter: closeAfter),
-        isSaving: _saving,
-      ),
-    );
-  }
-}
-
-class _AddNutrientDialog extends StatefulWidget {
-  const _AddNutrientDialog({required this.kinds});
-
-  final List<WidgetKind> kinds;
-
-  @override
-  State<_AddNutrientDialog> createState() => _AddNutrientDialogState();
-}
-
-class _AddNutrientDialogState extends State<_AddNutrientDialog> {
-  WidgetKind? _selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add nutrient'),
-      content: DropdownButton<WidgetKind>(
-        value: _selected,
-        hint: const Text('Select nutrient'),
-        isExpanded: true,
-        items: [
-          for (final k in widget.kinds)
-            DropdownMenuItem(value: k, child: Text(k.displayName)),
         ],
-        onChanged: (v) => setState(() => _selected = v),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final k = _selected;
-            if (k == null) return;
-            Navigator.of(context).pop(k);
-          },
-          child: const Text('Add'),
-        ),
-      ],
     );
   }
 }
+
+// Remove _AddNutrientDialog class
