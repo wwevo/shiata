@@ -4,6 +4,20 @@
 /// consistency across the entire codebase.
 library;
 
+import 'dart:math';
+
+/// Generates a random ID with a given prefix and a 6-character random suffix.
+///
+/// Example: _generateRandomId('kind_') -> 'kind_a7x9f2'
+String generateRandomId(String prefix) {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  final rnd = Random();
+  final suffix = String.fromCharCodes(
+    Iterable.generate(6, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))),
+  );
+  return '$prefix$suffix';
+}
+
 /// Formats a double value to a string, removing trailing zeros.
 ///
 /// Examples:

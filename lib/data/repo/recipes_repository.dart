@@ -13,6 +13,7 @@ class RecipeDef {
     this.isActive = true,
     this.icon,
     this.color,
+    this.isProtected = false,
   });
 
   final String id;
@@ -22,6 +23,7 @@ class RecipeDef {
   final bool isActive;
   final String? icon;
   final int? color;
+  final bool isProtected;
 }
 
 enum RecipeComponentType { kind, product }
@@ -69,8 +71,8 @@ class RecipesRepository {
     }
 
     await db.customStatement(
-      'INSERT INTO recipes (id, name, created_at, updated_at, is_active, icon, color) VALUES (?, ?, ?, ?, ?, ?, ?) '
-      'ON CONFLICT(id) DO UPDATE SET name=excluded.name, updated_at=excluded.updated_at, is_active=excluded.is_active, icon=excluded.icon, color=excluded.color;',
+      'INSERT INTO recipes (id, name, created_at, updated_at, is_active, icon, color, is_protected) VALUES (?, ?, ?, ?, ?, ?, ?, ?) '
+      'ON CONFLICT(id) DO UPDATE SET name=excluded.name, updated_at=excluded.updated_at, is_active=excluded.is_active, icon=excluded.icon, color=excluded.color, is_protected=excluded.is_protected;',
       [
         r.id,
         r.name,
@@ -79,6 +81,7 @@ class RecipesRepository {
         r.isActive ? 1 : 0,
         r.icon,
         r.color,
+        r.isProtected ? 1 : 0,
       ],
     );
     _notify();
@@ -115,6 +118,7 @@ class RecipesRepository {
       isActive: (d['is_active'] as int) != 0,
       icon: d['icon'] as String?,
       color: d['color'] as int?,
+      isProtected: (d['is_protected'] as int? ?? 0) != 0,
     );
   }
 
@@ -134,6 +138,7 @@ class RecipesRepository {
         isActive: (d['is_active'] as int) != 0,
         icon: d['icon'] as String?,
         color: d['color'] as int?,
+        isProtected: (d['is_protected'] as int? ?? 0) != 0,
       );
     }).toList();
   }

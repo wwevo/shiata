@@ -10,8 +10,8 @@ import '../../data/repo/products_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
-import '../widgets/editor_dialog_actions.dart';
-import '../widgets/inline_error.dart';
+import '../widgets/add_kind_dialog.dart';
+import '../widgets/editor_dialog_shell.dart';
 import '../widgets/validation_rules.dart';
 
 class ProductTemplateEditorDialog extends ConsumerStatefulWidget {
@@ -28,23 +28,26 @@ class ProductTemplateEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _ProductTemplateEditorDialogState
-    extends ConsumerState<ProductTemplateEditorDialog> {
+    extends ConsumerState<ProductTemplateEditorDialog> with EditorDialogShell {
   // State variables
-  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _idController;
   late final TextEditingController _nameController;
+  late final TextEditingController _iconController;
+  late final TextEditingController _colorController;
   List<ProductComponent> _components = const [];
-  bool _loading = true;
-  bool _saving = false;
   final Map<String, TextEditingController> _controllers = {};
-  String? _saveError;
 
   @override
   void initState() {
     super.initState();
+    loading = true;
     final e = widget.existing;
-    _idController = TextEditingController(text: e?.id ?? '');
+    _idController = TextEditingController(text: e?.id ?? generateRandomId('product_'));
     _nameController = TextEditingController(text: e?.name ?? '');
+    _iconController = TextEditingController(text: e?.icon ?? '');
+    _colorController = TextEditingController(
+      text: e?.color?.toString() ?? '',
+    );
     _load();
   }
 
@@ -52,6 +55,8 @@ class _ProductTemplateEditorDialogState
   void dispose() {
     _idController.dispose();
     _nameController.dispose();
+    _iconController.dispose();
+    _colorController.dispose();
     for (final ctrl in _controllers.values) {
       ctrl.dispose();
     }
@@ -66,7 +71,7 @@ class _ProductTemplateEditorDialogState
       if (mounted) {
         setState(() {
           _components = comps;
-          _loading = false;
+          loading = false;
         });
         // Initialize controllers for each component
         for (final c in comps) {
@@ -77,136 +82,100 @@ class _ProductTemplateEditorDialogState
       }
     } else {
       // Create mode: no components to load
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => loading = false);
     }
   }
 
-  Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
-    // Clear previous errors
-    setState(() => _saveError = null);
+  Future<void> _onSave({required bool closeAfter}) async {
+    await safeSave(
+      closeAfter: closeAfter,
+      onSave: () async {
+        final repo = ref.read(productsRepositoryProvider);
+        final svc = ref.read(productServiceProvider);
+        if (repo == null) return;
 
-    // UI validation first
-    if (!_formKey.currentState!.validate()) return;
+        // Get id and name from controllers
+        final productId = _idController.text.trim();
+        final productName = _nameController.text.trim();
 
-    setState(() => _saving = true);
-
-    // Capture context-dependent objects BEFORE any async operations
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-
-    final repo = ref.read(productsRepositoryProvider);
-    final svc = ref.read(productServiceProvider);
-    if (repo == null) {
-      if (mounted) setState(() => _saving = false);
-      return;
-    }
-
-    try {
-      // Get id and name from controllers
-      final productId = _idController.text.trim();
-      final productName = _nameController.text.trim();
-
-      // Upsert product (create or update)
-      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
-      final isEdit = widget.existing != null;
-      await repo.upsertProduct(
-        ProductDef(
-          id: productId,
-          name: productName,
-          createdAt: widget.existing?.createdAt ?? now,
-          updatedAt: now,
-          isActive: widget.existing?.isActive ?? true,
-          icon: widget.existing?.icon,
-          color: widget.existing?.color,
-        ),
-      );
-
-      // Read values from controllers and update components
-      final updatedComponents = <ProductComponent>[];
-      for (final c in _components) {
-        final ctrl = _controllers[c.kindId];
-        final amount = parseDouble(ctrl?.text) ?? 0.0;
-        updatedComponents.add(
-          ProductComponent(
-            productId: productId,
-            kindId: c.kindId,
-            amountPerGram: amount,
+        // Upsert product (create or update)
+        final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+        final isEdit = widget.existing != null;
+        await repo.upsertProduct(
+          ProductDef(
+            id: productId,
+            name: productName,
+            createdAt: widget.existing?.createdAt ?? now,
+            updatedAt: now,
+            isActive: widget.existing?.isActive ?? true,
+            icon: _iconController.text.trim().isEmpty
+                ? null
+                : _iconController.text.trim(),
+            color: parseInt(_colorController.text),
+            isProtected: widget.existing?.isProtected ?? false,
           ),
         );
-      }
-      await repo.setComponents(productId, updatedComponents);
 
-      if (!context.mounted) return;
-
-      // Ask to propagate to non-static instances if they exist
-      bool doProp = false;
-      if (svc != null && await svc.hasNonStaticEntriesForProduct(productId)) {
-        doProp = (await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Confirm propagation'),
-            content: const Text(
-              'Apply these changes to all non-static entries for this product?',
+        // Read values from controllers and update components
+        final updatedComponents = <ProductComponent>[];
+        for (final c in _components) {
+          final ctrl = _controllers[c.kindId];
+          final amount = parseDouble(ctrl?.text) ?? 0.0;
+          updatedComponents.add(
+            ProductComponent(
+              productId: productId,
+              kindId: c.kindId,
+              amountPerGram: amount,
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Yes, update'),
-              ),
-            ],
-          ),
-        )) ?? false;
-      }
+          );
+        }
+        await repo.setComponents(productId, updatedComponents);
 
-      if (doProp == true && svc != null) {
-        await svc.updateAllEntriesForProductToCurrentFormula(productId);
-        if (!mounted) return;
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Updated existing entries')),
-        );
-      } else {
-        if (!mounted) return;
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(isEdit ? 'Updated template' : 'Created template'),
-          ),
-        );
-      }
+        if (!context.mounted) return;
 
-      if (mounted) setState(() => _saving = false);
-      if (closeAfter && mounted) {
-        navigator.pop();
-      }
-    } on ArgumentError catch (e) {
-      // User input error - show inline
-      if (mounted) {
-        setState(() {
-          _saveError = e.message;
-          _saving = false;
-        });
-      }
-    } on StateError catch (e) {
-      // Constraint violation - show inline
-      if (mounted) {
-        setState(() {
-          _saveError = e.message;
-          _saving = false;
-        });
-      }
-    } catch (e) {
-      // Unexpected error - debug only
-      debugPrint('Unexpected error in save: $e');
-      if (mounted) {
-        setState(() {
-          _saveError = 'An unexpected error occurred';
-          _saving = false;
-        });
-      }
-    }
+        // Ask to propagate to non-static instances if they exist
+        bool doProp = false;
+        if (svc != null && await svc.hasNonStaticEntriesForProduct(productId)) {
+          if (!mounted) return;
+          doProp = (await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Confirm propagation'),
+              content: const Text(
+                'Apply these changes to all non-static entries for this product?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Yes, update'),
+                ),
+              ],
+            ),
+          )) ?? false;
+        }
+
+        if (doProp == true && svc != null) {
+          await svc.updateAllEntriesForProductToCurrentFormula(productId);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Updated existing entries')),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isEdit ? 'Updated product-template' : 'Created product-template'),
+              ),
+            );
+          }
+        }
+      },
+    );
   }
 
   Future<void> _addComponent() async {
@@ -214,7 +183,7 @@ class _ProductTemplateEditorDialogState
     final kinds = registry.kinds.toList();
     final picked = await showDialog<WidgetKind?>(
       context: context,
-      builder: (ctx) => _AddComponentDialog(kinds: kinds),
+      builder: (ctx) => AddKindDialog(kinds: kinds),
     );
     if (picked == null) return;
     setState(() {
@@ -251,167 +220,120 @@ class _ProductTemplateEditorDialogState
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.existing != null;
-    return AlertDialog(
-      title: Text(isEdit ? 'Edit product' : 'Add product'),
-      content: _loading
-          ? const SizedBox(
-              width: 500,
-              height: 400,
-              child: Center(child: CircularProgressIndicator()),
-            )
-          : SizedBox(
-              width: 500,
-              height: 400,
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    // Show repository errors inline
-                    if (_saveError != null) InlineError(message: _saveError!),
-                    // Id and Name fields
-                    TextFormField(
-                      controller: _idController,
-                      enabled: !isEdit,
-                      decoration: const InputDecoration(
-                        labelText: 'Id (stable, e.g., chicken_breast)',
-                      ),
-                      validator: (v) => ValidationRules.required(v, 'Id'),
+    return buildShell(
+      context: context,
+      title: isEdit ? 'Edit product' : 'Add product',
+      onSave: ({required closeAfter}) => _onSave(closeAfter: closeAfter),
+      content: Column(
+        children: [
+          // Id and Name fields
+          TextFormField(
+            controller: _idController,
+            enabled: !(widget.existing?.isProtected ?? false),
+            decoration: const InputDecoration(
+              labelText: 'Id (stable, e.g., chicken_breast)',
+            ),
+            validator: (v) => ValidationRules.required(v, 'Id'),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _nameController,
+            decoration: const InputDecoration(labelText: 'Name (display)'),
+            validator: (v) => ValidationRules.required(v, 'Name'),
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 8),
+          _components.isEmpty
+              ? const SizedBox(
+                height: 100,
+                child: Center(child: Text('No components yet')),
+              )
+              : ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: _components.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (ctx, i) {
+                  final c = _components[i];
+                  final kind = ref.read(widgetRegistryProvider).byId(c.kindId);
+                  final unit = kind?.unit ?? '';
+                  final ctrl = _controllers[c.kindId]!;
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor:
+                          kind?.accentColor ??
+                          Theme.of(context).colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      child: Icon(kind?.icon ?? Icons.circle, size: 18),
                     ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Name (display)',
-                      ),
-                      validator: (v) => ValidationRules.required(v, 'Name'),
+                    title: Text(kind?.displayName ?? c.kindId),
+                    subtitle: Text(
+                      unit.isEmpty ? 'Per 100 g' : 'Per 100 g ($unit)',
                     ),
-                    const SizedBox(height: 16),
-                    const Divider(height: 1),
-                    const SizedBox(height: 8),
-                    Expanded(
-                    child: _components.isEmpty
-                        ? const Center(child: Text('No components yet'))
-                        : ListView.separated(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            itemCount: _components.length,
-                            separatorBuilder: (_, _) =>
-                                const Divider(height: 1),
-                            itemBuilder: (ctx, i) {
-                              final c = _components[i];
-                              final kind = ref
-                                  .read(widgetRegistryProvider)
-                                  .byId(c.kindId);
-                              final unit = kind?.unit ?? '';
-                              final ctrl = _controllers[c.kindId]!;
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor:
-                                      kind?.accentColor ??
-                                      Theme.of(context).colorScheme.primary,
-                                  foregroundColor: Colors.white,
-                                  child: Icon(
-                                    kind?.icon ?? Icons.circle,
-                                    size: 18,
-                                  ),
-                                ),
-                                title: Text(kind?.displayName ?? c.kindId),
-                                subtitle: Text(
-                                  unit.isEmpty
-                                      ? 'Per 100 g'
-                                      : 'Per 100 g ($unit)',
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(
-                                      width: 100,
-                                      child: TextFormField(
-                                        controller: ctrl,
-                                        keyboardType:
-                                            const TextInputType.numberWithOptions(
-                                              decimal: true,
-                                            ),
-                                        decoration: const InputDecoration(
-                                          hintText: '0',
-                                          isDense: true,
-                                        ),
-                                        validator: ValidationRules.nonNegativeAmount,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      tooltip: 'Remove',
-                                      icon: const Icon(Icons.delete_outline),
-                                      onPressed: () => _removeAt(i),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 100,
+                          child: TextFormField(
+                            controller: ctrl,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: const InputDecoration(
+                              hintText: '0',
+                              isDense: true,
+                            ),
+                            validator: ValidationRules.nonNegativeAmount,
                           ),
-                  ),
-                  const Divider(height: 1),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: OutlinedButton.icon(
-                      onPressed: _loading ? null : _addComponent,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add nutrient'),
+                        ),
+                        IconButton(
+                          tooltip: 'Remove',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _removeAt(i),
+                        ),
+                      ],
                     ),
-                    ),
-                  ],
+                  );
+                },
+              ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: OutlinedButton.icon(
+              onPressed: loading ? null : _addComponent,
+              icon: const Icon(Icons.add),
+              label: const Text('Add nutrient'),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ExpansionTile(
+            title: const Text('Presentation'),
+            children: [
+              TextFormField(
+                controller: _iconController,
+                decoration: const InputDecoration(
+                  labelText: 'Icon name (Material glyph, optional)',
                 ),
               ),
-            ),
-      actions: editorDialogActions(
-        context: context,
-        onSave: ({required closeAfter}) =>
-            _save(context, closeAfter: closeAfter),
-        isSaving: _saving,
-      ),
-    );
-  }
-}
-
-class _AddComponentDialog extends StatefulWidget {
-  const _AddComponentDialog({required this.kinds});
-
-  final List<WidgetKind> kinds;
-
-  @override
-  State<_AddComponentDialog> createState() => _AddComponentDialogState();
-}
-
-class _AddComponentDialogState extends State<_AddComponentDialog> {
-  WidgetKind? _selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add nutrient'),
-      content: DropdownButton<WidgetKind>(
-        value: _selected,
-        hint: const Text('Select nutrient'),
-        isExpanded: true,
-        items: [
-          for (final k in widget.kinds)
-            DropdownMenuItem(value: k, child: Text(k.displayName)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _colorController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Color ARGB int (e.g., 4283657726)',
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return null;
+                  return parseInt(v) == null ? 'Must be an integer' : null;
+                },
+              ),
+            ],
+          ),
         ],
-        onChanged: (v) => setState(() => _selected = v),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final k = _selected;
-            if (k == null) return;
-            Navigator.of(context).pop(k);
-          },
-          child: const Text('Add'),
-        ),
-      ],
     );
   }
 }

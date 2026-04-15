@@ -19,6 +19,7 @@ class ProductService {
     required int productGrams,
     required DateTime targetAtLocal,
     bool isStatic = false,
+    bool showInCalendar = true,
   }) async {
     final def = await products.getProduct(productId);
     if (def == null) return null;
@@ -33,7 +34,7 @@ class ProductService {
         'name': def.name,
         'grams': productGrams,
       },
-      showInCalendar: true,
+      showInCalendar: showInCalendar,
       productId: productId,
       productGrams: productGrams,
       isStatic: isStatic,
@@ -65,6 +66,7 @@ class ProductService {
     required String parentEntryId,
     required int productGrams,
     bool? isStatic,
+    bool? showInCalendar,
   }) async {
     // Load parent
     final parent = await entries.getById(parentEntryId);
@@ -82,6 +84,7 @@ class ProductService {
       'payload_json': jsonEncode(payload),
       'product_grams': productGrams,
       if (isStatic != null) 'is_static': isStatic ? 1 : 0,
+      if (showInCalendar != null) 'show_in_calendar': showInCalendar ? 1 : 0,
     });
 
     // Recreate children: delete old, insert new with scaled amounts

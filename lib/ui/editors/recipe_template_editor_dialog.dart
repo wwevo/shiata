@@ -8,8 +8,7 @@ import '../../data/repo/recipes_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
-import '../widgets/editor_dialog_actions.dart';
-import '../widgets/inline_error.dart';
+import '../widgets/editor_dialog_shell.dart';
 import '../widgets/validation_rules.dart';
 
 class RecipeEditorDialog extends ConsumerStatefulWidget {
@@ -24,23 +23,27 @@ class RecipeEditorDialog extends ConsumerStatefulWidget {
   ConsumerState<RecipeEditorDialog> createState() => _RecipeEditorDialogState();
 }
 
-class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
+class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog>
+    with EditorDialogShell {
   // State variables
-  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _idController;
   late final TextEditingController _nameController;
+  late final TextEditingController _iconController;
+  late final TextEditingController _colorController;
   List<RecipeComponentDef> _components = const [];
-  bool _loading = true;
-  bool _saving = false;
   final Map<String, TextEditingController> _controllers = {};
-  String? _saveError;
 
   @override
   void initState() {
     super.initState();
+    loading = true;
     final e = widget.existing;
-    _idController = TextEditingController(text: e?.id ?? '');
+    _idController = TextEditingController(text: e?.id ?? generateRandomId('recipe_'));
     _nameController = TextEditingController(text: e?.name ?? '');
+    _iconController = TextEditingController(text: e?.icon ?? '');
+    _colorController = TextEditingController(
+      text: e?.color?.toString() ?? '',
+    );
     _load();
   }
 
@@ -52,7 +55,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
       if (mounted) {
         setState(() {
           _components = comps;
-          _loading = false;
+          loading = false;
         });
       }
       // Initialize controllers for all components
@@ -69,7 +72,7 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
       }
     } else {
       // Create mode: no components to load
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => loading = false);
     }
   }
 
@@ -77,150 +80,116 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
   void dispose() {
     _idController.dispose();
     _nameController.dispose();
+    _iconController.dispose();
+    _colorController.dispose();
     for (final ctrl in _controllers.values) {
       ctrl.dispose();
     }
     super.dispose();
   }
 
-  Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
-    // Clear previous errors
-    setState(() => _saveError = null);
+  Future<void> _onSave({required bool closeAfter}) async {
+    await safeSave(
+      closeAfter: closeAfter,
+      onSave: () async {
+        final repo = ref.read(recipesRepositoryProvider);
+        if (repo == null) return;
 
-    // UI validation first
-    if (!_formKey.currentState!.validate()) return;
+        // Get id and name from controllers
+        final recipeId = _idController.text.trim();
+        final recipeName = _nameController.text.trim();
 
-    setState(() => _saving = true);
+        // Upsert recipe (create or update)
+        final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+        final isEdit = widget.existing != null;
+        await repo.upsertRecipe(
+          RecipeDef(
+            id: recipeId,
+            name: recipeName,
+            createdAt: widget.existing?.createdAt ?? now,
+            updatedAt: now,
+            isActive: widget.existing?.isActive ?? true,
+            icon: _iconController.text.trim().isEmpty
+                ? null
+                : _iconController.text.trim(),
+            color: parseInt(_colorController.text),
+            isProtected: widget.existing?.isProtected ?? false,
+          ),
+        );
 
-    // Capture context-dependent objects BEFORE any async operations
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-
-    final repo = ref.read(recipesRepositoryProvider);
-    if (repo == null) {
-      if (mounted) setState(() => _saving = false);
-      return;
-    }
-
-    try {
-      // Get id and name from controllers
-      final recipeId = _idController.text.trim();
-      final recipeName = _nameController.text.trim();
-
-      // Upsert recipe (create or update)
-      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
-      final isEdit = widget.existing != null;
-      await repo.upsertRecipe(
-        RecipeDef(
-          id: recipeId,
-          name: recipeName,
-          createdAt: widget.existing?.createdAt ?? now,
-          updatedAt: now,
-          isActive: widget.existing?.isActive ?? true,
-          icon: widget.existing?.icon,
-          color: widget.existing?.color,
-        ),
-      );
-
-      // Read values from controllers and update components
-      final updatedComponents = <RecipeComponentDef>[];
-      for (final c in _components) {
-        if (c.type == RecipeComponentType.kind) {
-          final ctrl = _controllers['kind_${c.compId}']!;
-          final val = parseDouble(ctrl.text) ?? c.amount ?? 0.0;
-          updatedComponents.add(
-            RecipeComponentDef.kind(
-              recipeId: recipeId,
-              compId: c.compId,
-              amount: val,
-            ),
-          );
-        } else {
-          final ctrl = _controllers['product_${c.compId}']!;
-          final val = parseInt(ctrl.text) ?? c.grams ?? 0;
-          updatedComponents.add(
-            RecipeComponentDef.product(
-              recipeId: recipeId,
-              compId: c.compId,
-              grams: val,
-            ),
-          );
+        // Read values from controllers and update components
+        final updatedComponents = <RecipeComponentDef>[];
+        for (final c in _components) {
+          if (c.type == RecipeComponentType.kind) {
+            final ctrl = _controllers['kind_${c.compId}']!;
+            final val = parseDouble(ctrl.text) ?? c.amount ?? 0.0;
+            updatedComponents.add(
+              RecipeComponentDef.kind(
+                recipeId: recipeId,
+                compId: c.compId,
+                amount: val,
+              ),
+            );
+          } else {
+            final ctrl = _controllers['product_${c.compId}']!;
+            final val = parseInt(ctrl.text) ?? c.grams ?? 0;
+            updatedComponents.add(
+              RecipeComponentDef.product(
+                recipeId: recipeId,
+                compId: c.compId,
+                grams: val,
+              ),
+            );
+          }
         }
-      }
-      await repo.setComponents(recipeId, updatedComponents);
+        await repo.setComponents(recipeId, updatedComponents);
 
-      if (!context.mounted) return;
+        if (!context.mounted) return;
 
-      // Ask to propagate to non-static instances if they exist
-      final svc = ref.read(recipeHierarchyServiceProvider);
-      bool doProp = false;
-      if (svc != null && await svc.hasNonStaticEntriesForRecipe(recipeId)) {
-        doProp = (await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Confirm propagation'),
-            content: const Text(
-              'Apply these changes to all non-static recipe instances?',
+        // Ask to propagate to non-static instances if they exist
+        final svc = ref.read(recipeHierarchyServiceProvider);
+        bool doProp = false;
+        if (svc != null && await svc.hasNonStaticEntriesForRecipe(recipeId)) {
+          if (!mounted) return;
+          doProp = (await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Confirm propagation'),
+              content: const Text(
+                'Apply these changes to all non-static recipe instances?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Yes, update'),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Yes, update'),
-              ),
-            ],
-          ),
-        )) ?? false;
-      }
+          )) ?? false;
+        }
 
-      if (doProp == true && svc != null) {
-        await svc.propagateTemplateChange(recipeId);
-        if (!mounted) return;
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Updated existing recipe instances')),
-        );
-      } else {
-        if (!mounted) return;
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(isEdit ? 'Updated template' : 'Created template'),
-          ),
-        );
-      }
-
-      if (mounted) setState(() => _saving = false);
-      if (closeAfter && mounted) {
-        navigator.pop();
-      }
-    } on ArgumentError catch (e) {
-      // User input error - show inline
-      if (mounted) {
-        setState(() {
-          _saveError = e.message;
-          _saving = false;
-        });
-      }
-    } on StateError catch (e) {
-      // Constraint violation - show inline
-      if (mounted) {
-        setState(() {
-          _saveError = e.message;
-          _saving = false;
-        });
-      }
-    } catch (e) {
-      // Unexpected error - debug only
-      debugPrint('Unexpected error in save: $e');
-      if (mounted) {
-        setState(() {
-          _saveError = 'An unexpected error occurred';
-          _saving = false;
-        });
-      }
-    }
+        if (doProp == true && svc != null) {
+          await svc.propagateTemplateChange(recipeId);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Updated existing recipe instances')),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isEdit ? 'Updated recipe-template' : 'Created recipe-template'),
+              ),
+            );
+          }
+        }
+      },
+    );
   }
 
   Future<void> _showAddMenu() async {
@@ -317,187 +286,177 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog> {
     final registry = ref.watch(widgetRegistryProvider);
     final isEdit = widget.existing != null;
 
-    return AlertDialog(
-      title: Text(isEdit ? 'Edit recipe' : 'Add recipe'),
-      content: _loading
-          ? const SizedBox(
-              width: 500,
-              height: 400,
-              child: Center(child: CircularProgressIndicator()),
-            )
-          : SizedBox(
-              width: 500,
-              height: 400,
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    // Show repository errors inline
-                    if (_saveError != null) InlineError(message: _saveError!),
-                    // Id and Name fields
-                    TextFormField(
-                      controller: _idController,
-                      enabled: !isEdit,
-                      decoration: const InputDecoration(
-                        labelText: 'Id (stable, e.g., breakfast_smoothie)',
+    return buildShell(
+      context: context,
+      title: isEdit ? 'Edit recipe' : 'Add recipe',
+      onSave: ({required closeAfter}) => _onSave(closeAfter: closeAfter),
+      content: Column(
+        children: [
+          // Id and Name fields
+          TextFormField(
+            controller: _idController,
+            enabled: !(widget.existing?.isProtected ?? false),
+            decoration: const InputDecoration(
+              labelText: 'Id (stable, e.g., breakfast_smoothie)',
+            ),
+            validator: (v) => ValidationRules.required(v, 'Id'),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _nameController,
+            decoration: const InputDecoration(labelText: 'Name (display)'),
+            validator: (v) => ValidationRules.required(v, 'Name'),
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 8),
+          _components.isEmpty
+              ? const SizedBox(
+                height: 100,
+                child: Center(child: Text('No components yet')),
+              )
+              : ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _components.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (ctx, i) {
+                  final c = _components[i];
+                  if (c.type == RecipeComponentType.kind) {
+                    final kind = registry.byId(c.compId);
+                    final ctrl = _controllers['kind_${c.compId}']!;
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor:
+                            kind?.accentColor ??
+                            Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        child: Icon(kind?.icon ?? Icons.circle, size: 18),
                       ),
-                      validator: (v) => ValidationRules.required(v, 'Id'),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Name (display)',
-                      ),
-                      validator: (v) => ValidationRules.required(v, 'Name'),
-                    ),
-                    const SizedBox(height: 16),
-                    const Divider(height: 1),
-                    const SizedBox(height: 8),
-                    Expanded(
-                    child: _components.isEmpty
-                        ? const Center(child: Text('No components yet'))
-                        : ListView.separated(
-                            itemCount: _components.length,
-                            separatorBuilder: (_, _) =>
-                                const Divider(height: 1),
-                            itemBuilder: (ctx, i) {
-                              final c = _components[i];
-                              if (c.type == RecipeComponentType.kind) {
-                                final kind = registry.byId(c.compId);
-                                final ctrl = _controllers['kind_${c.compId}']!;
-                                return ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor:
-                                        kind?.accentColor ??
-                                        Theme.of(context).colorScheme.primary,
-                                    foregroundColor: Colors.white,
-                                    child: Icon(
-                                      kind?.icon ?? Icons.circle,
-                                      size: 18,
-                                    ),
-                                  ),
-                                  title: Text(kind?.displayName ?? c.compId),
-                                  subtitle: Text('Unit: ${kind?.unit ?? ''}'),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      SizedBox(
-                                        width: 100,
-                                        child: TextFormField(
-                                          controller: ctrl,
-                                          keyboardType:
-                                              const TextInputType.numberWithOptions(
-                                                decimal: true,
-                                              ),
-                                          decoration: const InputDecoration(
-                                            hintText: '0',
-                                            isDense: true,
-                                          ),
-                                          validator: ValidationRules.nonNegativeAmount,
-                                        ),
-                                      ),
-                                      IconButton(
-                                        tooltip: 'Remove',
-                                        icon: const Icon(Icons.delete_outline),
-                                        onPressed: () {
-                                          setState(() {
-                                            _components = _components
-                                                .where(
-                                                  (x) =>
-                                                      !(x.type ==
-                                                              RecipeComponentType
-                                                                  .kind &&
-                                                          x.compId == c.compId),
-                                                )
-                                                .toList();
-                                          });
-                                          // Dispose controller
-                                          ctrl.dispose();
-                                          _controllers.remove(
-                                            'kind_${c.compId}',
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              } else {
-                                final ctrl =
-                                    _controllers['product_${c.compId}']!;
-                                return ListTile(
-                                  leading: const CircleAvatar(
-                                    backgroundColor: Colors.purple,
-                                    foregroundColor: Colors.white,
-                                    child: Icon(
-                                      Icons.shopping_basket,
-                                      size: 18,
-                                    ),
-                                  ),
-                                  title: Text(c.compId),
-                                  subtitle: const Text('Unit: g'),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      SizedBox(
-                                        width: 100,
-                                        child: TextFormField(
-                                          controller: ctrl,
-                                          keyboardType: TextInputType.number,
-                                          decoration: const InputDecoration(
-                                            hintText: '100',
-                                            isDense: true,
-                                          ),
-                                          validator: ValidationRules.positiveGrams,
-                                        ),
-                                      ),
-                                      IconButton(
-                                        tooltip: 'Remove',
-                                        icon: const Icon(Icons.delete_outline),
-                                        onPressed: () {
-                                          setState(() {
-                                            _components = _components
-                                                .where(
-                                                  (x) =>
-                                                      !(x.type ==
-                                                              RecipeComponentType
-                                                                  .product &&
-                                                          x.compId == c.compId),
-                                                )
-                                                .toList();
-                                          });
-                                          // Dispose controller
-                                          ctrl.dispose();
-                                          _controllers.remove(
-                                            'product_${c.compId}',
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }
+                      title: Text(kind?.displayName ?? c.compId),
+                      subtitle: Text('Unit: ${kind?.unit ?? ''}'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 100,
+                            child: TextFormField(
+                              controller: ctrl,
+                              keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true,
+                              ),
+                              decoration: const InputDecoration(
+                                hintText: '0',
+                                isDense: true,
+                              ),
+                              validator: ValidationRules.nonNegativeAmount,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Remove',
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () {
+                              setState(() {
+                                _components = _components
+                                    .where(
+                                      (x) =>
+                                          !(x.type == RecipeComponentType.kind &&
+                                              x.compId == c.compId),
+                                    )
+                                    .toList();
+                              });
+                              // Dispose controller
+                              ctrl.dispose();
+                              _controllers.remove('kind_${c.compId}');
                             },
                           ),
-                  ),
-                  const Divider(height: 1),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: OutlinedButton.icon(
-                      onPressed: _loading ? null : _showAddMenu,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add component'),
-                    ),
-                    ),
-                  ],
+                        ],
+                      ),
+                    );
+                  } else {
+                    final ctrl = _controllers['product_${c.compId}']!;
+                    return ListTile(
+                      leading: const CircleAvatar(
+                        backgroundColor: Colors.purple,
+                        foregroundColor: Colors.white,
+                        child: Icon(Icons.shopping_basket, size: 18),
+                      ),
+                      title: Text(c.compId),
+                      subtitle: const Text('Unit: g'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 100,
+                            child: TextFormField(
+                              controller: ctrl,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                hintText: '100',
+                                isDense: true,
+                              ),
+                              validator: ValidationRules.positiveGrams,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Remove',
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () {
+                              setState(() {
+                                _components = _components
+                                    .where(
+                                      (x) =>
+                                          !(x.type ==
+                                                  RecipeComponentType.product &&
+                                              x.compId == c.compId),
+                                    )
+                                    .toList();
+                              });
+                              // Dispose controller
+                              ctrl.dispose();
+                              _controllers.remove('product_${c.compId}');
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                },
+              ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: OutlinedButton.icon(
+              onPressed: loading ? null : _showAddMenu,
+              icon: const Icon(Icons.add),
+              label: const Text('Add component'),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ExpansionTile(
+            title: const Text('Presentation'),
+            children: [
+              TextFormField(
+                controller: _iconController,
+                decoration: const InputDecoration(
+                  labelText: 'Icon name (Material glyph, optional)',
                 ),
               ),
-            ),
-      actions: editorDialogActions(
-        context: context,
-        onSave: ({required closeAfter}) =>
-            _save(context, closeAfter: closeAfter),
-        isSaving: _saving,
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _colorController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Color ARGB int (e.g., 4283657726)',
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return null;
+                  return parseInt(v) == null ? 'Must be an integer' : null;
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

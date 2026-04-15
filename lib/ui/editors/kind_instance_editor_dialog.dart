@@ -6,8 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
-import '../widgets/editor_dialog_actions.dart';
-import '../widgets/inline_error.dart';
+import '../widgets/date_time_picker.dart';
+import '../widgets/editor_dialog_shell.dart';
 
 /// Generic integer-only nutrient editor driven by WidgetKind metadata.
 class KindInstanceEditorDialog extends ConsumerStatefulWidget {
@@ -28,18 +28,16 @@ class KindInstanceEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _KindInstanceEditorDialogState
-    extends ConsumerState<KindInstanceEditorDialog> {
+    extends ConsumerState<KindInstanceEditorDialog> with EditorDialogShell {
   // State variables
-  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _amountController;
   late DateTime _targetAt;
   late bool _showInCalendar;
-  bool _loading = false;
-  String? _saveError;
 
   @override
   void initState() {
     super.initState();
+    loading = false;
     _amountController = TextEditingController(text: '0');
     _targetAt = widget.initialTargetAt ?? DateTime.now();
     _showInCalendar = widget.kind.defaultShowInCalendar;
@@ -49,7 +47,7 @@ class _KindInstanceEditorDialogState
   }
 
   Future<void> _loadExisting() async {
-    setState(() => _loading = true);
+    setState(() => loading = true);
     final repo = ref.read(entriesRepositoryProvider);
     if (repo != null) {
       final rec = await repo.getById(widget.entryId!);
@@ -66,7 +64,7 @@ class _KindInstanceEditorDialogState
         _showInCalendar = rec.showInCalendar;
       }
     }
-    if (mounted) setState(() => _loading = false);
+    if (mounted) setState(() => loading = false);
   }
 
   @override
@@ -75,92 +73,51 @@ class _KindInstanceEditorDialogState
     super.dispose();
   }
 
-  Future<void> _pickDateTime(BuildContext context) async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _targetAt,
-      firstDate: DateTime.now().subtract(const Duration(days: 3650)),
-      lastDate: DateTime.now().add(const Duration(days: 3650)),
-    );
-    if (date == null) return;
-    if (!context.mounted) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_targetAt),
-      builder: (ctx, child) => MediaQuery(
-        data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true),
-        child: child ?? const SizedBox.shrink(),
-      ),
-    );
-    if (time == null) return;
-    if (!context.mounted) return;
-    setState(() {
-      _targetAt = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
-    });
+  Future<void> _handlePickDateTime(BuildContext context) async {
+    final picked = await pickDateTime(context, _targetAt);
+    if (picked != null) {
+      setState(() => _targetAt = picked);
+    }
   }
 
-  Future<void> _save(BuildContext context, {bool closeAfter = false}) async {
-    // Clear previous errors
-    setState(() => _saveError = null);
+  Future<void> _onSave({required bool closeAfter}) async {
+    await safeSave(
+      closeAfter: closeAfter,
+      onSave: () async {
+        final repo = ref.read(entriesRepositoryProvider);
+        if (repo == null) return;
 
-    // UI validation first
-    if (!_formKey.currentState!.validate()) return;
+        final amountToStore = parseDouble(_amountController.text) ?? 0.0;
 
-    final repo = ref.read(entriesRepositoryProvider);
-    if (repo == null) return;
-
-    final amountToStore = parseDouble(_amountController.text) ?? 0.0;
-
-    // Capture context-dependent objects before async gap
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-
-    try {
-      if (widget.entryId != null) {
-        await repo.update(widget.entryId!, {
-          'target_at': _targetAt.toUtc().millisecondsSinceEpoch,
-          'payload_json': jsonEncode({
-            'amount': amountToStore,
-            'unit': widget.kind.unit,
-          }),
-          'show_in_calendar': _showInCalendar ? 1 : 0,
-          'schema_version': 1,
-        });
-        if (!mounted) return;
-        messenger.showSnackBar(
-          SnackBar(content: Text('Updated ${widget.kind.displayName}')),
-        );
-        if (closeAfter && mounted) navigator.pop();
-      } else {
-        await repo.create(
-          widgetKind: widget.kind.id,
-          targetAtLocal: _targetAt,
-          payload: {'amount': amountToStore, 'unit': widget.kind.unit},
-          showInCalendar: _showInCalendar,
-        );
-        if (!mounted) return;
-        messenger.showSnackBar(
-          SnackBar(content: Text('Saved ${widget.kind.displayName}')),
-        );
-        if (closeAfter && mounted) navigator.pop();
-      }
-    } on ArgumentError catch (e) {
-      // User input error - show inline
-      if (mounted) setState(() => _saveError = e.message);
-    } on StateError catch (e) {
-      // Constraint violation - show inline
-      if (mounted) setState(() => _saveError = e.message);
-    } catch (e) {
-      // Unexpected error - debug only
-      debugPrint('Unexpected error in save: $e');
-      if (mounted) setState(() => _saveError = 'An unexpected error occurred');
-    }
+        if (widget.entryId != null) {
+          await repo.update(widget.entryId!, {
+            'target_at': _targetAt.toUtc().millisecondsSinceEpoch,
+            'payload_json': jsonEncode({
+              'amount': amountToStore,
+              'unit': widget.kind.unit,
+            }),
+            'show_in_calendar': _showInCalendar ? 1 : 0
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Updated ${widget.kind.displayName}')),
+            );
+          }
+        } else {
+          await repo.create(
+            widgetKind: widget.kind.id,
+            targetAtLocal: _targetAt,
+            payload: {'amount': amountToStore, 'unit': widget.kind.unit},
+            showInCalendar: _showInCalendar,
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Saved ${widget.kind.displayName}')),
+            );
+          }
+        }
+      },
+    );
   }
 
   @override
@@ -168,119 +125,93 @@ class _KindInstanceEditorDialogState
     final theme = Theme.of(context);
     final isEdit = widget.entryId != null;
 
-    return AlertDialog(
-      title: Text(
-        isEdit
-            ? '${widget.kind.displayName} — Edit'
-            : '${widget.kind.displayName} — Create',
-      ),
-      content: _loading
-          ? const SizedBox(
-              width: 400,
-              height: 300,
-              child: Center(child: CircularProgressIndicator()),
-            )
-          : SizedBox(
-              width: 400,
-              child: SingleChildScrollView(
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Show repository errors inline
-                      if (_saveError != null) InlineError(message: _saveError!),
-                      Text(
-                        'Amount (${widget.kind.unit})',
-                        style: theme.textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _amountController,
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                hintText: '0',
-                              ),
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                    signed: true,
-                                  ),
-                              validator: (v) {
-                                final val = parseDouble(v);
-                                if (val == null) return 'Enter a number';
-                                final min = widget.kind.minValue.toDouble();
-                                final max = widget.kind.maxValue.toDouble();
-                                if (val < min || val > max) {
-                                  return 'Must be ${fmtDouble(min)}–${fmtDouble(max)}';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Column(
-                            children: [
-                              IconButton(
-                                onPressed: () {
-                                  final current =
-                                      parseDouble(_amountController.text) ??
-                                      0.0;
-                                  final next = (current + 1.0).clamp(
-                                    widget.kind.minValue.toDouble(),
-                                    widget.kind.maxValue.toDouble(),
-                                  );
-                                  _amountController.text = fmtDouble(next);
-                                },
-                                icon: const Icon(Icons.add),
-                                tooltip: '+1',
-                              ),
-                              IconButton(
-                                onPressed: () {
-                                  final current =
-                                      parseDouble(_amountController.text) ??
-                                      0.0;
-                                  final next = (current - 1.0).clamp(
-                                    widget.kind.minValue.toDouble(),
-                                    widget.kind.maxValue.toDouble(),
-                                  );
-                                  _amountController.text = fmtDouble(next);
-                                },
-                                icon: const Icon(Icons.remove),
-                                tooltip: '-1',
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Text('When', style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 8),
-                      OutlinedButton.icon(
-                        onPressed: () => _pickDateTime(context),
-                        icon: const Icon(Icons.schedule),
-                        label: Text('${_targetAt.toLocal()}'),
-                      ),
-                      const SizedBox(height: 16),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: _showInCalendar,
-                        onChanged: (v) => setState(() => _showInCalendar = v),
-                        title: const Text('Show in calendar'),
-                      ),
-                    ],
+    return buildShell(
+      context: context,
+      title: isEdit
+          ? 'Edit ${widget.kind.displayName}'
+          : 'Add ${widget.kind.displayName}',
+      onSave: ({required closeAfter}) => _onSave(closeAfter: closeAfter),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Amount (${widget.kind.unit})',
+            style: theme.textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _amountController,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: '0',
                   ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
+                  validator: (v) {
+                    final val = parseDouble(v);
+                    if (val == null) return 'Enter a number';
+                    final min = widget.kind.minValue.toDouble();
+                    final max = widget.kind.maxValue.toDouble();
+                    if (val < min || val > max) {
+                      return 'Must be ${fmtDouble(min)}–${fmtDouble(max)}';
+                    }
+                    return null;
+                  },
                 ),
               ),
-            ),
-      actions: editorDialogActions(
-        context: context,
-        onSave: ({required closeAfter}) =>
-            _save(context, closeAfter: closeAfter),
+              const SizedBox(width: 8),
+              Column(
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      final current = parseDouble(_amountController.text) ?? 0.0;
+                      final next = (current + 1.0).clamp(
+                        widget.kind.minValue.toDouble(),
+                        widget.kind.maxValue.toDouble(),
+                      );
+                      _amountController.text = fmtDouble(next);
+                    },
+                    icon: const Icon(Icons.add),
+                    tooltip: '+1',
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      final current = parseDouble(_amountController.text) ?? 0.0;
+                      final next = (current - 1.0).clamp(
+                        widget.kind.minValue.toDouble(),
+                        widget.kind.maxValue.toDouble(),
+                      );
+                      _amountController.text = fmtDouble(next);
+                    },
+                    icon: const Icon(Icons.remove),
+                    tooltip: '-1',
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text('When', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => _handlePickDateTime(context),
+            icon: const Icon(Icons.schedule),
+            label: Text('${_targetAt.toLocal()}'),
+          ),
+          const SizedBox(height: 16),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _showInCalendar,
+            onChanged: (v) => setState(() => _showInCalendar = v),
+            title: const Text('Show in calendar'),
+          ),
+        ],
       ),
     );
   }

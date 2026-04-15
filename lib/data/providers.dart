@@ -10,6 +10,7 @@ import 'repo/entries_repository.dart';
 import 'repo/kinds_repository.dart';
 import 'repo/products_repository.dart';
 import 'repo/recipes_repository.dart';
+import 'repo/units_repository.dart';
 
 /// Provides an [AppDb] instance when the low-level [QueryExecutor] is available.
 final appDbProvider = Provider<AppDb?>((ref) {
@@ -60,6 +61,12 @@ final recipesRepositoryProvider = Provider<RecipesRepository?>((ref) {
   return RecipesRepository(db: db);
 });
 
+final unitsRepositoryProvider = Provider<UnitsRepository?>((ref) {
+  final db = ref.watch(appDbProvider);
+  if (db == null) return null;
+  return UnitsRepository(db: db);
+});
+
 // FIXED: Use consistent pattern for all three stream providers
 final kindsListProvider = StreamProvider<List<KindDef>>((ref) {
   final repo = ref.watch(kindsRepositoryProvider);
@@ -77,6 +84,12 @@ final recipesListProvider = StreamProvider<List<RecipeDef>>((ref) {
   final repo = ref.watch(recipesRepositoryProvider);
   if (repo == null) return Stream.value(<RecipeDef>[]);
   return repo.watchRecipes(onlyActive: true);
+});
+
+final unitsListProvider = StreamProvider<List<UnitDef>>((ref) {
+  final repo = ref.watch(unitsRepositoryProvider);
+  if (repo == null) return Stream.value(<UnitDef>[]);
+  return repo.watchUnits();
 });
 
 final searchServiceProvider = Provider<SearchService?>((ref) {

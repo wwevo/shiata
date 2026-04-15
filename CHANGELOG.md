@@ -1,6 +1,26 @@
 # CHANGELOG.md
 
-## [0.8.9] - 2025-11-18
+## [0.9.1] - 2026-04-15
+### Changed
+- **Infrastruktur**: Datenbank-Migration für `is_protected`-Flag und neue `units`-Tabelle; Extraktion von `DateTimePicker` und `AddKindDialog` Utilities.
+ * EditorDialogShell: Einführung eines Mixins zur zentralen Steuerung von Validierung, Loading/Saving-States und Fullscreen-Layout.
+ * Datenmodelle: Aktualisierung von `KindDef`, `ProductDef` und `RecipeDef` um das `isProtected`-Flag.
+ * Korrekturen: Automatisierte ID-Generierung beim Erstellen; Icon/Color-Felder für alle Template-Editoren; dynamisches Unit-Dropdown; `showInCalendar`-Toggle für alle Instanz-Editoren.
+ * Services: Anpassung von `ProductService` und `RecipeService` zur Unterstützung von `showInCalendar`.
+
+### Known bugs
+ * changing an ID creates a new Entry instead of editing the existing one.
+
+
+## [0.9.0] - 2026-04-14
+### Fixed
+- **CRUD and DB**
+  * "confirm Propagation" dialog on save should only appear if any created instance in the db useses the item. Right now it alsow appears ona newly created item
+  * the products list does not update when creating a new product, the same goes for deleting a product and also for updating a product.
+  * add "water/Water" to kinds. [0 - 2500mL]
+  * add "butter/Butter" to initial product seed: 82% fat, 16mL Water [0-1000g]
+  * allow dot and comma for fractions in all editors
+
 
 ### Removed
 - **All UNDO Functionality** (~120 lines)

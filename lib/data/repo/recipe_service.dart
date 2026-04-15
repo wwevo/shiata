@@ -89,6 +89,7 @@ class RecipeService {
     Map<String, double>? kindOverrides,
     Map<String, int>? productGramOverrides,
     bool? isStatic,
+    bool? showInCalendar,
   }) async {
     // 1. Load parent and validate it's a recipe instance
     final parent = await entries.getById(parentEntryId);
@@ -107,6 +108,7 @@ class RecipeService {
       'payload_json': jsonEncode(payload),
       'target_at': targetAtLocal.toUtc().millisecondsSinceEpoch,
       if (isStatic != null) 'is_static': isStatic ? 1 : 0,
+      if (showInCalendar != null) 'show_in_calendar': showInCalendar ? 1 : 0,
     });
 
     // 4. Delete ALL old children (including product hierarchies)

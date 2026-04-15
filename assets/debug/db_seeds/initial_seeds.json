@@ -4,6 +4,7 @@
     {
       "id": "beef",
       "name": "Beef",
+      "isProtected": true,
       "components": [
         {
           "kindId": "carbohydrate",
@@ -46,6 +47,7 @@
     {
       "id": "egg",
       "name": "Egg",
+      "isProtected": true,
       "components": [
         {
           "kindId": "calcium",
@@ -96,6 +98,7 @@
     {
       "id": "greek_yogurt",
       "name": "Greek Yogurt",
+      "isProtected": true,
       "components": [
         {
           "kindId": "calcium",
@@ -130,6 +133,7 @@
     {
       "id": "milk",
       "name": "Milk",
+      "isProtected": true,
       "components": [
         {
           "kindId": "calcium",
@@ -172,6 +176,7 @@
     {
       "id": "oatmeal",
       "name": "Oatmeal",
+      "isProtected": true,
       "components": [
         {
           "kindId": "carbohydrate",
@@ -214,6 +219,7 @@
     {
       "id": "butter",
       "name": "Butter",
+      "isProtected": true,
       "components": [
         {
           "kindId": "fat",
@@ -235,7 +241,8 @@
       "icon": "blur_on",
       "min": 0,
       "max": 5000,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     },
     {
       "id": "carbohydrate",
@@ -245,7 +252,8 @@
       "icon": "rice_bowl",
       "min": 0,
       "max": 400,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     },
     {
       "id": "fat",
@@ -255,7 +263,8 @@
       "icon": "opacity",
       "min": 0,
       "max": 300,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     },
     {
       "id": "iron",
@@ -265,7 +274,8 @@
       "icon": "circle",
       "min": 0,
       "max": 200,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     },
     {
       "id": "magnesium",
@@ -275,7 +285,8 @@
       "icon": "bolt",
       "min": 0,
       "max": 2000,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     },
     {
       "id": "phosphorus",
@@ -285,7 +296,8 @@
       "icon": "science",
       "min": 0,
       "max": 2000,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     },
     {
       "id": "potassium",
@@ -295,7 +307,8 @@
       "icon": "battery_charging_full",
       "min": 0,
       "max": 10000,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     },
     {
       "id": "protein",
@@ -305,7 +318,8 @@
       "icon": "fitness_center",
       "min": 0,
       "max": 300,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     },
     {
       "id": "sodium",
@@ -315,7 +329,8 @@
       "icon": "opacity",
       "min": 0,
       "max": 10000,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     },
     {
       "id": "vitamin_a",
@@ -325,7 +340,8 @@
       "icon": "visibility",
       "min": 0,
       "max": 10000,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     },
     {
       "id": "vitamin_b12",
@@ -335,7 +351,8 @@
       "icon": "medical_information",
       "min": 0,
       "max": 10000,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     },
     {
       "id": "vitamin_c",
@@ -345,7 +362,8 @@
       "icon": "local_florist",
       "min": 0,
       "max": 5000,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     },
     {
       "id": "vitamin_d",
@@ -355,7 +373,8 @@
       "icon": "wb_sunny",
       "min": 0,
       "max": 1000,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     },
     {
       "id": "vitamin_e",
@@ -365,7 +384,8 @@
       "icon": "eco",
       "min": 0,
       "max": 1000,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     },
     {
       "id": "vitamin_k",
@@ -375,7 +395,8 @@
       "icon": "grass",
       "min": 0,
       "max": 5000,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     },
     {
       "id": "water",
@@ -385,7 +406,8 @@
       "icon": "water_drop",
       "min": 0,
       "max": 2500,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     },
     {
       "id": "zinc",
@@ -395,7 +417,8 @@
       "icon": "hexagon",
       "min": 0,
       "max": 200,
-      "defaultShowInCalendar": false
+      "defaultShowInCalendar": false,
+      "isProtected": true
     }
   ]
 }
