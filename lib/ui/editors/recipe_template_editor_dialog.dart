@@ -8,6 +8,9 @@ import '../../data/repo/recipes_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
+import '../widgets/add_component_menu.dart';
+import '../widgets/add_kind_dialog.dart';
+import '../widgets/add_product_dialog.dart';
 import '../widgets/editor_dialog_shell.dart';
 import '../widgets/validation_rules.dart';
 
@@ -197,83 +200,76 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog>
     final registry = ref.read(widgetRegistryProvider);
     final productsRepo = ref.read(productsRepositoryProvider);
 
-    final choice = await showDialog<String>(
+    // Step 1: Ask what type of component to add
+    final type = await showDialog<String>(
       context: context,
-      builder: (ctx) => SimpleDialog(
-        title: const Text('Add component'),
-        children: [
-          SimpleDialogOption(
-            onPressed: () => Navigator.of(ctx).pop('kind'),
-            child: const ListTile(
-              leading: Icon(Icons.category_outlined),
-              title: Text('Add kind'),
-            ),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.of(ctx).pop('product'),
-            child: const ListTile(
-              leading: Icon(Icons.shopping_basket_outlined),
-              title: Text('Add product'),
-            ),
-          ),
-        ],
+      builder: (ctx) => const AddComponentMenu(
+        enabledTypes: {'kind', 'product'}, // Can add 'recipe' when needed
       ),
     );
 
-    if (choice == null || !mounted) return;
+    if (type == null || !mounted) return;
 
-    switch (choice) {
+    // Step 2: Show the appropriate picker based on type
+    switch (type) {
       case 'kind':
-        final picked = await showDialog<String?>(
+        final kind = await showDialog<WidgetKind?>(
           context: context,
-          builder: (ctx) => _AddKindToRecipeDialog(registry: registry),
+          builder: (ctx) => AddKindDialog(
+            kinds: registry.kinds.toList(),
+          ),
         );
-        if (picked != null) {
+
+        if (kind != null) {
           setState(() {
             // Remove if exists, then add new
             final recipeId = widget.existing?.id ?? _idController.text.trim();
             _components = [
               ..._components.where(
-                (c) =>
-                    !(c.type == RecipeComponentType.kind && c.compId == picked),
+                    (c) =>
+                !(c.type == RecipeComponentType.kind && c.compId == kind.id),
               ),
               RecipeComponentDef.kind(
                 recipeId: recipeId,
-                compId: picked,
+                compId: kind.id,
                 amount: 0.0,
               ),
             ];
             // Create controller for new component
-            _controllers['kind_$picked'] = TextEditingController(text: '0');
+            _controllers['kind_${kind.id}'] = TextEditingController(text: '0');
           });
         }
         break;
+
       case 'product':
         if (productsRepo == null) return;
+
+        final products = await productsRepo.listProducts();
         if (!mounted) return;
-        final picked = await showDialog<String?>(
+
+        final product = await showDialog<ProductDef?>(
           context: context,
-          builder: (ctx) =>
-              _AddProductToRecipeDialog(productsRepo: productsRepo),
+          builder: (ctx) => AddProductDialog(products: products),
         );
-        if (picked != null) {
+
+        if (product != null) {
           setState(() {
             // Remove if exists, then add new
             final recipeId = widget.existing?.id ?? _idController.text.trim();
             _components = [
               ..._components.where(
-                (c) =>
-                    !(c.type == RecipeComponentType.product &&
-                        c.compId == picked),
+                    (c) =>
+                !(c.type == RecipeComponentType.product &&
+                    c.compId == product.id),
               ),
               RecipeComponentDef.product(
                 recipeId: recipeId,
-                compId: picked,
+                compId: product.id,
                 grams: 100,
               ),
             ];
             // Create controller for new component
-            _controllers['product_$picked'] = TextEditingController(
+            _controllers['product_${product.id}'] = TextEditingController(
               text: '100',
             );
           });
@@ -313,117 +309,117 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog>
           const SizedBox(height: 8),
           _components.isEmpty
               ? const SizedBox(
-                height: 100,
-                child: Center(child: Text('No components yet')),
-              )
+            height: 100,
+            child: Center(child: Text('No components yet')),
+          )
               : ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _components.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (ctx, i) {
-                  final c = _components[i];
-                  if (c.type == RecipeComponentType.kind) {
-                    final kind = registry.byId(c.compId);
-                    final ctrl = _controllers['kind_${c.compId}']!;
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor:
-                            kind?.accentColor ??
-                            Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
-                        child: Icon(kind?.icon ?? Icons.circle, size: 18),
-                      ),
-                      title: Text(kind?.displayName ?? c.compId),
-                      subtitle: Text('Unit: ${kind?.unit ?? ''}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 100,
-                            child: TextFormField(
-                              controller: ctrl,
-                              keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true,
-                              ),
-                              decoration: const InputDecoration(
-                                hintText: '0',
-                                isDense: true,
-                              ),
-                              validator: ValidationRules.nonNegativeAmount,
-                            ),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _components.length,
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (ctx, i) {
+              final c = _components[i];
+              if (c.type == RecipeComponentType.kind) {
+                final kind = registry.byId(c.compId);
+                final ctrl = _controllers['kind_${c.compId}']!;
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor:
+                    kind?.accentColor ??
+                        Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    child: Icon(kind?.icon ?? Icons.circle, size: 18),
+                  ),
+                  title: Text(kind?.displayName ?? c.compId),
+                  subtitle: Text('Unit: ${kind?.unit ?? ''}'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 100,
+                        child: TextFormField(
+                          controller: ctrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
                           ),
-                          IconButton(
-                            tooltip: 'Remove',
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () {
-                              setState(() {
-                                _components = _components
-                                    .where(
-                                      (x) =>
-                                          !(x.type == RecipeComponentType.kind &&
-                                              x.compId == c.compId),
-                                    )
-                                    .toList();
-                              });
-                              // Dispose controller
-                              ctrl.dispose();
-                              _controllers.remove('kind_${c.compId}');
-                            },
+                          decoration: const InputDecoration(
+                            hintText: '0',
+                            isDense: true,
                           ),
-                        ],
+                          validator: ValidationRules.nonNegativeAmount,
+                        ),
                       ),
-                    );
-                  } else {
-                    final ctrl = _controllers['product_${c.compId}']!;
-                    return ListTile(
-                      leading: const CircleAvatar(
-                        backgroundColor: Colors.purple,
-                        foregroundColor: Colors.white,
-                        child: Icon(Icons.shopping_basket, size: 18),
+                      IconButton(
+                        tooltip: 'Remove',
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () {
+                          setState(() {
+                            _components = _components
+                                .where(
+                                  (x) =>
+                              !(x.type == RecipeComponentType.kind &&
+                                  x.compId == c.compId),
+                            )
+                                .toList();
+                          });
+                          // Dispose controller
+                          ctrl.dispose();
+                          _controllers.remove('kind_${c.compId}');
+                        },
                       ),
-                      title: Text(c.compId),
-                      subtitle: const Text('Unit: g'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 100,
-                            child: TextFormField(
-                              controller: ctrl,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                hintText: '100',
-                                isDense: true,
-                              ),
-                              validator: ValidationRules.positiveGrams,
-                            ),
+                    ],
+                  ),
+                );
+              } else {
+                final ctrl = _controllers['product_${c.compId}']!;
+                return ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Colors.purple,
+                    foregroundColor: Colors.white,
+                    child: Icon(Icons.shopping_basket, size: 18),
+                  ),
+                  title: Text(c.compId),
+                  subtitle: const Text('Unit: g'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 100,
+                        child: TextFormField(
+                          controller: ctrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            hintText: '100',
+                            isDense: true,
                           ),
-                          IconButton(
-                            tooltip: 'Remove',
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () {
-                              setState(() {
-                                _components = _components
-                                    .where(
-                                      (x) =>
-                                          !(x.type ==
-                                                  RecipeComponentType.product &&
-                                              x.compId == c.compId),
-                                    )
-                                    .toList();
-                              });
-                              // Dispose controller
-                              ctrl.dispose();
-                              _controllers.remove('product_${c.compId}');
-                            },
-                          ),
-                        ],
+                          validator: ValidationRules.positiveGrams,
+                        ),
                       ),
-                    );
-                  }
-                },
-              ),
+                      IconButton(
+                        tooltip: 'Remove',
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () {
+                          setState(() {
+                            _components = _components
+                                .where(
+                                  (x) =>
+                              !(x.type ==
+                                  RecipeComponentType.product &&
+                                  x.compId == c.compId),
+                            )
+                                .toList();
+                          });
+                          // Dispose controller
+                          ctrl.dispose();
+                          _controllers.remove('product_${c.compId}');
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              }
+            },
+          ),
           const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -459,101 +455,6 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog>
           ),
         ],
       ),
-    );
-  }
-}
-
-class _AddKindToRecipeDialog extends StatefulWidget {
-  const _AddKindToRecipeDialog({required this.registry});
-
-  final WidgetRegistry registry;
-
-  @override
-  State<_AddKindToRecipeDialog> createState() => _AddKindToRecipeDialogState();
-}
-
-class _AddKindToRecipeDialogState extends State<_AddKindToRecipeDialog> {
-  WidgetKind? _selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add kind'),
-      content: DropdownButton<WidgetKind>(
-        value: _selected,
-        hint: const Text('Select kind'),
-        isExpanded: true,
-        items: [
-          for (final k in widget.registry.kinds)
-            DropdownMenuItem(value: k, child: Text(k.displayName)),
-        ],
-        onChanged: (v) => setState(() => _selected = v),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final k = _selected;
-            if (k == null) return;
-            Navigator.of(context).pop(k.id);
-          },
-          child: const Text('Add'),
-        ),
-      ],
-    );
-  }
-}
-
-class _AddProductToRecipeDialog extends StatefulWidget {
-  const _AddProductToRecipeDialog({required this.productsRepo});
-
-  final ProductsRepository productsRepo;
-
-  @override
-  State<_AddProductToRecipeDialog> createState() =>
-      _AddProductToRecipeDialogState();
-}
-
-class _AddProductToRecipeDialogState extends State<_AddProductToRecipeDialog> {
-  String? _selectedId;
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<ProductDef>>(
-      future: widget.productsRepo.listProducts(),
-      builder: (ctx, snap) {
-        final products = snap.data ?? const <ProductDef>[];
-        return AlertDialog(
-          title: const Text('Add product'),
-          content: DropdownButton<String>(
-            value: _selectedId,
-            hint: const Text('Select product'),
-            isExpanded: true,
-            items: [
-              for (final p in products)
-                DropdownMenuItem(value: p.id, child: Text(p.name)),
-            ],
-            onChanged: (v) => setState(() => _selectedId = v),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final id = _selectedId;
-                if (id == null) return;
-                Navigator.of(context).pop(id);
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
     );
   }
 }
