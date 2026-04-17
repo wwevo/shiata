@@ -114,6 +114,7 @@ class _ProductTemplateEditorDialogState
             color: parseInt(_colorController.text),
             isProtected: widget.existing?.isProtected ?? false,
           ),
+          oldId: widget.existing?.id,
         );
 
         // Read values from controllers and update components
