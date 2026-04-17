@@ -34,14 +34,14 @@ class RecipeComponentDef {
     required this.compId,
     required double this.amount,
   }) : type = RecipeComponentType.kind,
-       grams = null;
+        grams = null;
 
   RecipeComponentDef.product({
     required this.recipeId,
     required this.compId,
     required int this.grams,
   }) : type = RecipeComponentType.product,
-       amount = null;
+        amount = null;
 
   final String recipeId;
   final RecipeComponentType type;
@@ -63,27 +63,55 @@ class RecipesRepository {
 
   Stream<void> watchChanges() => _changes.stream;
 
-  Future<void> upsertRecipe(RecipeDef r) async {
+  Future<void> upsertRecipe(RecipeDef r, {String? oldId}) async {
     await _ready;
     // Validate inputs
     if (r.name.trim().isEmpty) {
       throw ArgumentError('Recipe name cannot be empty');
     }
 
-    await db.customStatement(
-      'INSERT INTO recipes (id, name, created_at, updated_at, is_active, icon, color, is_protected) VALUES (?, ?, ?, ?, ?, ?, ?, ?) '
-      'ON CONFLICT(id) DO UPDATE SET name=excluded.name, updated_at=excluded.updated_at, is_active=excluded.is_active, icon=excluded.icon, color=excluded.color, is_protected=excluded.is_protected;',
-      [
-        r.id,
-        r.name,
-        r.createdAt,
-        r.updatedAt,
-        r.isActive ? 1 : 0,
-        r.icon,
-        r.color,
-        r.isProtected ? 1 : 0,
-      ],
-    );
+    await db.transaction(() async {
+      if (oldId != null && oldId != r.id) {
+        // Handle ID rename cascade
+        // 1. Check if new ID already exists
+        final existing = await getRecipe(r.id);
+        if (existing != null) {
+          throw StateError('Cannot rename recipe to "${r.id}": ID already exists');
+        }
+
+        // 2. Perform cascade updates
+        await db.customStatement(
+          'UPDATE recipe_components SET recipe_id = ? WHERE recipe_id = ?;',
+          [r.id, oldId],
+        );
+        await db.customStatement(
+          'UPDATE entries SET recipe_id = ? WHERE recipe_id = ?;',
+          [r.id, oldId],
+        );
+
+        // 3. Update the recipe itself (ID change)
+        await db.customStatement(
+          'UPDATE recipes SET id = ? WHERE id = ?;',
+          [r.id, oldId],
+        );
+      }
+
+      // 4. Upsert the data
+      await db.customStatement(
+        'INSERT INTO recipes (id, name, created_at, updated_at, is_active, icon, color, is_protected) VALUES (?, ?, ?, ?, ?, ?, ?, ?) '
+            'ON CONFLICT(id) DO UPDATE SET name=excluded.name, updated_at=excluded.updated_at, is_active=excluded.is_active, icon=excluded.icon, color=excluded.color, is_protected=excluded.is_protected;',
+        [
+          r.id,
+          r.name,
+          r.createdAt,
+          r.updatedAt,
+          r.isActive ? 1 : 0,
+          r.icon,
+          r.color,
+          r.isProtected ? 1 : 0,
+        ],
+      );
+    });
     _notify();
   }
 
@@ -103,10 +131,10 @@ class RecipesRepository {
     await _ready;
     final rows = await db
         .customSelect(
-          'SELECT * FROM recipes WHERE id = ? LIMIT 1;',
-          variables: [Variable.withString(id)],
-          readsFrom: const {},
-        )
+      'SELECT * FROM recipes WHERE id = ? LIMIT 1;',
+      variables: [Variable.withString(id)],
+      readsFrom: const {},
+    )
         .get();
     if (rows.isEmpty) return null;
     final d = rows.first.data;
@@ -154,10 +182,10 @@ class RecipesRepository {
     await _ready;
     final rows = await db
         .customSelect(
-          'SELECT * FROM recipe_components WHERE recipe_id = ?;',
-          variables: [Variable.withString(recipeId)],
-          readsFrom: const {},
-        )
+      'SELECT * FROM recipe_components WHERE recipe_id = ?;',
+      variables: [Variable.withString(recipeId)],
+      readsFrom: const {},
+    )
         .get();
     final list = <RecipeComponentDef>[];
     for (final r in rows) {
@@ -185,18 +213,6 @@ class RecipesRepository {
   }
 
   /// Watch recipe components (reactive).
-  /// Returns a stream that automatically updates when components are added/updated/deleted.
-  ///
-  /// Use this instead of getComponents() in UI widgets to ensure automatic refresh:
-  /// ```dart
-  /// StreamBuilder<List<RecipeComponentDef>>(
-  ///   stream: recipesRepo.watchComponents(recipeId),
-  ///   builder: (context, snapshot) {
-  ///     final components = snapshot.data ?? [];
-  ///     // UI updates automatically when components change
-  ///   }
-  /// )
-  /// ```
   Stream<List<RecipeComponentDef>> watchComponents(String recipeId) async* {
     yield await getComponents(recipeId);
     await for (final _ in _changes.stream) {
@@ -205,9 +221,9 @@ class RecipesRepository {
   }
 
   Future<void> setComponents(
-    String recipeId,
-    List<RecipeComponentDef> comps,
-  ) async {
+      String recipeId,
+      List<RecipeComponentDef> comps,
+      ) async {
     await _ready;
     await db.transaction(() async {
       await db.customStatement(
@@ -245,6 +261,7 @@ class RecipesRepository {
         'isActive': r.isActive,
         'icon': r.icon,
         'color': r.color,
+        'isProtected': r.isProtected,
         'components': [
           for (final c in comps)
             {
