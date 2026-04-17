@@ -43,7 +43,7 @@
     - `lib/data/repo/nutrient_summary.dart` (~83 lines) - only used by deleted services
   - **Cleaned file**:
     - `lib/data/repo/recipe_hierarchy_service.dart` (280 → 105 lines)
-    - Removed: `RecipeInstanceHierarchy`, `getRecipeInstance()`, `aggregateNutrients()`, `resetToTemplate()`
+    - Removed: `RecipeInstanceHierarchy`, `getRecipeInstance()`, `aggregateKinds()`, `resetToTemplate()`
     - Kept: `propagateTemplateChange()` (used by recipe_template_editor_dialog.dart)
   - App uses `ProductService.updateAllEntriesForProductToCurrentFormula()` instead of old hierarchy services
 
@@ -199,7 +199,7 @@
     - Now shows all instance entries by default (no search required)
     - **Reactive updates**: Page updates automatically on any database change
     - **Full expand support**: Products/Recipes show nested children when expanded
-    - Filter chips for entry type (Nutrients/Products/Recipes)
+    - Filter chips for entry type (Kinds/Products/Recipes)
     - Sort modes: Newest First / Oldest First (persists across navigation)
     - Type filters persist across navigation
     - Checkbox selection mode with bulk delete
@@ -483,7 +483,7 @@
     - Applied consistently across calendar view, weekly overview, child rows, and search
 - **Recipe instances**: Now display component weight summaries with recursive aggregation
     - Shows total product grams plus top 2 nutrient kinds with **labels**
-    - **Recursive**: Nutrients from products within recipes are now included
+    - **Recursive**: Kinds from products within recipes are now included
     - **Unit-aware sorting**: Top nutrients sorted by normalized values (10g > 100mg)
     - Format example: "Breakfast Smoothie • 250g • Protein: 30g • Vitamin C: 500mg"
     - Applied to calendar view, weekly overview, and recipe templates page
@@ -740,7 +740,7 @@
 - Product template delete → converts existing instances: removes parent rows, keeps nutrient children as standalone entries and sets them visible in the calendar.
 
 ### Changed
-- CAS: Products shown first and populated dynamically; Nutrients retain the generic editor flow. Side‑sheet behaviors (width, handedness) preserved.
+- CAS: Products shown first and populated dynamically; Kinds retain the generic editor flow. Side‑sheet behaviors (width, handedness) preserved.
 - Product editor titles corrected (no more “null — Add”).
 
 ### Fixed

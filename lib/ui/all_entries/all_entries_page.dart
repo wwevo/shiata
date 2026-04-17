@@ -11,7 +11,7 @@ import '../widgets/entry_list_item_factory.dart';
 /// sorting, bulk selection, and deletion capabilities.
 ///
 /// Features:
-/// - Filter by entry type (nutrients/products/recipes)
+/// - Filter by entry type (kind/products/recipes)
 /// - Sort by date (newest/oldest)
 /// - Search filter (uses existing searchQueryProvider)
 /// - Bulk delete
@@ -80,13 +80,13 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
           // Apply type filter (empty = show all)
           if (typeFilter.isNotEmpty) {
             entries = entries.where((e) {
-              // Determine entry type: 'kind' for direct nutrients, 'product', 'recipe'
+              // Determine entry type: 'kind' for direct entries, 'product', 'recipe'
               if (e.widgetKind == 'product') {
                 return typeFilter.contains('product');
               } else if (e.widgetKind == 'recipe') {
                 return typeFilter.contains('recipe');
               } else {
-                // Direct kind entry (nutrient)
+                // Direct kind entry
                 return typeFilter.contains('kind');
               }
             }).toList();
@@ -132,7 +132,7 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
                         runSpacing: 4,
                         children: [
                           FilterChip(
-                            label: const Text('Nutrients'),
+                            label: const Text('Kinds'),
                             selected: typeFilter.contains('kind'),
                             onSelected: (selected) {
                               final newSet = {...typeFilter};
@@ -318,7 +318,7 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
     final messenger = ScaffoldMessenger.of(context);
 
     // Build summary of what will be deleted
-    int nutrientCount = 0;
+    int kindCount = 0;
     int productCount = 0;
     int recipeCount = 0;
 
@@ -329,7 +329,7 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
       } else if (entry.widgetKind == 'recipe') {
         recipeCount++;
       } else {
-        nutrientCount++;
+        kindCount++;
       }
     }
 
@@ -340,7 +340,7 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
         title: const Text('Delete Selected Entries?'),
         content: Text(
           'This will delete:\n'
-          '• $nutrientCount nutrient entries\n'
+          '• $kindCount kind entries\n'
           '• $productCount product entries (with components)\n'
           '• $recipeCount recipe entries (with components)\n\n'
           'Total: ${_selectedEntries.length} entries',

@@ -9,7 +9,7 @@ import '../../utils/formatters.dart';
 import '../widgets/date_time_picker.dart';
 import '../widgets/editor_dialog_shell.dart';
 
-/// Generic integer-only nutrient editor driven by WidgetKind metadata.
+/// Generic integer-only editor driven by WidgetKind metadata.
 class KindInstanceEditorDialog extends ConsumerStatefulWidget {
   const KindInstanceEditorDialog({
     super.key,

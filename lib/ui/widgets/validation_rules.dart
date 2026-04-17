@@ -19,7 +19,7 @@ class ValidationRules {
 
   /// Validates that a numeric amount is >= 0.
   ///
-  /// Used for nutrient amounts where negative values don't make sense.
+  /// Used for kind amounts where negative values don't make sense.
   /// Returns null if valid, error message if invalid.
   static String? nonNegativeAmount(String? value) {
     if (value == null || value.trim().isEmpty) {

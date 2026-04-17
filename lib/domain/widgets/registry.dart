@@ -20,7 +20,7 @@ class WidgetRegistry {
   /// All registered widget kinds (Kinds, Products, Recipes)
   List<WidgetKind> get all => _kinds.values.toList(growable: false);
 
-  /// Only "real" Kinds (nutrients/macros) - excludes Products and Recipes
+  /// Only "basic" Kinds - excludes Products and Recipes
   List<WidgetKind> get kinds => _kinds.values
       .where((k) => !k.id.startsWith('product:') && !k.id.startsWith('recipe:'))
       .toList(growable: false);

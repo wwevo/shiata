@@ -12,7 +12,7 @@ class ProductService {
   final EntriesRepository entries;
   final ProductsRepository products;
 
-  /// Creates a parent product entry (visible) and denormalized child nutrient entries (hidden).
+  /// Creates a parent product entry (visible) and denormalized child kind entries (hidden).
   /// Returns the parent entry id.
   Future<String?> createProductEntry({
     required String productId,

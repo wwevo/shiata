@@ -1,7 +1,7 @@
 /// Centralized search service for context-aware filtering across all app sections.
 ///
 /// This service provides search methods for:
-/// - Kinds (nutrient types)
+/// - Kinds (types)
 /// - Products (food templates)
 /// - Recipes (meal templates)
 /// - Entries (calendar instances) with date-based filtering

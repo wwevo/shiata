@@ -304,8 +304,8 @@ class EntryListItemFactory {
       double totalProductGrams = 0.0;
       final kindSummaries = <String, double>{};
 
-      // Recursive helper to aggregate nutrients from nested products
-      void aggregateNutrients(List<EntryRecord> entries) {
+      // Recursive helper to aggregate kinds from nested products
+      void aggregateKinds(List<EntryRecord> entries) {
         for (final child in entries) {
           if (child.widgetKind == 'product') {
             try {
@@ -314,10 +314,10 @@ class EntryListItemFactory {
               final grams = (childMap['grams'] as num?)?.toDouble() ?? 0.0;
               totalProductGrams += grams;
             } catch (_) {}
-            // Recursively aggregate nutrients from this product's children
+            // Recursively aggregate kinds from this product's children
             final grandchildren =
                 childrenByParent[child.id] ?? const <EntryRecord>[];
-            aggregateNutrients(grandchildren);
+            aggregateKinds(grandchildren);
           } else {
             // It's a kind - aggregate by kind
             try {
@@ -331,7 +331,7 @@ class EntryListItemFactory {
         }
       }
 
-      aggregateNutrients(children);
+      aggregateKinds(children);
 
       // Build summary string
       final parts = <String>[];

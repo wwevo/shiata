@@ -115,7 +115,7 @@ class RecipeService {
     final oldChildren = await entries.listChildrenOfParent(parentEntryId);
     for (final child in oldChildren) {
       if (child.widgetKind == 'product' && productService != null) {
-        // This is a product parent with its own nutrient children
+        // This is a product parent with its own kind children
         await productService!.deleteParentAndChildren(child.id);
       } else {
         // This is a direct kind child

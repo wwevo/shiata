@@ -77,7 +77,7 @@ class _KindTemplateEditorDialogState
           isProtected: widget.existing?.isProtected ?? false,
         );
 
-        await repo.upsertKind(def);
+        await repo.upsertKind(def, oldId: widget.existing?.id);
       },
     );
   }

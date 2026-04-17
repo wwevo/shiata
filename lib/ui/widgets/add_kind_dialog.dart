@@ -16,10 +16,10 @@ class _AddKindDialogState extends State<AddKindDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Add nutrient'),
+      title: const Text('Add kind'),
       content: DropdownButton<WidgetKind>(
         value: _selected,
-        hint: const Text('Select nutrient'),
+        hint: const Text('Select kind'),
         isExpanded: true,
         items: [
           for (final k in widget.kinds)

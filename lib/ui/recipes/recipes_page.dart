@@ -154,7 +154,7 @@ class RecipesPage extends ConsumerWidget {
 
 }
 
-/// Shows component summary for a recipe template (products + nutrients)
+/// Shows component summary for a recipe template (products + kinds)
 class _RecipeTemplateSummary extends ConsumerWidget {
   const _RecipeTemplateSummary({required this.recipeId});
 

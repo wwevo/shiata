@@ -124,7 +124,7 @@ class ProductTemplatesPage extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Delete product?'),
         content: const Text(
-          'Instances will be converted: parent rows removed, nutrient entries kept.',
+          'Instances will be converted: parent rows removed, kind entries kept.',
         ),
         actions: [
           TextButton(

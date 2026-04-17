@@ -106,8 +106,8 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog>
         builder: (ctx) => AlertDialog(
           title: const Text('Reset to template?'),
           content: const Text(
-            'Switching to dynamic will recompute all nutrients from the product template when you save.\n\n'
-            'Any custom nutrient values will be replaced with template values.',
+            'Switching to dynamic will recompute all kinds from the product template when you save.\n\n'
+            'Any custom kind values will be replaced with template values.',
           ),
           actions: [
             TextButton(

@@ -177,7 +177,7 @@ class _InstanceComponentsEditorDialogState
 
     if (availableKinds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('All nutrients already added')),
+        const SnackBar(content: Text('All kinds already added')),
       );
       return;
     }
@@ -339,7 +339,7 @@ class _InstanceComponentsEditorDialogState
             child: OutlinedButton.icon(
               onPressed: loading ? null : _addComponent,
               icon: const Icon(Icons.add),
-              label: const Text('Add nutrient'),
+              label: const Text('Add kind'),
             ),
           ),
         ],
@@ -348,4 +348,4 @@ class _InstanceComponentsEditorDialogState
   }
 }
 
-// Remove _AddNutrientDialog class
+// Remove _AddKindDialog class

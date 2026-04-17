@@ -114,6 +114,7 @@ class _ProductTemplateEditorDialogState
             color: parseInt(_colorController.text),
             isProtected: widget.existing?.isProtected ?? false,
           ),
+          oldId: widget.existing?.id,
         );
 
         // Read values from controllers and update components
@@ -305,7 +306,7 @@ class _ProductTemplateEditorDialogState
             child: OutlinedButton.icon(
               onPressed: loading ? null : _addComponent,
               icon: const Icon(Icons.add),
-              label: const Text('Add nutrient'),
+              label: const Text('Add kind'),
             ),
           ),
           const SizedBox(height: 16),

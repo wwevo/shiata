@@ -52,5 +52,5 @@ final entrySortModeProvider = StateProvider<EntrySortMode>(
 );
 
 // Entry type filter: empty = show all, non-empty = show only selected types
-// Valid types: 'kind' (direct nutrient entries), 'product', 'recipe'
+// Valid types: 'kind' (direct kind entries), 'product', 'recipe'
 final entryTypeFilterProvider = StateProvider<Set<String>>((_) => <String>{});

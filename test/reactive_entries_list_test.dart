@@ -84,7 +84,7 @@ void main() {
         targetAtLocal: targetAt,
         isStatic: false,
       );
-      print('INIT:     Created product instance (100g apple) with 2 nutrient children');
+      print('INIT:     Created product instance (100g apple) with 2 kind children');
 
       // ACTION: Watch all entries
       final stream = entries.watchAllEntriesWithChildren();
@@ -108,7 +108,7 @@ void main() {
 
       // Assertions
       expect(topLevel.length, 1, reason: 'Should have 1 top-level entry (product)');
-      expect(children.length, 2, reason: 'Product should have 2 children (nutrients)');
+      expect(children.length, 2, reason: 'Product should have 2 children (kinds)');
       expect(children.any((e) => e.widgetKind == 'protein'), true);
       expect(children.any((e) => e.widgetKind == 'vitamin_c'), true);
 
@@ -285,7 +285,7 @@ void main() {
       expect(topLevel.length, 2, reason: '1 direct protein + 1 product parent');
       expect(topLevel.where((e) => e.widgetKind == 'protein').length, 1);
       expect(topLevel.where((e) => e.widgetKind == 'product').length, 1);
-      expect(productChildren.length, 2, reason: 'Product should have 2 nutrient children');
+      expect(productChildren.length, 2, reason: 'Product should have 2 kind children');
 
       // Validate children types
       final childKinds = productChildren.map((e) => e.widgetKind).toSet();

@@ -17,7 +17,7 @@ final selectedKindsForChartProvider = StateProvider<Set<String>>(
 
 /// Weekly overview panel showing:
 /// - Filter chips to select which kinds to include in pie chart
-/// - Pie chart of selected nutrients for last 7 days
+/// - Pie chart of selected kinds for last 7 days
 /// - Scrollable list of all entries from last 7 days
 class WeeklyOverviewPanel extends ConsumerWidget {
   const WeeklyOverviewPanel({super.key});
@@ -189,8 +189,8 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                       padding: const EdgeInsets.all(24),
                       child: Text(
                         selectedKinds.isEmpty
-                            ? 'Select nutrients above to see chart'
-                            : 'No data for selected nutrients',
+                            ? 'Select kinds above to see chart'
+                            : 'No data for selected kinds',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurface.withValues(
                             alpha: 0.6,
