@@ -1,5 +1,15 @@
 # CHANGELOG.md
 
+## [0.9.2] - 2026-04-16
+### Changed
+- **DB**: 
+ * Recipe Editor now allows for changing of recipe-id
+ * Kind Editor now allows for changing of kind-id
+ * Product Editor now allows for changing of product-id
+ * renamed all occurences of "nutrient" to "kind" for consistency
+ * switched to universal kind and product dropdown in all dialogs
+ 
+
 ## [0.9.1] - 2026-04-15
 ### Changed
 - **Infrastruktur**: Datenbank-Migration für `is_protected`-Flag und neue `units`-Tabelle; Extraktion von `DateTimePicker` und `AddKindDialog` Utilities.
