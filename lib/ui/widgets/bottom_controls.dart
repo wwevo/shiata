@@ -28,7 +28,6 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
   @override
   Widget build(BuildContext context) {
     final handedness = ref.watch(handednessProvider);
-    final viewMode = ref.watch(viewModeProvider);
     final section = ref.watch(currentSectionProvider);
     final searchQuery = ref.watch(searchQueryProvider);
 
@@ -45,35 +44,35 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          // Calendar/Overview toggle
-          // When in calendar section: toggle between overview and calendar views
-          // When in other sections: return to calendar section (remembers last view)
+          // Overview button
           IconButton(
-            tooltip: section == AppSection.calendar
-                ? (viewMode == ViewMode.overview
-                      ? 'Switch to Calendar'
-                      : 'Switch to Overview')
-                : 'Go to Calendar',
+            tooltip: 'Overview',
             onPressed: () {
-              if (section == AppSection.calendar) {
-                // Toggle between overview and calendar within calendar section
-                ref
-                    .read(viewModeProvider.notifier)
-                    .state = viewMode == ViewMode.overview
-                    ? ViewMode.calendar
-                    : ViewMode.overview;
-              } else {
-                // Return to calendar section (uses current viewMode)
-                ref.read(currentSectionProvider.notifier).state =
-                    AppSection.calendar;
-              }
+              ref.read(currentSectionProvider.notifier).state =
+                  AppSection.overview;
             },
             icon: Icon(
-              viewMode == ViewMode.overview
-                  ? Icons.calendar_month
-                  : Icons.bar_chart,
+              Icons.bar_chart,
+              color: section == AppSection.overview
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
             ),
           ),
+          // Calendar button
+          IconButton(
+            tooltip: 'Calendar',
+            onPressed: () {
+              ref.read(currentSectionProvider.notifier).state =
+                  AppSection.calendar;
+            },
+            icon: Icon(
+              Icons.calendar_month,
+              color: section == AppSection.calendar
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
+          ),
+          // Handedness toggle
           IconButton(
             tooltip: 'Swap handedness',
             onPressed: () {
@@ -91,7 +90,12 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
               ref.read(currentSectionProvider.notifier).state =
                   AppSection.products;
             },
-            icon: const Icon(Icons.shopping_basket_outlined),
+            icon: Icon(
+              Icons.shopping_basket_outlined,
+              color: section == AppSection.products
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
           ),
           IconButton(
             tooltip: 'Kinds',
@@ -99,7 +103,12 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
               ref.read(currentSectionProvider.notifier).state =
                   AppSection.kinds;
             },
-            icon: const Icon(Icons.category_outlined),
+            icon: Icon(
+              Icons.category_outlined,
+              color: section == AppSection.kinds
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
           ),
           IconButton(
             tooltip: 'Recipes',
@@ -107,7 +116,12 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
               ref.read(currentSectionProvider.notifier).state =
                   AppSection.recipes;
             },
-            icon: const Icon(Icons.restaurant_menu_outlined),
+            icon: Icon(
+              Icons.restaurant_menu_outlined,
+              color: section == AppSection.recipes
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
           ),
           IconButton(
             tooltip: 'All Entries',
@@ -115,7 +129,12 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
               ref.read(currentSectionProvider.notifier).state =
                   AppSection.allEntries;
             },
-            icon: const Icon(Icons.view_list),
+            icon: Icon(
+              Icons.view_list,
+              color: section == AppSection.allEntries
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
           ),
           IconButton(
             tooltip: 'Database',
@@ -123,7 +142,12 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
               ref.read(currentSectionProvider.notifier).state =
                   AppSection.database;
             },
-            icon: const Icon(Icons.storage),
+            icon: Icon(
+              Icons.storage,
+              color: section == AppSection.database
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -134,15 +158,15 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                 border: InputBorder.none,
                 suffixIcon: searchQuery.isNotEmpty
                     ? IconButton(
-                        tooltip: 'Clear search',
-                        icon: const Icon(Icons.clear, size: 20),
-                        onPressed: () {
-                          _searchController.clear();
-                          ref.read(searchQueryProvider.notifier).state = '';
-                          ref.read(middleModeProvider.notifier).state =
-                              MiddleMode.main;
-                        },
-                      )
+                  tooltip: 'Clear search',
+                  icon: const Icon(Icons.clear, size: 20),
+                  onPressed: () {
+                    _searchController.clear();
+                    ref.read(searchQueryProvider.notifier).state = '';
+                    ref.read(middleModeProvider.notifier).state =
+                        MiddleMode.main;
+                  },
+                )
                     : null,
               ),
               onChanged: (q) {

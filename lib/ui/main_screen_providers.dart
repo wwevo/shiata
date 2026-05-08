@@ -20,16 +20,11 @@ final selectedDayProvider = StateProvider<DateTime?>((ref) {
 });
 
 // App section navigation (main sections of the app)
-enum AppSection { calendar, products, kinds, recipes, allEntries, database }
+enum AppSection { overview, calendar, products, kinds, recipes, allEntries, database }
 
 final currentSectionProvider = StateProvider<AppSection>(
-  (_) => AppSection.calendar,
+      (_) => AppSection.overview,
 );
-
-// View mode: toggles between overview and calendar within the calendar section
-enum ViewMode { overview, calendar }
-
-final viewModeProvider = StateProvider<ViewMode>((_) => ViewMode.overview);
 
 // Middle content mode
 enum MiddleMode { main, search }
@@ -48,9 +43,9 @@ final expandedEntriesProvider = StateProvider<Set<String>>((_) => <String>{});
 enum EntrySortMode { newest, oldest }
 
 final entrySortModeProvider = StateProvider<EntrySortMode>(
-  (_) => EntrySortMode.newest,
+      (_) => EntrySortMode.newest,
 );
 
 // Entry type filter: empty = show all, non-empty = show only selected types
-// Valid types: 'kind' (direct kind entries), 'product', 'recipe'
+// Valid types: 'kind' (direct nutrient entries), 'product', 'recipe'
 final entryTypeFilterProvider = StateProvider<Set<String>>((_) => <String>{});
