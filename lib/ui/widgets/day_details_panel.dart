@@ -16,18 +16,12 @@ class DayDetailsPanel extends ConsumerWidget {
     final selected = ref.watch(selectedDayProvider);
     final registry = ref.watch(widgetRegistryProvider);
     final repo = ref.watch(entriesRepositoryProvider);
-    final searchService = ref.watch(searchServiceProvider);
-    final searchQuery = ref.watch(searchQueryProvider);
 
-    if (selected == null || repo == null || searchService == null) {
+    if (selected == null || repo == null) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // Use context-aware search: search only the selected day
-    final entriesStream = searchService.searchEntriesForDay(
-      searchQuery,
-      selected,
-    );
+    final entriesStream = repo.watchByDay(selected);
 
     return StreamBuilder<List<EntryRecord>>(
       stream: entriesStream,

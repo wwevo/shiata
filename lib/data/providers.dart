@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../domain/services/search_service.dart';
 import 'db/db_handle.dart';
 import 'db/raw_db.dart';
 import 'repo/entries_repository.dart';
@@ -90,25 +89,4 @@ final unitsListProvider = StreamProvider<List<UnitDef>>((ref) {
   final repo = ref.watch(unitsRepositoryProvider);
   if (repo == null) return Stream.value(<UnitDef>[]);
   return repo.watchUnits();
-});
-
-final searchServiceProvider = Provider<SearchService?>((ref) {
-  final kindsRepo = ref.watch(kindsRepositoryProvider);
-  final productsRepo = ref.watch(productsRepositoryProvider);
-  final recipesRepo = ref.watch(recipesRepositoryProvider);
-  final entriesRepo = ref.watch(entriesRepositoryProvider);
-
-  if (kindsRepo == null ||
-      productsRepo == null ||
-      recipesRepo == null ||
-      entriesRepo == null) {
-    return null;
-  }
-
-  return SearchService(
-    kindsRepo: kindsRepo,
-    productsRepo: productsRepo,
-    recipesRepo: recipesRepo,
-    entriesRepo: entriesRepo,
-  );
 });

@@ -1,5 +1,19 @@
 # CHANGELOG.md
 
+## [0.9.3] - 2026-08-09
+### Removed
+- **Global Search Functionality** (~350 lines)
+  - Deleted `SearchService` and `searchServiceProvider`
+  - Deleted `searchQueryProvider` and `middleModeProvider`
+  - Deleted `SearchResults` widget and `watchSearch` repository method
+  - Removed search bar from `BottomControls`
+  - Removed search logic from `AllEntriesPage`, `KindsPage`, `ProductsPage`, `RecipesPage`, `DayDetailsPanel`, and `WeeklyOverviewPanel`
+  - Obsolete search regression test removed from `validation_test.dart`
+
+### Changed
+- **BottomControls**: Buttons are now spaced evenly across the bottom bar
+- **List Pages**: Kinds, Products, and Recipes pages now use direct repository streams for reactive updates
+
 ## [0.9.2] - 2026-04-16
 ### Changed
 - **DB**: 

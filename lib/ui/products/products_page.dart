@@ -5,7 +5,6 @@ import '../../data/providers.dart';
 import '../../data/repo/product_service.dart';
 import '../../data/repo/products_repository.dart';
 import '../editors/product_template_editor_dialog.dart';
-import '../main_screen_providers.dart';
 import '../widgets/icon_resolver.dart';
 
 class ProductTemplatesPage extends ConsumerWidget {
@@ -13,12 +12,8 @@ class ProductTemplatesPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final searchService = ref.watch(searchServiceProvider);
-    final searchQuery = ref.watch(searchQueryProvider);
+    final productsAsync = ref.watch(productsListProvider);
     final repo = ref.watch(productsRepositoryProvider);
-
-    // Use search service for filtering
-    final productsStream = searchService?.searchProducts(searchQuery);
 
     return Scaffold(
       appBar: AppBar(
@@ -40,76 +35,57 @@ class ProductTemplatesPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: productsStream == null
-          ? const Center(child: CircularProgressIndicator())
-          : StreamBuilder<List<ProductDef>>(
-              stream: productsStream,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final list = snapshot.data ?? const <ProductDef>[];
-
-                if (list.isEmpty) {
-                  return Center(
-                    child: Text(
-                      searchQuery.trim().isEmpty
-                          ? 'No products yet'
-                          : 'No products found for "$searchQuery"',
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  itemCount: list.length,
-                  itemBuilder: (ctx, i) {
-                    final p = list[i];
-                    final icon = resolveIcon(p.icon, Icons.shopping_basket);
-                    final color = p.color != null
-                        ? Color(p.color!)
-                        : Colors.purple;
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: color,
-                          foregroundColor: Colors.white,
-                          child: Icon(icon, color: Colors.white),
-                        ),
-                        title: Text(p.name),
-                        subtitle: Text(p.id),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              tooltip: 'Edit',
-                              icon: const Icon(Icons.edit),
-                              onPressed: () async {
-                                await showDialog(
-                                  context: context,
-                                  builder: (_) => ProductTemplateEditorDialog(
-                                    existing: p,
-                                  ),
-                                );
-                              },
+      body: productsAsync.when(
+        data: (list) {
+          if (list.isEmpty) {
+            return const Center(child: Text('No products yet'));
+          }
+          return ListView.builder(
+            itemCount: list.length,
+            itemBuilder: (ctx, i) {
+              final p = list[i];
+              final icon = resolveIcon(p.icon, Icons.shopping_basket);
+              final color = p.color != null ? Color(p.color!) : Colors.purple;
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: color,
+                    foregroundColor: Colors.white,
+                    child: Icon(icon, color: Colors.white),
+                  ),
+                  title: Text(p.name),
+                  subtitle: Text(p.id),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Edit',
+                        icon: const Icon(Icons.edit),
+                        onPressed: () async {
+                          await showDialog(
+                            context: context,
+                            builder: (_) => ProductTemplateEditorDialog(
+                              existing: p,
                             ),
-                            IconButton(
-                              tooltip: 'Delete',
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: () => _deleteProduct(context, ref, p),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                );
-              },
-            ),
+                      IconButton(
+                        tooltip: 'Delete',
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => _deleteProduct(context, ref, p),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Error: $err')),
+      ),
     );
   }
 

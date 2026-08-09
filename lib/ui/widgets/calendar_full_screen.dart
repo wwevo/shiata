@@ -6,7 +6,6 @@ import 'day_details_panel.dart';
 import 'month_calendar.dart';
 
 /// Full-screen calendar view with month grid and day details below.
-/// DayDetailsPanel includes inline search filtering for the selected day.
 class CalendarFullScreen extends ConsumerWidget {
   const CalendarFullScreen({super.key});
 
@@ -26,7 +25,7 @@ class CalendarFullScreen extends ConsumerWidget {
             child: MonthCalendar(grid: config.calendarGrid),
           ),
           const Divider(height: 1),
-          // Content area (day details with inline search)
+          // Content area (day details)
           const Expanded(child: DayDetailsPanel()),
         ],
       ),

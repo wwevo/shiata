@@ -13,7 +13,6 @@ import '../widgets/entry_list_item_factory.dart';
 /// Features:
 /// - Filter by entry type (kind/products/recipes)
 /// - Sort by date (newest/oldest)
-/// - Search filter (uses existing searchQueryProvider)
 /// - Bulk delete
 /// - Scroll position restoration
 class AllEntriesPage extends ConsumerStatefulWidget {
@@ -37,7 +36,6 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
   Widget build(BuildContext context) {
     final repo = ref.watch(entriesRepositoryProvider);
     final registry = ref.watch(widgetRegistryProvider);
-    final searchQuery = ref.watch(searchQueryProvider);
     final sortMode = ref.watch(entrySortModeProvider);
     final typeFilter = ref.watch(entryTypeFilterProvider);
     final theme = Theme.of(context);
@@ -89,20 +87,6 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
                 // Direct kind entry
                 return typeFilter.contains('kind');
               }
-            }).toList();
-          }
-
-          // Apply search filter
-          if (searchQuery.trim().isNotEmpty) {
-            final normalized = searchQuery.toLowerCase().trim();
-            entries = entries.where((e) {
-              final widgetKindMatch = e.widgetKind.toLowerCase().contains(
-                normalized,
-              );
-              final payloadMatch = e.payloadJson.toLowerCase().contains(
-                normalized,
-              );
-              return widgetKindMatch || payloadMatch;
             }).toList();
           }
 
@@ -174,12 +158,11 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
                             },
                           ),
                           // Clear type filters button (always visible if any filter active)
-                          if (typeFilter.isNotEmpty || searchQuery.trim().isNotEmpty)
+                          if (typeFilter.isNotEmpty)
                             ActionChip(
                               label: const Text('Clear All'),
                               onPressed: () {
                                 ref.read(entryTypeFilterProvider.notifier).state = {};
-                                ref.read(searchQueryProvider.notifier).state = '';
                               },
                             ),
                         ],
@@ -259,7 +242,7 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
                         child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Text(
-                            _buildEmptyMessage(searchQuery, typeFilter),
+                            _buildEmptyMessage(typeFilter),
                             style: theme.textTheme.bodyMedium,
                             textAlign: TextAlign.center,
                           ),
@@ -299,12 +282,8 @@ class _AllEntriesPageState extends ConsumerState<AllEntriesPage> {
     );
   }
 
-  String _buildEmptyMessage(String query, Set<String> typeFilter) {
-    if (query.trim().isNotEmpty && typeFilter.isNotEmpty) {
-      return 'No entries found for "$query" with selected filters';
-    } else if (query.trim().isNotEmpty) {
-      return 'No entries found for "$query"';
-    } else if (typeFilter.isNotEmpty) {
+  String _buildEmptyMessage(Set<String> typeFilter) {
+    if (typeFilter.isNotEmpty) {
       return 'No entries found with selected filters';
     } else {
       return 'No entries in database';

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/kind_service.dart';
 import '../editors/kind_template_editor_dialog.dart';
-import '../main_screen_providers.dart';
 import '../widgets/icon_resolver.dart';
 
 class KindsPage extends ConsumerWidget {
@@ -12,11 +11,7 @@ class KindsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final searchService = ref.watch(searchServiceProvider);
-    final searchQuery = ref.watch(searchQueryProvider);
-
-    // Use search service for filtering if search query is present
-    final kindsStream = searchService?.searchKinds(searchQuery);
+    final kindsAsync = ref.watch(kindsListProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -34,30 +29,16 @@ class KindsPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: kindsStream == null
-          ? const Center(child: CircularProgressIndicator())
-          : StreamBuilder(
-              stream: kindsStream,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final kinds = snapshot.data ?? [];
-
-                if (kinds.isEmpty) {
-                  return Center(
-                    child: Text(
-                      searchQuery.trim().isEmpty
-                          ? 'No kinds yet'
-                          : 'No kinds found for "$searchQuery"',
-                    ),
-                  );
-                }
-
-                return _buildKindsList(context, ref, kinds);
-              },
-            ),
+      body: kindsAsync.when(
+        data: (kinds) {
+          if (kinds.isEmpty) {
+            return const Center(child: Text('No kinds yet'));
+          }
+          return _buildKindsList(context, ref, kinds);
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Error: $err')),
+      ),
     );
   }
 

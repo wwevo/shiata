@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
-import '../main_screen_providers.dart';
 import 'entry_list_item_factory.dart';
 
 // Provider for selected kinds filter (which kinds to show in pie chart)
@@ -25,8 +24,6 @@ class WeeklyOverviewPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repo = ref.watch(entriesRepositoryProvider);
-    final searchService = ref.watch(searchServiceProvider);
-    final searchQuery = ref.watch(searchQueryProvider);
     final registry = ref.watch(widgetRegistryProvider);
     final theme = Theme.of(context);
 
@@ -46,19 +43,11 @@ class WeeklyOverviewPanel extends ConsumerWidget {
 
     final selectedKinds = ref.watch(selectedKindsForChartProvider);
 
-    // Use search service if query is present, otherwise use repository directly
-    final Stream<dynamic> entriesStream =
-        searchQuery.trim().isNotEmpty && searchService != null
-        ? searchService.searchEntriesInDateRange(
-            searchQuery,
-            sevenDaysAgo,
-            tomorrow,
-          )
-        : repo.watchByDayRange(
-            sevenDaysAgo,
-            tomorrow,
-            onlyShowInCalendar: false,
-          );
+    final Stream<dynamic> entriesStream = repo.watchByDayRange(
+      sevenDaysAgo,
+      tomorrow,
+      onlyShowInCalendar: false,
+    );
 
     return StreamBuilder<dynamic>(
       stream: entriesStream,

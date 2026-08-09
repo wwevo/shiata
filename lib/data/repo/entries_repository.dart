@@ -382,28 +382,6 @@ class EntriesRepository {
     }
   }
 
-  // Very simple text search across kind id and payload JSON; orders by updated_at desc.
-  Stream<List<EntryRecord>> watchSearch(String queryText) async* {
-    Future<List<EntryRecord>> query() async {
-      final q = queryText.trim();
-      if (q.isEmpty) return <EntryRecord>[];
-      final like = '%$q%';
-      final rows = await db
-          .customSelect(
-            'SELECT * FROM entries WHERE widget_kind LIKE ? OR payload_json LIKE ? ORDER BY updated_at DESC LIMIT 200;',
-            variables: [Variable.withString(like), Variable.withString(like)],
-            readsFrom: const {},
-          )
-          .get();
-      return rows.map((r) => EntryRecord.fromDb(r.data)).toList();
-    }
-
-    yield await query();
-    await for (final _ in _changes.stream) {
-      yield await query();
-    }
-  }
-
   /// Watch all instance entries (top-level only, excludes children and templates).
   /// Watch ALL entries including children (reactive).
   /// Returns all entries sorted by created_at ascending for consistent hierarchy building.

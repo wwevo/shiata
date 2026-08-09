@@ -407,44 +407,4 @@ void main() {
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     });
   });
-
-  group('UI State Tests - User Workflow Scenarios', () {
-    late AppDb db;
-    late EntriesRepository entries;
-
-    setUp(() async {
-      db = AppDb(NativeDatabase.memory());
-      await db.ensureInitialized();
-      entries = EntriesRepository(db: db);
-    });
-
-
-    test('UI: Empty search results allows recovery (v0.8.4 regression test)', () async {
-      print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      print('TEST: UI State - Empty Search Results Recovery (Bug Regression)');
-      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-
-      print('SCENARIO: User filters for "Recipes" but has none → stuck on empty page');
-      print('FIXED IN: v0.8.4 - Filter chips now always visible');
-      print('THIS TEST: Validates the fix stays in place\n');
-
-      // This is a regression test - we don't test the actual bug
-      // We test that the FIXED behavior is maintained
-
-      final results = await entries.watchSearch('nonexistent_term_xyz').first;
-
-      print('SETUP:    Search for term that returns no results');
-      print('ACTUAL:   Search returns: ${results.length} entries');
-      print('EXPECTED: UI shows filter chips even with 0 results');
-      print('          User can click "Clear All" to recover\n');
-
-      expect(results, isEmpty);
-
-      print('RESULT:   ✅ REGRESSION TEST - Documents v0.8.4 fix');
-      print('NOTE:     This is a UI test - validated manually');
-      print('          Data layer correctly returns empty list');
-      print('          UI must show clear/reset option when empty');
-      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    });
-  });
 }

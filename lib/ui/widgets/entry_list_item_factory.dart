@@ -1,7 +1,7 @@
 /// Centralized recursive factory for creating consistent entry list items across all app sections.
 ///
 /// This factory ensures that all entry types (kinds, products, recipes) are displayed
-/// identically regardless of which page renders them (day details, weekly overview, search, etc.).
+/// identically regardless of which page renders them (day details, weekly overview, etc.).
 ///
 /// Key features:
 /// - Recursive rendering: supports arbitrary nesting depth (recipe→product→kind, future: recipe→recipe)
@@ -59,7 +59,7 @@ class EntryListItemConfig {
     showTime: true,
   );
 
-  /// For weekly overview, search results, and all entries: full date + time
+  /// For weekly overview and all entries: full date + time
   static const fullDateTime = EntryListItemConfig(
     showDate: true,
     showTime: true,

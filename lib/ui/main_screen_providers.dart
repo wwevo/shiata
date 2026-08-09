@@ -22,14 +22,6 @@ final currentSectionProvider = StateProvider<AppSection>(
       (_) => AppSection.overview,
 );
 
-// Middle content mode
-enum MiddleMode { main, search }
-
-final middleModeProvider = StateProvider<MiddleMode>((_) => MiddleMode.main);
-
-// Search query
-final searchQueryProvider = StateProvider<String>((_) => '');
-
 // Expanded product parents in Day Details (by parent entry id)
 final expandedProductsProvider = StateProvider<Set<String>>((_) => <String>{});
 // Global expanded entries (for recursive list items across all pages)

@@ -6,7 +6,6 @@ import '../../data/repo/recipe_service.dart';
 import '../../data/repo/recipes_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../editors/recipe_template_editor_dialog.dart';
-import '../main_screen_providers.dart';
 import '../widgets/icon_resolver.dart';
 
 class RecipesPage extends ConsumerWidget {
@@ -14,12 +13,8 @@ class RecipesPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final searchService = ref.watch(searchServiceProvider);
-    final searchQuery = ref.watch(searchQueryProvider);
+    final recipesAsync = ref.watch(recipesListProvider);
     final repo = ref.watch(recipesRepositoryProvider);
-
-    // Use search service for filtering
-    final recipesStream = searchService?.searchRecipes(searchQuery);
 
     return Scaffold(
       appBar: AppBar(
@@ -41,77 +36,57 @@ class RecipesPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: recipesStream == null
-          ? const Center(child: CircularProgressIndicator())
-          : StreamBuilder<List<RecipeDef>>(
-              stream: recipesStream,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final list = snapshot.data ?? const <RecipeDef>[];
-
-                if (list.isEmpty) {
-                  return Center(
-                    child: Text(
-                      searchQuery.trim().isEmpty
-                          ? 'No recipes yet'
-                          : 'No recipes found for "$searchQuery"',
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  itemCount: list.length,
-                  itemBuilder: (ctx, i) {
-                    final r = list[i];
-                    final icon = resolveIcon(r.icon, Icons.restaurant_menu);
-                    final color = r.color != null
-                        ? Color(r.color!)
-                        : Colors.brown;
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: color,
-                          foregroundColor: Colors.white,
-                          child: Icon(icon, color: Colors.white),
-                        ),
-                        title: Text(r.name),
-                        subtitle: _RecipeTemplateSummary(recipeId: r.id),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              tooltip: 'Edit',
-                              icon: const Icon(Icons.edit),
-                              onPressed: () async {
-                                await showDialog(
-                                  context: context,
-                                  builder: (_) => RecipeEditorDialog(
-                                    existing: r,
-                                  ),
-                                );
-                              },
+      body: recipesAsync.when(
+        data: (list) {
+          if (list.isEmpty) {
+            return const Center(child: Text('No recipes yet'));
+          }
+          return ListView.builder(
+            itemCount: list.length,
+            itemBuilder: (ctx, i) {
+              final r = list[i];
+              final icon = resolveIcon(r.icon, Icons.restaurant_menu);
+              final color = r.color != null ? Color(r.color!) : Colors.brown;
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: color,
+                    foregroundColor: Colors.white,
+                    child: Icon(icon, color: Colors.white),
+                  ),
+                  title: Text(r.name),
+                  subtitle: _RecipeTemplateSummary(recipeId: r.id),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Edit',
+                        icon: const Icon(Icons.edit),
+                        onPressed: () async {
+                          await showDialog(
+                            context: context,
+                            builder: (_) => RecipeEditorDialog(
+                              existing: r,
                             ),
-                            IconButton(
-                              tooltip: 'Delete',
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: () =>
-                                  _deleteRecipe(context, ref, r, repo),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                );
-              },
-            ),
+                      IconButton(
+                        tooltip: 'Delete',
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => _deleteRecipe(context, ref, r, repo),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Error: $err')),
+      ),
     );
   }
 

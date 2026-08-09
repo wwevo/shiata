@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../main_actions_list.dart';
-import '../main_screen_providers.dart';
-import 'search_results.dart';
 import 'top_sheet_host.dart';
 
 class MiddlePanel extends ConsumerStatefulWidget {
@@ -41,11 +39,8 @@ class _MiddlePanelState extends ConsumerState<MiddlePanel> {
 
   @override
   Widget build(BuildContext context) {
-    // Content underlay: regular list (acts as widgets list or search results)
-    final mode = ref.watch(middleModeProvider);
-    final content = mode == MiddleMode.search
-        ? SearchResults(controller: _scrollController)
-        : MainActionsList(controller: _scrollController);
+    // Content underlay: regular list (acts as widgets list)
+    final content = MainActionsList(controller: _scrollController);
 
     // Overlay: captures vertical drags to control Top.
     final overlay = Positioned.fill(
