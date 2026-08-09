@@ -27,7 +27,6 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
 
   @override
   Widget build(BuildContext context) {
-    final handedness = ref.watch(handednessProvider);
     final section = ref.watch(currentSectionProvider);
     final searchQuery = ref.watch(searchQueryProvider);
 
@@ -71,18 +70,6 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                   ? Theme.of(context).colorScheme.primary
                   : null,
             ),
-          ),
-          // Handedness toggle
-          IconButton(
-            tooltip: 'Swap handedness',
-            onPressed: () {
-              ref
-                  .read(handednessProvider.notifier)
-                  .state = handedness == Handedness.left
-                  ? Handedness.right
-                  : Handedness.left;
-            },
-            icon: const Icon(Icons.swap_horiz),
           ),
           IconButton(
             tooltip: 'Products',

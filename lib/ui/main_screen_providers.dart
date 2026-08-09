@@ -1,9 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Handedness toggle for split-gesture control in the middle section.
-enum Handedness { left, right }
-
-final handednessProvider = StateProvider<Handedness>((_) => Handedness.left);
 
 // Visible month anchor (first day of month, local). Used by calendar navigation.
 final visibleMonthProvider = StateProvider<DateTime>((_) {

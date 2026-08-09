@@ -41,41 +41,19 @@ class _MiddlePanelState extends ConsumerState<MiddlePanel> {
 
   @override
   Widget build(BuildContext context) {
-    final handedness = ref.watch(handednessProvider);
-
     // Content underlay: regular list (acts as widgets list or search results)
     final mode = ref.watch(middleModeProvider);
     final content = mode == MiddleMode.search
         ? SearchResults(controller: _scrollController)
         : MainActionsList(controller: _scrollController);
 
-    // Overlay: 50/50 split. One half captures vertical drags to control Top; the other is pass-through.
+    // Overlay: captures vertical drags to control Top.
     final overlay = Positioned.fill(
-      child: Row(
-        children: [
-          // Left half
-          Expanded(
-            child: handedness == Handedness.left
-                ? GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onVerticalDragStart: _onDragStart,
-                    onVerticalDragUpdate: _onDragUpdate,
-                    onVerticalDragEnd: _onDragEnd,
-                  )
-                : const IgnorePointer(ignoring: true, child: SizedBox.expand()),
-          ),
-          // Right half
-          Expanded(
-            child: handedness == Handedness.right
-                ? GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onVerticalDragStart: _onDragStart,
-                    onVerticalDragUpdate: _onDragUpdate,
-                    onVerticalDragEnd: _onDragEnd,
-                  )
-                : const IgnorePointer(ignoring: true, child: SizedBox.expand()),
-          ),
-        ],
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onVerticalDragStart: _onDragStart,
+        onVerticalDragUpdate: _onDragUpdate,
+        onVerticalDragEnd: _onDragEnd,
       ),
     );
 

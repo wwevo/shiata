@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../main_screen_providers.dart';
 import '../ux_config.dart';
 import 'create_action_sheet_content.dart';
 
@@ -71,7 +70,6 @@ Future<void> showCreateActionSheet(
   DateTime targetDate,
 ) async {
   final ux = ref.read(uxConfigProvider);
-  final handed = ref.read(handednessProvider);
 
   ActionSheetPresentation mode = ux.actionSheetPresentation;
   if (mode == ActionSheetPresentation.auto) {
@@ -91,17 +89,11 @@ Future<void> showCreateActionSheet(
     return;
   }
 
-  // Side sheet: align with handedness. Right-handed → from right.
-  bool fromRight;
-  if (handed == Handedness.right) {
-    fromRight = true;
-  } else {
-    fromRight = false;
-  }
+  // Side sheet: default to left side.
   await _showSideCreateActionSheet(
     context,
     ref,
     targetDate,
-    fromRight: fromRight,
+    fromRight: false,
   );
 }

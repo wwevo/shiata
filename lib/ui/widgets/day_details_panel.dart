@@ -52,7 +52,6 @@ class DayDetailsPanel extends ConsumerWidget {
               children: [
                 Builder(
                   builder: (ctx) {
-                    final handed = ref.watch(handednessProvider);
                     final dateText = Expanded(
                       child: Text(
                         '${selected.year}-${selected.month.toString().padLeft(2, '0')}-${selected.day.toString().padLeft(2, '0')}',
@@ -66,9 +65,7 @@ class DayDetailsPanel extends ConsumerWidget {
                       icon: const Icon(Icons.add_circle_outline),
                     );
                     return Row(
-                      children: handed == Handedness.left
-                          ? [addBtn, const SizedBox(width: 8), dateText]
-                          : [dateText, addBtn],
+                      children: [addBtn, const SizedBox(width: 8), dateText],
                     );
                   },
                 ),
@@ -93,7 +90,6 @@ class DayDetailsPanel extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
               child: Builder(
                 builder: (ctx) {
-                  final handed = ref.watch(handednessProvider);
                   final dateText = Expanded(
                     child: Text(
                       '${selected.year}-${selected.month.toString().padLeft(2, '0')}-${selected.day.toString().padLeft(2, '0')}',
@@ -107,9 +103,7 @@ class DayDetailsPanel extends ConsumerWidget {
                     icon: const Icon(Icons.add_circle_outline),
                   );
                   return Row(
-                    children: handed == Handedness.left
-                        ? [addBtn, const SizedBox(width: 8), dateText]
-                        : [dateText, addBtn],
+                    children: [addBtn, const SizedBox(width: 8), dateText],
                   );
                 },
               ),
