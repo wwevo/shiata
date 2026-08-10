@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../ux_config.dart';
 import 'day_details_panel.dart';
 import 'handle_bar.dart';
-import 'month_calendar.dart';
+import 'weekly_calendar.dart';
 
 class CalendarSheet extends StatelessWidget {
   const CalendarSheet({
@@ -60,7 +60,7 @@ class CalendarSheet extends StatelessWidget {
                         // Calendar grid takes top portion
                         Flexible(
                           flex: 3,
-                          child: MonthCalendar(grid: config.calendarGrid),
+                          child: WeeklyCalendar(grid: config.calendarGrid),
                         ),
                         // Day details panel uses remaining portion
                         const Flexible(flex: 2, child: DayDetailsPanel()),

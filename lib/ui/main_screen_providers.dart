@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 
-// Visible month anchor (first day of month, local). Used by calendar navigation.
-final visibleMonthProvider = StateProvider<DateTime>((_) {
+// Visible calendar anchor (e.g. start of week). Used by calendar navigation.
+final calendarAnchorProvider = StateProvider<DateTime>((_) {
   final now = DateTime.now();
-  return DateTime(now.year, now.month, 1);
+  final today = DateTime(now.year, now.month, now.day);
+  // Default to start of current week (Monday)
+  return today.subtract(Duration(days: today.weekday - 1));
 });
 
 // Selected day (local date at midnight) for Day Details panel

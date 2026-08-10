@@ -68,3 +68,28 @@ String fmtTime(DateTime dateTime) {
   final m = dateTime.minute.toString().padLeft(2, '0');
   return '$h:$m';
 }
+
+const _monthNames = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+/// Formats a DateTime to "Month Day" format (e.g., "Aug 10").
+String fmtMonthDay(DateTime dt) {
+  return '${_monthNames[dt.month - 1]} ${dt.day}';
+}
+
+/// Formats a date range from start to end (e.g., "Aug 10 - Aug 16").
+String fmtDateRange(DateTime start, DateTime end) {
+  return '${fmtMonthDay(start)} - ${fmtMonthDay(end)}';
+}

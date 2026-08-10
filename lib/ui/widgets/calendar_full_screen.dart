@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../ux_config.dart';
 import 'day_details_panel.dart';
-import 'month_calendar.dart';
+import 'weekly_calendar.dart';
 
-/// Full-screen calendar view with month grid and day details below.
+/// Full-screen calendar view with week-line and day details below.
 class CalendarFullScreen extends ConsumerWidget {
   const CalendarFullScreen({super.key});
 
@@ -21,8 +21,8 @@ class CalendarFullScreen extends ConsumerWidget {
         children: [
           // Calendar grid (fixed height)
           SizedBox(
-            height: 350,
-            child: MonthCalendar(grid: config.calendarGrid),
+            height: 120,
+            child: WeeklyCalendar(grid: config.calendarGrid),
           ),
           const Divider(height: 1),
           // Content area (day details)

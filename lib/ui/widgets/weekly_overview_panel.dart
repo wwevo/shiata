@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
+import '../../utils/formatters.dart';
 import 'entry_list_item_factory.dart';
 
 // Provider for selected kinds filter (which kinds to show in pie chart)
@@ -16,8 +17,8 @@ final selectedKindsForChartProvider = StateProvider<Set<String>>(
 
 /// Weekly overview panel showing:
 /// - Filter chips to select which kinds to include in pie chart
-/// - Pie chart of selected kinds for last 7 days
-/// - Scrollable list of all entries from last 7 days
+/// - Pie chart of selected kinds for current week (Mon-Sun)
+/// - Scrollable list of all entries from current week
 class WeeklyOverviewPanel extends ConsumerWidget {
   const WeeklyOverviewPanel({super.key});
 
@@ -31,21 +32,18 @@ class WeeklyOverviewPanel extends ConsumerWidget {
       return const Center(child: Text('Repository not available'));
     }
 
-    // Calculate date range: last 7 days (inclusive of today)
+    // Calculate date range: current week (Monday to Sunday)
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final sevenDaysAgo = today.subtract(
-      const Duration(days: 6),
-    ); // 7 days total including today
-    final tomorrow = today.add(
-      const Duration(days: 1),
-    ); // End date is exclusive, so we need tomorrow to include today
+    final monday = today.subtract(Duration(days: today.weekday - 1));
+    final sunday = monday.add(const Duration(days: 6));
+    final nextMonday = monday.add(const Duration(days: 7));
 
     final selectedKinds = ref.watch(selectedKindsForChartProvider);
 
     final Stream<dynamic> entriesStream = repo.watchByDayRange(
-      sevenDaysAgo,
-      tomorrow,
+      monday,
+      nextMonday,
       onlyShowInCalendar: false,
     );
 
@@ -91,7 +89,7 @@ class WeeklyOverviewPanel extends ConsumerWidget {
           } catch (_) {}
         }
 
-        // Only show filter chips for kinds that actually have data in the last 7 days
+        // Only show filter chips for kinds that actually have data in this week
         final availableKindIds = allAmounts.keys.toSet();
 
         // Aggregate selected kinds for pie chart
@@ -291,7 +289,7 @@ class WeeklyOverviewPanel extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Text(
-                'Last 7 days (${parentEntries.length} entries)',
+                'This week (${fmtDateRange(monday, sunday)}) · ${parentEntries.length} entries',
                 style: theme.textTheme.titleMedium,
               ),
             ),
@@ -300,7 +298,7 @@ class WeeklyOverviewPanel extends ConsumerWidget {
               child: parentEntries.isEmpty
                   ? Center(
                       child: Text(
-                        'No entries in the last 7 days',
+                        'No entries this week',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurface.withValues(
                             alpha: 0.6,

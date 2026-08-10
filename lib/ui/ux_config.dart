@@ -81,7 +81,7 @@ class UXConfig {
 
 class TopSheetConfig {
   const TopSheetConfig({
-    this.expandedHeight = 420.0,
+    this.expandedHeight = 140.0,
     this.collapsedHeight = 24.0,
   });
 
@@ -159,7 +159,7 @@ class CalendarGridConfig {
     this.crossAxisSpacing = 4.0,
     this.mainAxisSpacing = 4.0,
     this.columns = 7,
-    this.rows = 6,
+    this.rows = 1,
     this.paintMinHeightPx = 40.0, // below this skip painting
     this.paintMinCellPx = 6.0, // below this skip painting
   });
