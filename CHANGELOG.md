@@ -12,6 +12,7 @@
 ### Changed
 - **Calendar UI**: Replaced the full-month calendar grid with a compact, single-row weekly calendar row.
 - **Weekly Overview**: The panel now displays data for the current calendar week (Monday to Sunday) instead of a rolling 7-day window.
+- The Pie Chart now shows all currently used kind of the week by default
 - **Navigation**: 
   - Bottom navigation bar now features fewer, evenly spaced buttons following the removal of Search and Handedness controls.
   - Combined overview and calendar page to a seven week window page, maintaining all functionality

@@ -124,6 +124,31 @@ class WeeklyOverviewPanel extends ConsumerWidget {
 
         final total = normalizedAmounts.values.fold(0.0, (sum, v) => sum + v);
 
+        // Compute normalized totals across ALL kinds to know how much of the week is represented
+        final normalizedAllAmounts = <String, double>{};
+        for (final entry in allAmounts.entries) {
+          final kind = registry.byId(entry.key);
+          final unit = kind?.unit ?? '';
+          double v = entry.value;
+          switch (unit) {
+            case 'mg':
+              v = v / 1000;
+              break;
+            case 'µg':
+              v = v / 1000000;
+              break;
+            default:
+              v = v;
+          }
+          normalizedAllAmounts[entry.key] = v;
+        }
+
+        final totalAll =
+            normalizedAllAmounts.values.fold(0.0, (s, v) => s + v);
+        final totalSelected = total;
+        final displayedPct =
+            totalAll == 0 ? 0.0 : (totalSelected / totalAll * 100);
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -194,37 +219,54 @@ class WeeklyOverviewPanel extends ConsumerWidget {
                       ),
                       child: Row(
                         children: [
-                          // Pie chart
+                          // Pie chart with center indicator of share of week
                           SizedBox(
                             width: 140,
                             height: 140,
-                            child: PieChart(
-                              PieChartData(
-                                sections: normalizedAmounts.entries.map((
-                                  entry,
-                                ) {
-                                  final kind = registry.byId(entry.key);
-                                  final color =
-                                      kind?.accentColor ??
-                                      theme.colorScheme.primary;
-                                  final percentage =
-                                      (entry.value / total * 100);
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                PieChart(
+                                  PieChartData(
+                                    sections: normalizedAmounts.entries.map((
+                                      entry,
+                                    ) {
+                                      final kind = registry.byId(entry.key);
+                                      final color =
+                                          kind?.accentColor ??
+                                          theme.colorScheme.primary;
 
-                                  return PieChartSectionData(
-                                    value: entry.value,
-                                    title: '${percentage.toStringAsFixed(0)}%',
-                                    color: color,
-                                    radius: 50,
-                                    titleStyle: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: theme.colorScheme.onPrimary,
+                                      return PieChartSectionData(
+                                        value: entry.value,
+                                        title: '', // keep center clean
+                                        color: color,
+                                        radius: 50,
+                                      );
+                                    }).toList(),
+                                    sectionsSpace: 2,
+                                    centerSpaceRadius: 28, // create donut
+                                    centerSpaceColor: theme.colorScheme.surface,
+                                  ),
+                                ),
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      '${displayedPct.toStringAsFixed(0)}%',
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
-                                  );
-                                }).toList(),
-                                sectionsSpace: 2,
-                                centerSpaceRadius: 0,
-                              ),
+                                    Text(
+                                      'of week',
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: theme.colorScheme.onSurface
+                                            .withValues(alpha: 0.6),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(width: 24),

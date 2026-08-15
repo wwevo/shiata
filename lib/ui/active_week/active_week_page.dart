@@ -13,9 +13,91 @@ import '../widgets/action_sheet_helpers.dart';
 import '../widgets/entry_list_item_factory.dart';
 import '../widgets/weekly_calendar.dart';
 
-// Local state for chart kind selection (scoped to ActiveWeek page)
-final selectedKindsForActiveWeekChartProvider = StateProvider<Set<String>>(
-  (_) => {'protein', 'fat', 'carbohydrate'},
+// Per-week selection state for the ActiveWeek chart
+class _WeekSelectionState {
+  final Set<String> selectedKinds;
+  final bool isCustomized;
+  const _WeekSelectionState({required this.selectedKinds, required this.isCustomized});
+
+  _WeekSelectionState copyWith({Set<String>? selectedKinds, bool? isCustomized}) =>
+      _WeekSelectionState(
+        selectedKinds: selectedKinds ?? this.selectedKinds,
+        isCustomized: isCustomized ?? this.isCustomized,
+      );
+}
+
+class _WeekKindSelectionController extends StateNotifier<Map<String, _WeekSelectionState>> {
+  _WeekKindSelectionController() : super(const {});
+
+  void _set(String weekKey, _WeekSelectionState value) {
+    state = {
+      ...state,
+      weekKey: value,
+    };
+  }
+
+  void initializeIfNeeded(String weekKey, Set<String> defaults) {
+    if (!state.containsKey(weekKey)) {
+      _set(weekKey, _WeekSelectionState(selectedKinds: {...defaults}, isCustomized: false));
+    }
+  }
+
+  void syncWithDefaultsIfNotCustomized(String weekKey, Set<String> defaults) {
+    final current = state[weekKey];
+    if (current == null) return initializeIfNeeded(weekKey, defaults);
+    if (!current.isCustomized) {
+      // Only update when different to avoid rebuild loops
+      final diff = !_setEquals(current.selectedKinds, defaults);
+      if (diff) {
+        _set(weekKey, current.copyWith(selectedKinds: {...defaults}));
+      }
+    }
+  }
+
+  void toggleKind(String weekKey, String kindId, {required Set<String> currentSelection}) {
+    final next = {...currentSelection};
+    if (next.contains(kindId)) {
+      next.remove(kindId);
+    } else {
+      next.add(kindId);
+    }
+    final cur = state[weekKey];
+    _set(
+      weekKey,
+      (cur ?? _WeekSelectionState(selectedKinds: {}, isCustomized: false))
+          .copyWith(selectedKinds: next, isCustomized: true),
+    );
+  }
+
+  void setSelection(String weekKey, Set<String> kinds, {bool customized = true}) {
+    final cur = state[weekKey];
+    _set(
+      weekKey,
+      (cur ?? _WeekSelectionState(selectedKinds: {}, isCustomized: false))
+          .copyWith(selectedKinds: {...kinds}, isCustomized: customized),
+    );
+  }
+
+  void resetToDefaults(String weekKey, Set<String> defaults) {
+    final cur = state[weekKey];
+    if (cur == null || !_setEquals(cur.selectedKinds, defaults) || cur.isCustomized) {
+      _set(weekKey, _WeekSelectionState(selectedKinds: {...defaults}, isCustomized: false));
+    }
+  }
+
+  static bool _setEquals(Set<String> a, Set<String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (final v in a) {
+      if (!b.contains(v)) return false;
+    }
+    return true;
+  }
+}
+
+final weekKindSelectionProvider =
+    StateNotifierProvider<_WeekKindSelectionController, Map<String, _WeekSelectionState>>(
+  (ref) => _WeekKindSelectionController(),
 );
 
 /// ActiveWeekPage: A new page that combines calendar week navigation with
@@ -123,10 +205,11 @@ class ActiveWeekPage extends ConsumerWidget {
                   }
                 }
 
-                // ================= Pie chart aggregation (cut & paste from weekly_overview_panel) =================
-                final selectedKinds = ref.watch(
-                  selectedKindsForActiveWeekChartProvider,
-                );
+                // ================= Pie chart aggregation and per-week selection =================
+                // Week key based on Monday local date for stable identity across navigation
+                String _weekKey(DateTime d) =>
+                    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+                final weekKey = _weekKey(monday);
 
                 // Aggregate ALL amounts (regardless of selection) to determine which kinds have data
                 final allAmounts = <String, double>{};
@@ -141,6 +224,14 @@ class ActiveWeekPage extends ConsumerWidget {
 
                 // Only show filter chips for kinds that actually have data in this week
                 final availableKindIds = allAmounts.keys.toSet();
+
+                // Determine defaults: all kinds available this week
+                final defaultKinds = availableKindIds;
+
+                // Read any customized selection for this week (no mutations during build)
+                final selectionState = ref.watch(weekKindSelectionProvider)[weekKey];
+                // Fallback to defaults when there is no customization stored
+                final selectedKinds = selectionState?.selectedKinds ?? defaultKinds;
 
                 // Aggregate selected kinds for pie chart
                 final selectedAmounts = <String, double>{};
@@ -170,6 +261,30 @@ class ActiveWeekPage extends ConsumerWidget {
                 }
 
                 final total = normalizedAmounts.values.fold(0.0, (sum, v) => sum + v);
+
+                // Compute normalized totals across ALL kinds to indicate how much of the week
+                // the currently selected kinds represent. Keep the same normalization rules.
+                final normalizedAllAmounts = <String, double>{};
+                for (final entry in allAmounts.entries) {
+                  final kind = registry.byId(entry.key);
+                  final unit = kind?.unit ?? '';
+                  double v = entry.value;
+                  switch (unit) {
+                    case 'mg':
+                      v = v / 1000;
+                      break;
+                    case 'µg':
+                      v = v / 1000000;
+                      break;
+                    default:
+                      v = v;
+                  }
+                  normalizedAllAmounts[entry.key] = v;
+                }
+
+                final totalAll = normalizedAllAmounts.values.fold(0.0, (s, v) => s + v);
+                final totalSelected = total;
+                final displayedPct = totalAll == 0 ? 0.0 : (totalSelected / totalAll * 100);
 
                 // Build a flattened list of rows: headers and entries.
                 // Skip days that have no entries (as requested).
@@ -208,26 +323,39 @@ class ActiveWeekPage extends ConsumerWidget {
                             child: Wrap(
                               spacing: 8,
                               runSpacing: 4,
-                              children: registry.kinds
-                                  .where((kind) => availableKindIds.contains(kind.id))
-                                  .map((kind) {
-                                final isSelected = selectedKinds.contains(kind.id);
-                                return FilterChip(
-                                  label: Text(kind.displayName),
-                                  selected: isSelected,
-                                  onSelected: (selected) {
-                                    final newSet = {...selectedKinds};
-                                    if (selected) {
-                                      newSet.add(kind.id);
-                                    } else {
-                                      newSet.remove(kind.id);
-                                    }
+                              children: [
+                                ...registry.kinds
+                                    .where((kind) => availableKindIds.contains(kind.id))
+                                    .map((kind) {
+                                  final isSelected = selectedKinds.contains(kind.id);
+                                  return FilterChip(
+                                    label: Text(kind.displayName),
+                                    selected: isSelected,
+                                    visualDensity: VisualDensity.compact,
+                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                                    labelStyle: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall,
+                                    onSelected: (_) {
+                                      ref
+                                          .read(weekKindSelectionProvider.notifier)
+                                          .toggleKind(weekKey, kind.id, currentSelection: selectedKinds);
+                                    },
+                                  );
+                                }),
+                                // Reset control as the last item
+                                _ResetChip(
+                                  enabled: (selectionState?.isCustomized ?? false) &&
+                                      !_WeekKindSelectionController._setEquals(
+                                          selectedKinds, defaultKinds),
+                                  onPressed: () {
                                     ref
-                                        .read(selectedKindsForActiveWeekChartProvider.notifier)
-                                        .state = newSet;
+                                        .read(weekKindSelectionProvider.notifier)
+                                        .resetToDefaults(weekKey, defaultKinds);
                                   },
-                                );
-                              }).toList(),
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -251,32 +379,50 @@ class ActiveWeekPage extends ConsumerWidget {
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                               child: Row(
                                 children: [
-                                  // Pie chart
+                                  // Pie chart with center indicator of share of week
                                   SizedBox(
                                     width: 140,
                                     height: 140,
-                                    child: PieChart(
-                                      PieChartData(
-                                        sections: normalizedAmounts.entries.map((entry) {
-                                          final kind = registry.byId(entry.key);
-                                          final color =
-                                              kind?.accentColor ?? theme.colorScheme.primary;
-                                          final percentage = (entry.value / total * 100);
-                                          return PieChartSectionData(
-                                            value: entry.value,
-                                            title: '${percentage.toStringAsFixed(0)}%',
-                                            color: color,
-                                            radius: 50,
-                                            titleStyle: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              color: theme.colorScheme.onPrimary,
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        PieChart(
+                                          PieChartData(
+                                            sections: normalizedAmounts.entries.map((entry) {
+                                              final kind = registry.byId(entry.key);
+                                              final color =
+                                                  kind?.accentColor ?? theme.colorScheme.primary;
+                                              return PieChartSectionData(
+                                                value: entry.value,
+                                                title: '', // keep center clean
+                                                color: color,
+                                                radius: 50,
+                                              );
+                                            }).toList(),
+                                            sectionsSpace: 2,
+                                            centerSpaceRadius: 28, // create donut
+                                            centerSpaceColor: theme.colorScheme.surface,
+                                          ),
+                                        ),
+                                        Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              '${displayedPct.toStringAsFixed(0)}%',
+                                              style: theme.textTheme.titleMedium?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
                                             ),
-                                          );
-                                        }).toList(),
-                                        sectionsSpace: 2,
-                                        centerSpaceRadius: 0,
-                                      ),
+                                            Text(
+                                              'of week',
+                                              style: theme.textTheme.labelSmall?.copyWith(
+                                                color: theme.colorScheme.onSurface
+                                                    .withValues(alpha: 0.6),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                   ),
                                   const SizedBox(width: 24),
@@ -358,6 +504,41 @@ class ActiveWeekPage extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Reset chip widget appended at the end of kinds list
+class _ResetChip extends StatelessWidget {
+  final bool enabled;
+  final VoidCallback onPressed;
+  const _ResetChip({required this.enabled, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final labelStyle = theme.textTheme.bodySmall;
+    final chip = ActionChip(
+      avatar: Icon(
+        Icons.restart_alt,
+        size: 16,
+        color: enabled
+            ? theme.colorScheme.onSurface
+            : theme.colorScheme.onSurface.withValues(alpha: 0.38),
+      ),
+      label: Text('Reset', style: labelStyle),
+      onPressed: enabled ? onPressed : null,
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+    return Tooltip(
+      message: 'Reset to week\'s kinds',
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        label: 'Reset to week\'s kinds',
+        child: chip,
       ),
     );
   }
