@@ -21,30 +21,46 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Overview button
+          // Active Week button (new, placed first)
           IconButton(
-            tooltip: 'Overview',
+            tooltip: 'Active Week',
             onPressed: () {
               ref.read(currentSectionProvider.notifier).state =
-                  AppSection.overview;
+                  AppSection.activeWeek;
+            },
+            icon: Text(
+              '7',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: section == AppSection.activeWeek
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).iconTheme.color,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'All Entries',
+            onPressed: () {
+              ref.read(currentSectionProvider.notifier).state =
+                  AppSection.allEntries;
             },
             icon: Icon(
-              Icons.bar_chart,
-              color: section == AppSection.overview
+              Icons.view_list,
+              color: section == AppSection.allEntries
                   ? Theme.of(context).colorScheme.primary
                   : null,
             ),
           ),
-          // Calendar button
           IconButton(
-            tooltip: 'Calendar',
+            tooltip: 'Recipes',
             onPressed: () {
               ref.read(currentSectionProvider.notifier).state =
-                  AppSection.calendar;
+                  AppSection.recipes;
             },
             icon: Icon(
-              Icons.calendar_month,
-              color: section == AppSection.calendar
+              Icons.restaurant_menu_outlined,
+              color: section == AppSection.recipes
                   ? Theme.of(context).colorScheme.primary
                   : null,
             ),
@@ -71,32 +87,6 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
             icon: Icon(
               Icons.category_outlined,
               color: section == AppSection.kinds
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
-            ),
-          ),
-          IconButton(
-            tooltip: 'Recipes',
-            onPressed: () {
-              ref.read(currentSectionProvider.notifier).state =
-                  AppSection.recipes;
-            },
-            icon: Icon(
-              Icons.restaurant_menu_outlined,
-              color: section == AppSection.recipes
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
-            ),
-          ),
-          IconButton(
-            tooltip: 'All Entries',
-            onPressed: () {
-              ref.read(currentSectionProvider.notifier).state =
-                  AppSection.allEntries;
-            },
-            icon: Icon(
-              Icons.view_list,
-              color: section == AppSection.allEntries
                   ? Theme.of(context).colorScheme.primary
                   : null,
             ),

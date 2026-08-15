@@ -76,10 +76,10 @@ class RecipeInstantiateDialogState
 
     final entry = await entries.getById(widget.entryId!);
     if (entry != null) {
+      _recipeId = entry.recipeId;
       try {
         final payload = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
         _recipeName = payload['name'] as String? ?? '';
-        _recipeId = entry.recipeId ?? payload['recipe_id'] as String?;
       } catch (_) {}
       _targetAt = DateTime.fromMillisecondsSinceEpoch(
         entry.targetAt,

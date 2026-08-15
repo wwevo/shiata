@@ -7,12 +7,10 @@ import 'kinds/kinds_page.dart';
 import 'main_screen_providers.dart';
 import 'products/products_page.dart';
 import 'recipes/recipes_page.dart';
-import 'widgets/calendar_full_screen.dart';
-import 'widgets/weekly_overview_panel.dart';
+import 'active_week/active_week_page.dart';
 
 /// Main screen with section-based navigation:
 /// - Overview section (weekly summary with pie chart)
-/// - Calendar section (monthly calendar view)
 /// - Products section
 /// - Kinds section
 /// - Recipes section
@@ -26,10 +24,8 @@ class MainScreen extends ConsumerWidget {
     final section = ref.watch(currentSectionProvider);
 
     switch (section) {
-      case AppSection.overview:
-        return const WeeklyOverviewPanel();
-      case AppSection.calendar:
-        return const CalendarFullScreen();
+      case AppSection.activeWeek:
+        return const ActiveWeekPage();
       case AppSection.products:
         return const ProductTemplatesPage();
       case AppSection.kinds:
@@ -40,6 +36,9 @@ class MainScreen extends ConsumerWidget {
         return const AllEntriesPage();
       case AppSection.database:
         return const DatabasePage();
+      default:
+        // Fallback to overview to satisfy exhaustive checking in some analyzers
+        return const ActiveWeekPage();
     }
   }
 }

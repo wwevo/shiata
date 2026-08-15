@@ -18,10 +18,17 @@ final selectedDayProvider = StateProvider<DateTime?>((ref) {
 });
 
 // App section navigation (main sections of the app)
-enum AppSection { overview, calendar, products, kinds, recipes, allEntries, database }
+enum AppSection {
+  activeWeek,
+  products,
+  kinds,
+  recipes,
+  allEntries,
+  database
+}
 
 final currentSectionProvider = StateProvider<AppSection>(
-      (_) => AppSection.overview,
+      (_) => AppSection.activeWeek,
 );
 
 // Expanded product parents in Day Details (by parent entry id)
