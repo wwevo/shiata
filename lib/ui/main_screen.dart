@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'all_entries/all_entries_page.dart';
-import 'database/database_page.dart';
-import 'kinds/kinds_page.dart';
+import 'pages/all_entries_page.dart';
+import 'pages/database_page.dart';
+import 'pages/kinds_page.dart';
 import 'main_screen_providers.dart';
-import 'products/products_page.dart';
-import 'recipes/recipes_page.dart';
-import 'active_week/active_week_page.dart';
+import 'pages/products_page.dart';
+import 'pages/recipes_page.dart';
+import 'pages/active_week_page.dart';
 
 /// Main screen with section-based navigation:
 /// - Overview section (weekly summary with pie chart)

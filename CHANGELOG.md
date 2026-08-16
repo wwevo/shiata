@@ -1,6 +1,6 @@
 # CHANGELOG.md
 
-## [0.9.4] - 2026-08-15
+## [0.9.4] - 2026-08-16
 ### Removed
 - **Handedness Feature**: Completely removed handedness-dependent layouts and controls.
   * Removed "Right/Left Hand" toggle from bottom controls.
@@ -18,6 +18,7 @@
   * Combined overview and calendar page to a seven week window page, maintaining all functionality
 - tied chip selection to displayed item list on the seven day overview.
   * added must include and must not contain (exclude) options wip
+- Moved pages into their own folder
 
 ### Technical
 - **Dependencies**: Updated `sqlite3`, `sqlite3_flutter_libs`, `flutter_secure_storage`, and `fl_chart` to their latest versions.
@@ -625,7 +626,7 @@
     - Exports all recipes with their components (kinds and products)
     - Follows same pattern as `dumpProductsWithComponents()`
 - Updated `importExportServiceProvider` to include `RecipesRepository`
-- Created new `lib/ui/database/database_page.dart` with comprehensive database management UI
+- Created new `lib/ui/pages/database_page.dart` with comprehensive database management UI
 
 ---
 

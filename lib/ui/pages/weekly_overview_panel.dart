@@ -8,7 +8,7 @@ import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../../utils/formatters.dart';
-import 'entry_list_item_factory.dart';
+import '../widgets/entry_list_item_factory.dart';
 
 // Provider for selected kinds filter (which kinds to show in pie chart)
 final selectedKindsForChartProvider = StateProvider<Set<String>>(
