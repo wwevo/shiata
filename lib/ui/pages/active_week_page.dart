@@ -1,43 +1,47 @@
 import 'dart:convert';
+
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
-// Note: keep local date formatting within this file; no external date helpers needed here.
 import '../main_screen_providers.dart';
 import '../ux_config.dart';
 import '../widgets/action_sheet_helpers.dart';
 import '../widgets/entry_list_item_factory.dart';
 import '../widgets/weekly_calendar.dart';
 
-// Tri-state filtering per chip
 enum ChipMode { off, include, exclude }
 
 // Per-week selection state for the ActiveWeek chart
 class _WeekSelectionState {
   final Map<String, ChipMode> kindModes; // kindId -> mode
   final bool isCustomized;
-  const _WeekSelectionState({required this.kindModes, required this.isCustomized});
 
-  _WeekSelectionState copyWith({Map<String, ChipMode>? kindModes, bool? isCustomized}) =>
-      _WeekSelectionState(
-        kindModes: kindModes ?? this.kindModes,
-        isCustomized: isCustomized ?? this.isCustomized,
-      );
+  const _WeekSelectionState({
+    required this.kindModes,
+    required this.isCustomized,
+  });
+
+  _WeekSelectionState copyWith({
+    Map<String, ChipMode>? kindModes,
+    bool? isCustomized,
+  }) => _WeekSelectionState(
+    kindModes: kindModes ?? this.kindModes,
+    isCustomized: isCustomized ?? this.isCustomized,
+  );
 }
 
-class _WeekKindSelectionController extends StateNotifier<Map<String, _WeekSelectionState>> {
+class _WeekKindSelectionController
+    extends StateNotifier<Map<String, _WeekSelectionState>> {
   _WeekKindSelectionController() : super(const {});
 
   void _set(String weekKey, _WeekSelectionState value) {
-    state = {
-      ...state,
-      weekKey: value,
-    };
+    state = {...state, weekKey: value};
   }
 
   // Set a chip to an exact mode (used by platform-specific UIs)
@@ -60,42 +64,18 @@ class _WeekKindSelectionController extends StateNotifier<Map<String, _WeekSelect
   // Initialize with all provided kind ids set to off (neutral)
   void initializeIfNeeded(String weekKey, Set<String> defaults) {
     if (!state.containsKey(weekKey)) {
-      final modes = <String, ChipMode>{ for (final k in defaults) k: ChipMode.off };
+      final modes = <String, ChipMode>{
+        for (final k in defaults) k: ChipMode.off,
+      };
       _set(weekKey, _WeekSelectionState(kindModes: modes, isCustomized: false));
     }
   }
 
-  void syncWithDefaultsIfNotCustomized(String weekKey, Set<String> defaults) {
-    final current = state[weekKey];
-    if (current == null) return initializeIfNeeded(weekKey, defaults);
-    if (!current.isCustomized) {
-      // Reset to off for all defaults
-      final desired = <String, ChipMode>{ for (final k in defaults) k: ChipMode.off };
-      if (!_mapEquals(current.kindModes, desired)) {
-        _set(weekKey, current.copyWith(kindModes: desired));
-      }
-    }
-  }
-
-  // Cycle a chip's mode: off -> include -> exclude -> off
-  void cycleKindMode(String weekKey, String kindId, {required Map<String, ChipMode> current}) {
-    final next = Map<String, ChipMode>.from(current);
-    final curMode = next[kindId] ?? ChipMode.off;
-    final ChipMode nxt = switch (curMode) {
-      ChipMode.off => ChipMode.include,
-      ChipMode.include => ChipMode.exclude,
-      ChipMode.exclude => ChipMode.off,
-    };
-    next[kindId] = nxt;
-    final cur = state[weekKey];
-    _set(
-      weekKey,
-      (cur ?? const _WeekSelectionState(kindModes: {}, isCustomized: false))
-          .copyWith(kindModes: next, isCustomized: true),
-    );
-  }
-
-  void setModes(String weekKey, Map<String, ChipMode> modes, {bool customized = true}) {
+  void setModes(
+    String weekKey,
+    Map<String, ChipMode> modes, {
+    bool customized = true,
+  }) {
     final cur = state[weekKey];
     _set(
       weekKey,
@@ -106,9 +86,16 @@ class _WeekKindSelectionController extends StateNotifier<Map<String, _WeekSelect
 
   void resetToDefaults(String weekKey, Set<String> defaults) {
     final cur = state[weekKey];
-    final desired = <String, ChipMode>{ for (final k in defaults) k: ChipMode.off };
-    if (cur == null || !_mapEquals(cur.kindModes, desired) || cur.isCustomized) {
-      _set(weekKey, _WeekSelectionState(kindModes: desired, isCustomized: false));
+    final desired = <String, ChipMode>{
+      for (final k in defaults) k: ChipMode.off,
+    };
+    if (cur == null ||
+        !_mapEquals(cur.kindModes, desired) ||
+        cur.isCustomized) {
+      _set(
+        weekKey,
+        _WeekSelectionState(kindModes: desired, isCustomized: false),
+      );
     }
   }
 
@@ -122,23 +109,26 @@ class _WeekKindSelectionController extends StateNotifier<Map<String, _WeekSelect
   }
 
   // Convenience helpers
-  static Set<String> includesOf(Map<String, ChipMode> modes) =>
-      modes.entries.where((e) => e.value == ChipMode.include).map((e) => e.key).toSet();
-  static Set<String> excludesOf(Map<String, ChipMode> modes) =>
-      modes.entries.where((e) => e.value == ChipMode.exclude).map((e) => e.key).toSet();
+  static Set<String> includesOf(Map<String, ChipMode> modes) => modes.entries
+      .where((e) => e.value == ChipMode.include)
+      .map((e) => e.key)
+      .toSet();
+
+  static Set<String> excludesOf(Map<String, ChipMode> modes) => modes.entries
+      .where((e) => e.value == ChipMode.exclude)
+      .map((e) => e.key)
+      .toSet();
 }
 
 final weekKindSelectionProvider =
-    StateNotifierProvider<_WeekKindSelectionController, Map<String, _WeekSelectionState>>(
-  (ref) => _WeekKindSelectionController(),
-);
+    StateNotifierProvider<
+      _WeekKindSelectionController,
+      Map<String, _WeekSelectionState>
+    >((ref) => _WeekKindSelectionController());
 
-/// ActiveWeekPage: A new page that combines calendar week navigation with
-/// a weekly list grouped by day and an inline add control.
-///
-/// This page is additive and does not alter existing Overview/Calendar pages.
 class ActiveWeekPage extends ConsumerWidget {
   const ActiveWeekPage({super.key});
+
   static bool _coachShown = false; // one-time per app run
 
   @override
@@ -188,33 +178,14 @@ class ActiveWeekPage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Weekly calendar row (reused)
+          // Weekly calendar row
           SizedBox(
-            height: 120,
+            height: 80,
             child: WeeklyCalendar(grid: config.calendarGrid),
           ),
+
           const Divider(height: 1),
 
-          // Inline Add control (same flow as Overview plus action)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: 'Add',
-                  onPressed: () => showCreateActionSheet(context, ref, targetForAdd()),
-                  icon: const Icon(Icons.add_circle_outline),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Add to ${_fmtYmd(targetForAdd())}',
-                  style: theme.textTheme.titleSmall,
-                ),
-              ],
-            ),
-          ),
-
-          // Week list grouped by day with headers
           Expanded(
             child: StreamBuilder<dynamic>(
               stream: stream,
@@ -264,31 +235,39 @@ class ActiveWeekPage extends ConsumerWidget {
                   void dfs(EntryRecord node) {
                     if (visited.contains(node.id)) return;
                     visited.add(node.id);
-                    final isContainer = (node.widgetKind == 'product' || node.widgetKind == 'recipe');
+                    final isContainer =
+                        (node.widgetKind == 'product' ||
+                        node.widgetKind == 'recipe');
                     if (!isContainer) {
                       leafKinds.add(node.widgetKind);
                       return;
                     }
-                    final kids = childrenByParent[node.id] ?? const <EntryRecord>[];
+                    final kids =
+                        childrenByParent[node.id] ?? const <EntryRecord>[];
                     if (kids.isEmpty) return;
                     for (final k in kids) {
                       dfs(k);
                     }
                   }
+
                   dfs(root);
                   return leafKinds;
                 }
 
                 // Populate caches from instances that do have children
                 for (final e in allEntries) {
-                  if (e.widgetKind == 'product' && (childrenByParent[e.id]?.isNotEmpty ?? false)) {
+                  if (e.widgetKind == 'product' &&
+                      (childrenByParent[e.id]?.isNotEmpty ?? false)) {
                     final pid = e.productId;
-                    if (pid != null && !_productLeafKindsByProductId.containsKey(pid)) {
+                    if (pid != null &&
+                        !_productLeafKindsByProductId.containsKey(pid)) {
                       _productLeafKindsByProductId[pid] = _dfsLeafKinds(e);
                     }
-                  } else if (e.widgetKind == 'recipe' && (childrenByParent[e.id]?.isNotEmpty ?? false)) {
+                  } else if (e.widgetKind == 'recipe' &&
+                      (childrenByParent[e.id]?.isNotEmpty ?? false)) {
                     final rid = e.recipeId;
-                    if (rid != null && !_recipeLeafKindsByRecipeId.containsKey(rid)) {
+                    if (rid != null &&
+                        !_recipeLeafKindsByRecipeId.containsKey(rid)) {
                       _recipeLeafKindsByRecipeId[rid] = _dfsLeafKinds(e);
                     }
                   }
@@ -307,8 +286,13 @@ class ActiveWeekPage extends ConsumerWidget {
                   if (excludes.isEmpty) return const <String>{};
                   final hidden = <String>{};
                   // Start from any non-container entry that matches an excluded kind
-                  final leavesToHide = allEntries.where((e) =>
-                      e.sourceEntryId != null && e.widgetKind != 'product' && e.widgetKind != 'recipe' && excludes.contains(e.widgetKind));
+                  final leavesToHide = allEntries.where(
+                    (e) =>
+                        e.sourceEntryId != null &&
+                        e.widgetKind != 'product' &&
+                        e.widgetKind != 'recipe' &&
+                        excludes.contains(e.widgetKind),
+                  );
                   for (final leaf in leavesToHide) {
                     String? cur = leaf.id;
                     // Climb up to the root parent, marking all ancestors hidden
@@ -335,11 +319,14 @@ class ActiveWeekPage extends ConsumerWidget {
                 // Aggregate ALL amounts (regardless of selection) to determine which kinds have data
                 final allAmounts = <String, double>{};
                 for (final e in allEntries) {
-                  if (e.widgetKind == 'product' || e.widgetKind == 'recipe') continue;
+                  if (e.widgetKind == 'product' || e.widgetKind == 'recipe')
+                    continue;
                   try {
-                    final map = jsonDecode(e.payloadJson) as Map<String, dynamic>;
+                    final map =
+                        jsonDecode(e.payloadJson) as Map<String, dynamic>;
                     final amount = (map['amount'] as num?)?.toDouble() ?? 0.0;
-                    allAmounts[e.widgetKind] = (allAmounts[e.widgetKind] ?? 0.0) + amount;
+                    allAmounts[e.widgetKind] =
+                        (allAmounts[e.widgetKind] ?? 0.0) + amount;
                   } catch (_) {}
                 }
 
@@ -350,18 +337,27 @@ class ActiveWeekPage extends ConsumerWidget {
                 final defaultKinds = availableKindIds;
 
                 // Read any customized selection for this week (no mutations during build)
-                final selectionState = ref.watch(weekKindSelectionProvider)[weekKey];
+                final selectionState = ref.watch(
+                  weekKindSelectionProvider,
+                )[weekKey];
                 // Current modes map; if absent and not customized, we treat defaults as off (neutral)
-                final currentModes = selectionState?.kindModes ??
-                    { for (final k in defaultKinds) k: ChipMode.off };
-                final includedKinds = _WeekKindSelectionController.includesOf(currentModes);
-                final excludedKinds = _WeekKindSelectionController.excludesOf(currentModes);
+                final currentModes =
+                    selectionState?.kindModes ??
+                    {for (final k in defaultKinds) k: ChipMode.off};
+                final includedKinds = _WeekKindSelectionController.includesOf(
+                  currentModes,
+                );
+                final excludedKinds = _WeekKindSelectionController.excludesOf(
+                  currentModes,
+                );
 
                 // Determine visible kinds for chart:
                 // If any includes exist, use them; otherwise use all available minus excludes
                 final bool allIncludedNoExcludes =
-                    includedKinds.length == availableKindIds.length && excludedKinds.isEmpty;
-                final Set<String> visibleKindsForChart = includedKinds.isNotEmpty
+                    includedKinds.length == availableKindIds.length &&
+                    excludedKinds.isEmpty;
+                final Set<String> visibleKindsForChart =
+                    includedKinds.isNotEmpty
                     ? (allIncludedNoExcludes ? availableKindIds : includedKinds)
                     : (availableKindIds.difference(excludedKinds));
                 // Aggregate visible kinds for pie chart
@@ -391,7 +387,10 @@ class ActiveWeekPage extends ConsumerWidget {
                   normalizedAmounts[entry.key] = normalized;
                 }
 
-                final total = normalizedAmounts.values.fold(0.0, (sum, v) => sum + v);
+                final total = normalizedAmounts.values.fold(
+                  0.0,
+                  (sum, v) => sum + v,
+                );
 
                 // Compute normalized totals across ALL kinds to indicate how much of the week
                 // the currently selected kinds represent. Keep the same normalization rules.
@@ -413,9 +412,14 @@ class ActiveWeekPage extends ConsumerWidget {
                   normalizedAllAmounts[entry.key] = v;
                 }
 
-                final totalAll = normalizedAllAmounts.values.fold(0.0, (s, v) => s + v);
+                final totalAll = normalizedAllAmounts.values.fold(
+                  0.0,
+                  (s, v) => s + v,
+                );
                 final totalSelected = total;
-                final displayedPct = totalAll == 0 ? 0.0 : (totalSelected / totalAll * 100);
+                final displayedPct = totalAll == 0
+                    ? 0.0
+                    : (totalSelected / totalAll * 100);
 
                 // Helper: collect all leaf kinds contained in an entry (recursively through
                 // product/recipe -> product -> kind chains). Direct entries return their own kind.
@@ -431,7 +435,9 @@ class ActiveWeekPage extends ConsumerWidget {
                     if (visited.contains(node.id)) return;
                     visited.add(node.id);
 
-                    final isContainer = (node.widgetKind == 'product' || node.widgetKind == 'recipe');
+                    final isContainer =
+                        (node.widgetKind == 'product' ||
+                        node.widgetKind == 'recipe');
                     if (!isContainer) {
                       leafKinds.add(node.widgetKind);
                       return;
@@ -441,13 +447,17 @@ class ActiveWeekPage extends ConsumerWidget {
                       // Fallback to definition-based cache if available
                       if (node.widgetKind == 'product') {
                         final pid = node.productId;
-                        final cached = (pid != null) ? _productLeafKindsByProductId[pid] : null;
+                        final cached = (pid != null)
+                            ? _productLeafKindsByProductId[pid]
+                            : null;
                         if (cached != null && cached.isNotEmpty) {
                           leafKinds.addAll(cached);
                         }
                       } else if (node.widgetKind == 'recipe') {
                         final rid = node.recipeId;
-                        final cached = (rid != null) ? _recipeLeafKindsByRecipeId[rid] : null;
+                        final cached = (rid != null)
+                            ? _recipeLeafKindsByRecipeId[rid]
+                            : null;
                         if (cached != null && cached.isNotEmpty) {
                           leafKinds.addAll(cached);
                         }
@@ -472,16 +482,20 @@ class ActiveWeekPage extends ConsumerWidget {
                 ) {
                   // Fast path: if this entry (a parent) is marked hidden due to excluded
                   // descendants, drop it immediately.
-                  final hiddenAncestors = _collectHiddenAncestors(excludedKinds);
+                  final hiddenAncestors = _collectHiddenAncestors(
+                    excludedKinds,
+                  );
                   if (hiddenAncestors.contains(e.id)) return false;
 
-                  final isContainer = (e.widgetKind == 'product' || e.widgetKind == 'recipe');
+                  final isContainer =
+                      (e.widgetKind == 'product' || e.widgetKind == 'recipe');
                   final Set<String> kindsInEntry = isContainer
                       ? _collectLeafKinds(e, children)
                       : {e.widgetKind};
 
                   // Excludes always win
-                  if (kindsInEntry.intersection(excludes).isNotEmpty) return false;
+                  if (kindsInEntry.intersection(excludes).isNotEmpty)
+                    return false;
 
                   if (includes.isEmpty) {
                     // Exclusive-only mode: allow anything that doesn't contain excluded kinds
@@ -489,7 +503,8 @@ class ActiveWeekPage extends ConsumerWidget {
                   }
 
                   // If everything is included and nothing excluded, treat as no filtering
-                  if (includes.length == availableKindIds.length && excludes.isEmpty) {
+                  if (includes.length == availableKindIds.length &&
+                      excludes.isEmpty) {
                     return true;
                   }
 
@@ -499,7 +514,8 @@ class ActiveWeekPage extends ConsumerWidget {
                     return includes.every(kindsInEntry.contains);
                   } else {
                     // Direct entries visible only if includes has exactly that one kind
-                    return includes.length == 1 && includes.contains(e.widgetKind);
+                    return includes.length == 1 &&
+                        includes.contains(e.widgetKind);
                   }
                 }
 
@@ -508,14 +524,27 @@ class ActiveWeekPage extends ConsumerWidget {
                 final rows = <_RowItem>[];
                 for (final day in days) {
                   final key = DateTime(day.year, day.month, day.day);
-                  final list = (mapByDay[key] ?? const <EntryRecord>[]).toList();
-                  list.sort((a, b) => a.targetAt.compareTo(b.targetAt)); // time asc
+                  final list = (mapByDay[key] ?? const <EntryRecord>[])
+                      .toList();
+                  list.sort(
+                    (a, b) => a.targetAt.compareTo(b.targetAt),
+                  ); // time asc
 
                   // Parents only at top level; children are rendered by factory
-                  final parents = list.where((e) => e.sourceEntryId == null).toList();
-                  final filteredParents = parents
-                      .where((p) => _entryMatchesKinds(p, includedKinds, excludedKinds, childrenByParent))
+                  final parents = list
+                      .where((e) => e.sourceEntryId == null)
                       .toList();
+                  final filteredParents = parents
+                      .where(
+                        (p) => _entryMatchesKinds(
+                          p,
+                          includedKinds,
+                          excludedKinds,
+                          childrenByParent,
+                        ),
+                      )
+                      .toList();
+
                   if (filteredParents.isEmpty) {
                     // Do not render empty days
                     continue;
@@ -533,143 +562,229 @@ class ActiveWeekPage extends ConsumerWidget {
                   children: [
                     // Chart + filters block
                     Container(
-                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                      color: theme.colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.3),
                       child: Column(
                         children: [
                           const SizedBox(height: 12),
                           // Filter chips
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
                             child: Wrap(
                               spacing: 8,
                               runSpacing: 4,
                               children: [
                                 ...registry.kinds
-                                    .where((kind) => availableKindIds.contains(kind.id))
+                                    .where(
+                                      (kind) =>
+                                          availableKindIds.contains(kind.id),
+                                    )
                                     .map((kind) {
-                                  final mode = currentModes[kind.id] ?? ChipMode.include;
-                                  // Dot avatar color by mode
-                                  final Color dotColor = switch (mode) {
-                                    ChipMode.include => Colors.green,
-                                    ChipMode.exclude => Colors.orange,
-                                    ChipMode.off => Theme.of(context).colorScheme.surface,
-                                  };
-                                  final avatar = Container(
-                                    width: 10,
-                                    height: 10,
-                                    decoration: BoxDecoration(
-                                      color: mode == ChipMode.off
-                                          ? Theme.of(context).colorScheme.surface
-                                          : dotColor,
-                                      border: Border.all(
-                                        color: mode == ChipMode.off
-                                            ? Theme.of(context).colorScheme.outline
-                                            : dotColor,
-                                        width: 1.2,
-                                      ),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  );
-                                  // Platform-specific chip rendering
-                                  if (defaultTargetPlatform == TargetPlatform.linux) {
-                                    return Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        TriStateChipSimple(
-                                          mode: mode,
-                                          onChanged: (m) => ref
-                                              .read(weekKindSelectionProvider.notifier)
-                                              .setKindMode(weekKey, kind.id, m, current: currentModes),
+                                      final mode =
+                                          currentModes[kind.id] ??
+                                          ChipMode.include;
+                                      // Dot avatar color by mode
+                                      final Color dotColor = switch (mode) {
+                                        ChipMode.include => Colors.green,
+                                        ChipMode.exclude => Colors.orange,
+                                        ChipMode.off => Theme.of(
+                                          context,
+                                        ).colorScheme.surface,
+                                      };
+                                      final avatar = Container(
+                                        width: 10,
+                                        height: 10,
+                                        decoration: BoxDecoration(
+                                          color: mode == ChipMode.off
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.surface
+                                              : dotColor,
+                                          border: Border.all(
+                                            color: mode == ChipMode.off
+                                                ? Theme.of(
+                                                    context,
+                                                  ).colorScheme.outline
+                                                : dotColor,
+                                            width: 1.2,
+                                          ),
+                                          shape: BoxShape.circle,
                                         ),
-                                        const SizedBox(width: 6),
-                                        Text(kind.displayName, style: Theme.of(context).textTheme.bodySmall),
-                                      ],
-                                    );
-                                  } else {
-                                    // Android & others: tap toggles Off<->Include, long-press opens bottom sheet
-                                    return GestureDetector(
-                                      onLongPress: () async {
-                                        final choice = await showModalBottomSheet<ChipMode>(
-                                          context: context,
-                                          builder: (ctx) => SafeArea(
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                ListTile(
-                                                  title: const Text('Include'),
-                                                  onTap: () => Navigator.pop(ctx, ChipMode.include),
-                                                ),
-                                                ListTile(
-                                                  title: const Text('Exclude'),
-                                                  onTap: () => Navigator.pop(ctx, ChipMode.exclude),
-                                                ),
-                                                ListTile(
-                                                  title: const Text('Off'),
-                                                  onTap: () => Navigator.pop(ctx, ChipMode.off),
-                                                ),
-                                              ],
+                                      );
+                                      // Platform-specific chip rendering
+                                      if (defaultTargetPlatform ==
+                                          TargetPlatform.linux) {
+                                        return Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            TriStateChipSimple(
+                                              mode: mode,
+                                              onChanged: (m) => ref
+                                                  .read(
+                                                    weekKindSelectionProvider
+                                                        .notifier,
+                                                  )
+                                                  .setKindMode(
+                                                    weekKey,
+                                                    kind.id,
+                                                    m,
+                                                    current: currentModes,
+                                                  ),
                                             ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              kind.displayName,
+                                              style: Theme.of(
+                                                context,
+                                              ).textTheme.bodySmall,
+                                            ),
+                                          ],
+                                        );
+                                      } else {
+                                        // Android & others: tap toggles Off<->Include, long-press opens bottom sheet
+                                        return GestureDetector(
+                                          onLongPress: () async {
+                                            final choice =
+                                                await showModalBottomSheet<
+                                                  ChipMode
+                                                >(
+                                                  context: context,
+                                                  builder: (ctx) => SafeArea(
+                                                    child: Column(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        ListTile(
+                                                          title: const Text(
+                                                            'Include',
+                                                          ),
+                                                          onTap: () =>
+                                                              Navigator.pop(
+                                                                ctx,
+                                                                ChipMode
+                                                                    .include,
+                                                              ),
+                                                        ),
+                                                        ListTile(
+                                                          title: const Text(
+                                                            'Exclude',
+                                                          ),
+                                                          onTap: () =>
+                                                              Navigator.pop(
+                                                                ctx,
+                                                                ChipMode
+                                                                    .exclude,
+                                                              ),
+                                                        ),
+                                                        ListTile(
+                                                          title: const Text(
+                                                            'Off',
+                                                          ),
+                                                          onTap: () =>
+                                                              Navigator.pop(
+                                                                ctx,
+                                                                ChipMode.off,
+                                                              ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                );
+                                            if (choice != null) {
+                                              ref
+                                                  .read(
+                                                    weekKindSelectionProvider
+                                                        .notifier,
+                                                  )
+                                                  .setKindMode(
+                                                    weekKey,
+                                                    kind.id,
+                                                    choice,
+                                                    current: currentModes,
+                                                  );
+                                            }
+                                          },
+                                          child: FilterChip(
+                                            avatar: avatar,
+                                            label: Text(kind.displayName),
+                                            selected: mode != ChipMode.off,
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                            labelPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                ),
+                                            labelStyle: Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall,
+                                            onSelected: (_) {
+                                              final next =
+                                                  (mode == ChipMode.off)
+                                                  ? ChipMode.include
+                                                  : ChipMode.off;
+                                              ref
+                                                  .read(
+                                                    weekKindSelectionProvider
+                                                        .notifier,
+                                                  )
+                                                  .setKindMode(
+                                                    weekKey,
+                                                    kind.id,
+                                                    next,
+                                                    current: currentModes,
+                                                  );
+                                            },
                                           ),
                                         );
-                                        if (choice != null) {
-                                          ref
-                                              .read(weekKindSelectionProvider.notifier)
-                                              .setKindMode(weekKey, kind.id, choice, current: currentModes);
-                                        }
-                                      },
-                                      child: FilterChip(
-                                        avatar: avatar,
-                                        label: Text(kind.displayName),
-                                        selected: mode != ChipMode.off,
-                                        visualDensity: VisualDensity.compact,
-                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-                                        labelStyle: Theme.of(context).textTheme.bodySmall,
-                                        onSelected: (_) {
-                                          final next = (mode == ChipMode.off) ? ChipMode.include : ChipMode.off;
-                                          ref
-                                              .read(weekKindSelectionProvider.notifier)
-                                              .setKindMode(weekKey, kind.id, next, current: currentModes);
-                                        },
-                                      ),
-                                    );
-                                  }
-                                }),
+                                      }
+                                    }),
                                 // Reset control as the last item
                                 _ResetChip(
-                                  enabled: (selectionState?.isCustomized ?? false) &&
+                                  enabled:
+                                      (selectionState?.isCustomized ?? false) &&
                                       !_WeekKindSelectionController._mapEquals(
                                         currentModes,
-                                        { for (final k in defaultKinds) k: ChipMode.off },
+                                        {
+                                          for (final k in defaultKinds)
+                                            k: ChipMode.off,
+                                        },
                                       ),
                                   onPressed: () {
                                     ref
-                                        .read(weekKindSelectionProvider.notifier)
+                                        .read(
+                                          weekKindSelectionProvider.notifier,
+                                        )
                                         .resetToDefaults(weekKey, defaultKinds);
                                   },
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 12),
+
+                          const Divider(height: 1),
 
                           // Pie chart or empty message
                           if (normalizedAmounts.isEmpty)
                             Padding(
-                              padding: const EdgeInsets.all(24),
+                              padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
                               child: Text(
                                 includedKinds.isEmpty
                                     ? 'Select kinds above to see chart'
                                     : 'No data for selected kinds',
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
                                 ),
                                 textAlign: TextAlign.center,
                               ),
                             )
                           else
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
                               child: Row(
                                 children: [
                                   // Pie chart with center indicator of share of week
@@ -681,20 +796,28 @@ class ActiveWeekPage extends ConsumerWidget {
                                       children: [
                                         PieChart(
                                           PieChartData(
-                                            sections: normalizedAmounts.entries.map((entry) {
-                                              final kind = registry.byId(entry.key);
-                                              final color =
-                                                  kind?.accentColor ?? theme.colorScheme.primary;
-                                              return PieChartSectionData(
-                                                value: entry.value,
-                                                title: '', // keep center clean
-                                                color: color,
-                                                radius: 50,
-                                              );
-                                            }).toList(),
+                                            sections: normalizedAmounts.entries
+                                                .map((entry) {
+                                                  final kind = registry.byId(
+                                                    entry.key,
+                                                  );
+                                                  final color =
+                                                      kind?.accentColor ??
+                                                      theme.colorScheme.primary;
+                                                  return PieChartSectionData(
+                                                    value: entry.value,
+                                                    title:
+                                                        '', // keep center clean
+                                                    color: color,
+                                                    radius: 50,
+                                                  );
+                                                })
+                                                .toList(),
                                             sectionsSpace: 2,
-                                            centerSpaceRadius: 28, // create donut
-                                            centerSpaceColor: theme.colorScheme.surface,
+                                            centerSpaceRadius: 28,
+                                            // create donut
+                                            centerSpaceColor:
+                                                theme.colorScheme.surface,
                                           ),
                                         ),
                                         Column(
@@ -702,16 +825,20 @@ class ActiveWeekPage extends ConsumerWidget {
                                           children: [
                                             Text(
                                               '${displayedPct.toStringAsFixed(0)}%',
-                                              style: theme.textTheme.titleMedium?.copyWith(
-                                                fontWeight: FontWeight.w700,
-                                              ),
+                                              style: theme.textTheme.titleMedium
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
                                             ),
                                             Text(
                                               'of week',
-                                              style: theme.textTheme.labelSmall?.copyWith(
-                                                color: theme.colorScheme.onSurface
-                                                    .withValues(alpha: 0.6),
-                                              ),
+                                              style: theme.textTheme.labelSmall
+                                                  ?.copyWith(
+                                                    color: theme
+                                                        .colorScheme
+                                                        .onSurface
+                                                        .withValues(alpha: 0.6),
+                                                  ),
                                             ),
                                           ],
                                         ),
@@ -722,51 +849,307 @@ class ActiveWeekPage extends ConsumerWidget {
                                   // Legend
                                   Expanded(
                                     child: SingleChildScrollView(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: normalizedAmounts.entries.map((entry) {
-                                          final kind = registry.byId(entry.key);
-                                          final color =
-                                              kind?.accentColor ?? theme.colorScheme.primary;
-                                          final unit = kind?.unit ?? '';
-                                          // Display original value (not normalized)
-                                          final originalValue = selectedAmounts[entry.key]!;
-                                          final formattedValue = originalValue < 1
-                                              ? originalValue.toStringAsFixed(2)
-                                              : originalValue.toStringAsFixed(0);
-                                          return Padding(
-                                            padding: const EdgeInsets.symmetric(vertical: 4),
-                                            child: Row(
-                                              children: [
-                                                Container(
-                                                  width: 16,
-                                                  height: 16,
-                                                  decoration: BoxDecoration(
-                                                    color: color,
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Expanded(
-                                                  child: Text(
-                                                    '${kind?.displayName ?? entry.key}: $formattedValue$unit',
-                                                    style: theme.textTheme.bodyMedium,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
+                                      child: Builder(
+                                        builder: (context) {
+                                          // Sorting algorithm: compute a content-length metric per entry
+                                          // (label + valueText + unit), sort descending, then zigzag
+                                          // from both ends to spread long and short items.
+                                          String labelFor(String id) =>
+                                              registry.byId(id)?.displayName ??
+                                              id;
+                                          String unitFor(String id) =>
+                                              registry.byId(id)?.unit ?? '';
+                                          String valueTextFor(String id) {
+                                            final v = selectedAmounts[id] ?? 0;
+                                            return v < 1
+                                                ? v.toStringAsFixed(2)
+                                                : v.toStringAsFixed(0);
+                                          }
+
+                                          final sorted =
+                                              normalizedAmounts.entries.map((
+                                                e,
+                                              ) {
+                                                final label = labelFor(e.key);
+                                                final txt =
+                                                    valueTextFor(e.key) +
+                                                    unitFor(e.key);
+                                                final len =
+                                                    label.length +
+                                                    1 +
+                                                    txt.length;
+                                                return (
+                                                  entry: e,
+                                                  len: len,
+                                                  label: label,
+                                                  valueText: txt,
+                                                );
+                                              }).toList()..sort((a, b) {
+                                                final c = b.len.compareTo(
+                                                  a.len,
+                                                ); // longest first
+                                                if (c != 0) return c;
+                                                return a.label
+                                                    .toLowerCase()
+                                                    .compareTo(
+                                                      b.label.toLowerCase(),
+                                                    );
+                                              });
+
+                                          // Zigzag interleave longest/shortest/… to avoid clustering longs.
+                                          final ordered =
+                                              <MapEntry<String, double>>[];
+                                          int i = 0, j = sorted.length - 1;
+                                          var takeLongest = true;
+                                          while (i <= j) {
+                                            if (takeLongest) {
+                                              ordered.add(sorted[i].entry);
+                                              i++;
+                                            } else {
+                                              ordered.add(sorted[j].entry);
+                                              j--;
+                                            }
+                                            takeLongest = !takeLongest;
+                                          }
+
+                                          // Render as a width-maximizing table: choose the largest
+                                          // number of columns that fits the available width, with each
+                                          // column's width fixed by its longest entry. Preserve ordering.
+                                          return LayoutBuilder(
+                                            builder: (context, constraints) {
+                                              final available =
+                                                  constraints.maxWidth;
+                                              if (ordered.isEmpty ||
+                                                  available.isInfinite ||
+                                                  available <= 0) {
+                                                return const SizedBox.shrink();
+                                              }
+
+                                              // Prepare display strings and measure widths using current theme.
+                                              final textStyle =
+                                                  theme.textTheme.bodyMedium ??
+                                                  const TextStyle();
+                                              final items = ordered.map((e) {
+                                                final kind = registry.byId(
+                                                  e.key,
+                                                );
+                                                final unit = kind?.unit ?? '';
+                                                final originalValue =
+                                                    selectedAmounts[e.key] ?? 0;
+                                                final formattedValue =
+                                                    originalValue < 1
+                                                    ? originalValue
+                                                          .toStringAsFixed(2)
+                                                    : originalValue
+                                                          .toStringAsFixed(0);
+                                                final label =
+                                                    kind?.displayName ?? e.key;
+                                                final text =
+                                                    '$label: $formattedValue$unit';
+                                                // Measure text width
+                                                final tp =
+                                                    TextPainter(
+                                                      text: TextSpan(
+                                                        text: text,
+                                                        style: textStyle,
+                                                      ),
+                                                      textDirection:
+                                                          TextDirection.ltr,
+                                                      maxLines: 1,
+                                                    )..layout(
+                                                      minWidth: 0,
+                                                      maxWidth: double.infinity,
+                                                    );
+                                                final textWidth = tp.size.width;
+                                                // Cell width = dot(16) + gap(8) + text
+                                                final cellWidth =
+                                                    16.0 + 8.0 + textWidth;
+                                                return (
+                                                  key: e.key,
+                                                  label: label,
+                                                  value: formattedValue,
+                                                  unit: unit,
+                                                  color:
+                                                      kind?.accentColor ??
+                                                      theme.colorScheme.primary,
+                                                  cellWidth: cellWidth,
+                                                );
+                                              }).toList();
+
+                                              const columnGap =
+                                                  16.0; // spacing between columns
+
+                                              // Try from max columns down to 1 to find the widest that fits.
+                                              int count = items.length;
+                                              int chosenCols = 1;
+                                              List<double> chosenColWidths = [
+                                                items
+                                                    .map((it) => it.cellWidth)
+                                                    .fold(
+                                                      0.0,
+                                                      (a, b) => a > b ? a : b,
+                                                    ),
+                                              ];
+
+                                              for (
+                                                int cols = count;
+                                                cols >= 1;
+                                                cols--
+                                              ) {
+                                                // Distribute items row-wise: index % cols → column index
+                                                final colWidths =
+                                                    List<double>.filled(
+                                                      cols,
+                                                      0.0,
+                                                    );
+                                                for (
+                                                  int idx = 0;
+                                                  idx < count;
+                                                  idx++
+                                                ) {
+                                                  final c = idx % cols;
+                                                  final w =
+                                                      items[idx].cellWidth;
+                                                  if (w > colWidths[c])
+                                                    colWidths[c] = w;
+                                                }
+                                                final totalWidth =
+                                                    colWidths.fold(
+                                                      0.0,
+                                                      (a, b) => a + b,
+                                                    ) +
+                                                    columnGap * (cols - 1);
+                                                if (totalWidth <= available) {
+                                                  chosenCols = cols;
+                                                  chosenColWidths = colWidths;
+                                                  break;
+                                                }
+                                              }
+
+                                              // Build rows
+                                              final rows = <Widget>[];
+                                              final rowCount =
+                                                  (count / chosenCols).ceil();
+
+                                              int idx = 0;
+                                              for (
+                                                int r = 0;
+                                                r < rowCount;
+                                                r++
+                                              ) {
+                                                final cells = <Widget>[];
+                                                for (
+                                                  int c = 0;
+                                                  c < chosenCols;
+                                                  c++
+                                                ) {
+                                                  final colWidth =
+                                                      chosenColWidths[c];
+                                                  if (idx < count) {
+                                                    final it = items[idx++];
+                                                    cells.add(
+                                                      SizedBox(
+                                                        width: colWidth,
+                                                        child: Padding(
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                vertical: 4,
+                                                              ),
+                                                          child: Row(
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .min,
+                                                            children: [
+                                                              Container(
+                                                                width: 16,
+                                                                height: 16,
+                                                                decoration:
+                                                                    BoxDecoration(
+                                                                      color: it
+                                                                          .color,
+                                                                      shape: BoxShape
+                                                                          .circle,
+                                                                    ),
+                                                              ),
+                                                              const SizedBox(
+                                                                width: 8,
+                                                              ),
+                                                              // Single-line text; let it ellipsize if column too tight
+                                                              Expanded(
+                                                                child: Text(
+                                                                  '${it.label}: ${it.value}${it.unit}',
+                                                                  style:
+                                                                      textStyle,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  maxLines: 1,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  } else {
+                                                    // Empty spacer to keep grid alignment on last row
+                                                    cells.add(
+                                                      SizedBox(width: colWidth),
+                                                    );
+                                                  }
+                                                  if (c != chosenCols - 1) {
+                                                    cells.add(
+                                                      const SizedBox(
+                                                        width: columnGap,
+                                                      ),
+                                                    );
+                                                  }
+                                                }
+                                                rows.add(Row(children: cells));
+                                              }
+
+                                              return Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: rows,
+                                              );
+                                            },
                                           );
-                                        }).toList(),
+                                        },
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
+
+                          const Divider(height: 1),
+                          // Inline Add control
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  tooltip: 'Add',
+                                  onPressed: () => showCreateActionSheet(
+                                    context,
+                                    ref,
+                                    targetForAdd(),
+                                  ),
+                                  icon: const Icon(Icons.add_circle_outline),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Add to ${_fmtYmd(targetForAdd())}',
+                                  style: theme.textTheme.titleSmall,
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
+
                     const Divider(height: 1),
 
                     // The weekly list itself
@@ -806,6 +1189,7 @@ class ActiveWeekPage extends ConsumerWidget {
 class TriStateChipSimple extends StatelessWidget {
   final ChipMode mode;
   final ValueChanged<ChipMode> onChanged;
+
   const TriStateChipSimple({required this.mode, required this.onChanged});
 
   @override
@@ -842,14 +1226,18 @@ class TriStateChipSimple extends StatelessWidget {
           Expanded(
             child: InkWell(
               // Include segment: toggle behavior — clicking the active segment disables it (goes Off)
-              onTap: () => onChanged(mode == ChipMode.include ? ChipMode.off : ChipMode.include),
+              onTap: () => onChanged(
+                mode == ChipMode.include ? ChipMode.off : ChipMode.include,
+              ),
               child: Container(color: segColor(ChipMode.include)),
             ),
           ),
           Expanded(
             child: InkWell(
               // Exclude segment: toggle behavior — clicking the active segment disables it (goes Off)
-              onTap: () => onChanged(mode == ChipMode.exclude ? ChipMode.off : ChipMode.exclude),
+              onTap: () => onChanged(
+                mode == ChipMode.exclude ? ChipMode.off : ChipMode.exclude,
+              ),
               child: Container(color: segColor(ChipMode.exclude)),
             ),
           ),
@@ -863,6 +1251,7 @@ class TriStateChipSimple extends StatelessWidget {
 class _ResetChip extends StatelessWidget {
   final bool enabled;
   final VoidCallback onPressed;
+
   const _ResetChip({required this.enabled, required this.onPressed});
 
   @override
@@ -900,14 +1289,19 @@ class _RowItem {
   final _RowType type;
   final DateTime? date;
   final EntryRecord? entry;
+
   const _RowItem._(this.type, {this.date, this.entry});
+
   factory _RowItem.header(DateTime d) => _RowItem._(_RowType.header, date: d);
+
   factory _RowItem.entry(EntryRecord e) => _RowItem._(_RowType.entry, entry: e);
 }
 
 class _DayHeader extends StatelessWidget {
   const _DayHeader({required this.date});
+
   final DateTime date;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
