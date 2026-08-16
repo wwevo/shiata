@@ -31,11 +31,11 @@ class _DbLifecycleObserverState extends State<DbLifecycleObserver>
         dbHandle.closeDb();
         break;
       case AppLifecycleState.detached:
-        // App is terminating; ensure DB is closed.
         dbHandle.closeDb();
         break;
       default:
-        // Ignore other transient states like inactive to avoid noisy open/close cycles on desktop.
+      // Ignore other transient states like inactive to avoid noisy
+      // open/close cycles on desktop.
         break;
     }
   }

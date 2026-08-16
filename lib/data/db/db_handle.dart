@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'db_open.dart';
 
-/// Holds the lifecycle of the encrypted DB executor and exposes open/close.
+/// Holds the lifecycle of the encrypted DB executor.
 class DbHandle extends AsyncNotifier<QueryExecutor?> {
   QueryExecutor? _executor;
 
@@ -18,7 +18,6 @@ class DbHandle extends AsyncNotifier<QueryExecutor?> {
   }
 
   Future<void> openDb() async {
-    // If already open or currently opening, no-op.
     if (_executor != null || state.isLoading) return;
     state = const AsyncLoading();
     try {
@@ -37,7 +36,6 @@ class DbHandle extends AsyncNotifier<QueryExecutor?> {
     final exec = _executor;
     if (exec == null) return;
     try {
-      // Attempt to close if supported.
       if (exec is QueryExecutorUser) {
         await exec.close();
       } else {
@@ -54,7 +52,6 @@ class DbHandle extends AsyncNotifier<QueryExecutor?> {
     }
   }
 
-  /// Danger: Wipes the local DB file. Use for testing only.
   Future<void> wipeDb({String dbFileName = 'app.db'}) async {
     debugPrint('[DB][WIPE] Requested wipe');
     await closeDb();
