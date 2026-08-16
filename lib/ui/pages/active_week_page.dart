@@ -451,427 +451,53 @@ class ActiveWeekPage extends ConsumerWidget {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Container(
-                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                          child: Column(
-                            children: [
-                              const SizedBox(height: 12),
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-                                child: Wrap(
-                                  spacing: 8,
-                                  runSpacing: 4,
-                                  children: [
-                                    ...registry.kinds
-                                        .where((kind) => availableKindIds.contains(kind.id))
-                                        .map((kind) {
-                                      final mode = currentModes[kind.id] ?? ChipMode.include;
-                                      final Color dotColor = switch (mode) {
-                                        ChipMode.include => Colors.green,
-                                        ChipMode.exclude => Colors.orange,
-                                        ChipMode.off => Theme.of(context).colorScheme.surface,
-                                      };
-                                      final avatar = Container(
-                                        width: 10,
-                                        height: 10,
-                                        decoration: BoxDecoration(
-                                          color: mode == ChipMode.off ? Theme.of(context).colorScheme.surface : dotColor,
-                                          border: Border.all(
-                                            color: mode == ChipMode.off
-                                                ? Theme.of(context).colorScheme.outline
-                                                : dotColor,
-                                            width: 1.2,
-                                          ),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      );
-                                      if (defaultTargetPlatform == TargetPlatform.linux) {
-                                        return Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            TriStateChipSimple(
-                                              mode: mode,
-                                              onChanged: (m) => ref.read(weekKindSelectionProvider.notifier).setKindMode(
-                                                    weekKey,
-                                                    kind.id,
-                                                    m,
-                                                    current: currentModes,
-                                                  ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              kind.displayName,
-                                              style: Theme.of(context).textTheme.bodySmall,
-                                            ),
-                                          ],
-                                        );
-                                      } else {
-                                        return GestureDetector(
-                                          onLongPress: () async {
-                                            final choice = await showModalBottomSheet<ChipMode>(
-                                              context: context,
-                                              builder: (ctx) => SafeArea(
-                                                child: Column(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    ListTile(
-                                                      title: const Text('Include'),
-                                                      onTap: () => Navigator.pop(ctx, ChipMode.include),
-                                                    ),
-                                                    ListTile(
-                                                      title: const Text('Exclude'),
-                                                      onTap: () => Navigator.pop(ctx, ChipMode.exclude),
-                                                    ),
-                                                    ListTile(
-                                                      title: const Text('Off'),
-                                                      onTap: () => Navigator.pop(ctx, ChipMode.off),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            );
-                                            if (choice != null) {
-                                              ref.read(weekKindSelectionProvider.notifier).setKindMode(
-                                                    weekKey,
-                                                    kind.id,
-                                                    choice,
-                                                    current: currentModes,
-                                                  );
-                                            }
-                                          },
-                                          child: FilterChip(
-                                            avatar: avatar,
-                                            label: Text(kind.displayName),
-                                            selected: mode != ChipMode.off,
-                                            visualDensity: VisualDensity.compact,
-                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                            labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-                                            labelStyle: Theme.of(context).textTheme.bodySmall,
-                                            onSelected: (_) {
-                                              final next = (mode == ChipMode.off) ? ChipMode.include : ChipMode.off;
-                                              ref.read(weekKindSelectionProvider.notifier).setKindMode(
-                                                    weekKey,
-                                                    kind.id,
-                                                    next,
-                                                    current: currentModes,
-                                                  );
-                                            },
-                                          ),
-                                        );
-                                      }
-                                    }),
-                                    _ResetChip(
-                                      enabled: (selectionState?.isCustomized ?? false) &&
-                                          !_WeekKindSelectionController._mapEquals(
-                                            currentModes,
-                                            {for (final k in defaultKinds) k: ChipMode.off},
-                                          ),
-                                      onPressed: () {
-                                        ref.read(weekKindSelectionProvider.notifier).resetToDefaults(weekKey, defaultKinds);
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Divider(height: 1),
-                              if (normalizedSelected.isEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-                                  child: Text(
-                                    includedKinds.isEmpty ? 'Select kinds above to see chart' : 'No data for selected kinds',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                                      ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                )
-                              else
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-                                  child: Row(
-                                    children: [
-                                      SizedBox(
-                                        width: 140,
-                                        height: 140,
-                                        child: Stack(
-                                          alignment: Alignment.center,
-                                          children: [
-                                            PieChart(
-                                              PieChartData(
-                                                sections: normalizedSelected.entries.map((entry) {
-                                                  final kind = registry.byId(entry.key);
-                                                  final color = kind?.accentColor ?? theme.colorScheme.primary;
-                                                  return PieChartSectionData(
-                                                    value: entry.value,
-                                                    title: '',
-                                                    color: color,
-                                                    radius: 50,
-                                                  );
-                                                }).toList(),
-                                                sectionsSpace: 2,
-                                                centerSpaceRadius: 28,
-                                                centerSpaceColor: theme.colorScheme.surface,
-                                              ),
-                                            ),
-                                            Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  '${totals.$3.toStringAsFixed(0)}%',
-                                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                                                ),
-                                                Text(
-                                                  'of week',
-                                                  style: theme.textTheme.labelSmall?.copyWith(
-                                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 24),
-                                      Expanded(
-                                        child: SingleChildScrollView(
-                                          child: Builder(
-                                            builder: (context) {
-                                              String labelFor(String id) => registry.byId(id)?.displayName ?? id;
-                                              String unitFor(String id) => registry.byId(id)?.unit ?? '';
-                                              String valueTextFor(String id) {
-                                                final v = selectedAmounts[id] ?? 0;
-                                                return v < 1 ? v.toStringAsFixed(2) : v.toStringAsFixed(0);
-                                              }
+                        _WeekFiltersBar(
+                          theme: theme,
+                          registry: registry,
+                          availableKindIds: availableKindIds,
+                          weekKey: weekKey,
+                          currentModes: currentModes,
+                          defaultKinds: defaultKinds,
+                          selectionState: selectionState,
+                        ),
 
-                                              final sorted = normalizedSelected.entries.map((e) {
-                                                final label = labelFor(e.key);
-                                                final txt = valueTextFor(e.key) + unitFor(e.key);
-                                                final len = label.length + 1 + txt.length;
-                                                return (entry: e, len: len, label: label, valueText: txt);
-                                              }).toList()
-                                                ..sort((a, b) {
-                                                  final c = b.len.compareTo(a.len);
-                                                  if (c != 0) return c;
-                                                  return a.label.toLowerCase().compareTo(b.label.toLowerCase());
-                                                });
+                        _WeekSummarySection(
+                          theme: theme,
+                          registry: registry,
+                          normalizedSelected: normalizedSelected,
+                          pctOfWeek: totals.$3,
+                          selectedAmounts: selectedAmounts,
+                          includedKinds: includedKinds,
+                        ),
 
-                                              final ordered = <MapEntry<String, double>>[];
-                                              int i = 0, j = sorted.length - 1;
-                                              var takeLongest = true;
-                                              while (i <= j) {
-                                                if (takeLongest) {
-                                                  ordered.add(sorted[i].entry);
-                                                  i++;
-                                                } else {
-                                                  ordered.add(sorted[j].entry);
-                                                  j--;
-                                                }
-                                                takeLongest = !takeLongest;
-                                              }
+                        const Divider(height: 1),
 
-                                              return LayoutBuilder(
-                                                builder: (context, constraints) {
-                                                  final available = constraints.maxWidth;
-                                                  if (ordered.isEmpty || available.isInfinite || available <= 0) {
-                                                    return const SizedBox.shrink();
-                                                  }
-
-                                                  final textStyle = theme.textTheme.bodyMedium ?? const TextStyle();
-                                                  final items = ordered.map((e) {
-                                                    final kind = registry.byId(e.key);
-                                                    final unit = kind?.unit ?? '';
-                                                    final originalValue = selectedAmounts[e.key] ?? 0;
-                                                    final formattedValue = originalValue < 1
-                                                        ? originalValue.toStringAsFixed(2)
-                                                        : originalValue.toStringAsFixed(0);
-                                                    final label = kind?.displayName ?? e.key;
-                                                    final text = '$label: $formattedValue$unit';
-                                                    final tp = TextPainter(
-                                                      text: TextSpan(text: text, style: textStyle),
-                                                      textDirection: TextDirection.ltr,
-                                                      maxLines: 1,
-                                                    )..layout(minWidth: 0, maxWidth: double.infinity);
-                                                    final textWidth = tp.size.width;
-                                                    final cellWidth = 16.0 + 8.0 + textWidth;
-                                                    return (
-                                                      key: e.key,
-                                                      label: label,
-                                                      value: formattedValue,
-                                                      unit: unit,
-                                                      color: kind?.accentColor ?? theme.colorScheme.primary,
-                                                      cellWidth: cellWidth,
-                                                    );
-                                                  }).toList();
-
-                                                  const columnGap = 16.0;
-                                                  int count = items.length;
-                                                  int chosenCols = 1;
-                                                  List<double> chosenColWidths = [
-                                                    items.map((it) => it.cellWidth).fold(0.0, (a, b) => a > b ? a : b),
-                                                  ];
-
-                                                  for (int cols = count; cols >= 1; cols--) {
-                                                    final colWidths = List<double>.filled(cols, 0.0);
-                                                    for (int idx = 0; idx < count; idx++) {
-                                                      final c = idx % cols;
-                                                      final w = items[idx].cellWidth;
-                                                      if (w > colWidths[c]) colWidths[c] = w;
-                                                    }
-                                                    final totalWidth = colWidths.fold(0.0, (a, b) => a + b) + columnGap * (cols - 1);
-                                                    if (totalWidth <= available) {
-                                                      chosenCols = cols;
-                                                      chosenColWidths = colWidths;
-                                                      break;
-                                                    }
-                                                  }
-
-                                                  final legendRows = <Widget>[];
-                                                  final rowCount = (count / chosenCols).ceil();
-                                                  int idx = 0;
-                                                  for (int r = 0; r < rowCount; r++) {
-                                                    final cells = <Widget>[];
-                                                    for (
-                                                  int c = 0;
-                                                  c < chosenCols;
-                                                  c++
-                                                ) {
-                                                  final colWidth =
-                                                      chosenColWidths[c];
-                                                  if (idx < count) {
-                                                    final it = items[idx++];
-                                                    cells.add(
-                                                      SizedBox(
-                                                        width: colWidth,
-                                                        child: Padding(
-                                                          padding:
-                                                              const EdgeInsets.symmetric(
-                                                                vertical: 4,
-                                                              ),
-                                                          child: Row(
-                                                            mainAxisSize:
-                                                                MainAxisSize
-                                                                    .min,
-                                                            children: [
-                                                              Container(
-                                                                width: 16,
-                                                                height: 16,
-                                                                decoration:
-                                                                    BoxDecoration(
-                                                                      color: it
-                                                                          .color,
-                                                                      shape: BoxShape
-                                                                          .circle,
-                                                                    ),
-                                                              ),
-                                                              const SizedBox(
-                                                                width: 8,
-                                                              ),
-                                                              // Single-line text; let it ellipsize if column too tight
-                                                              Expanded(
-                                                                child: Text(
-                                                                  '${it.label}: ${it.value}${it.unit}',
-                                                                  style:
-                                                                      textStyle,
-                                                                  overflow:
-                                                                      TextOverflow
-                                                                          .ellipsis,
-                                                                  maxLines: 1,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    );
-                                                  } else {
-                                                    // Empty spacer to keep grid alignment on last row
-                                                    cells.add(
-                                                      SizedBox(width: colWidth),
-                                                    );
-                                                  }
-                                                  if (c != chosenCols - 1) {
-                                                    cells.add(
-                                                      const SizedBox(
-                                                        width: columnGap,
-                                                      ),
-                                                    );
-                                                  }
-                                                }
-                                                legendRows.add(Row(children: cells));
-                                              }
-
-                                              return Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: legendRows,
-                                              );
-                                            },
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                          const Divider(height: 1),
-                          // Inline Add control
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-                            child: Row(
-                              children: [
-                                IconButton(
-                                  tooltip: 'Add',
-                                  onPressed: () => showCreateActionSheet(
-                                    context,
-                                    ref,
-                                    targetForAdd(),
-                                  ),
-                                  icon: const Icon(Icons.add_circle_outline),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Add to ${_fmtYmd(targetForAdd())}',
-                                  style: theme.textTheme.titleSmall,
-                                ),
-                              ],
-                            ),
+                        _InlineAddControl(
+                          theme: theme,
+                          onAdd: () => showCreateActionSheet(
+                            context,
+                            ref,
+                            targetForAdd(),
                           ),
-                        ],
-                      ),
-                    ),
+                          label: 'Add to ${_fmtYmd(targetForAdd())}',
+                        ),
 
-                    const Divider(height: 1),
+                        const Divider(height: 1),
 
-                    // The weekly list itself
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: rows.length,
-                        itemBuilder: (ctx, i) {
-                          final item = rows[i];
-                          switch (item.type) {
-                            case _RowType.header:
-                              return _DayHeader(date: item.date!);
-                            case _RowType.entry:
-                              return EntryListItemFactory.buildEntry(
-                                context: context,
-                                ref: ref,
-                                entry: item.entry!,
-                                childrenByParent: ref.watch(weekChildrenByParentProvider(monday)),
-                                registry: registry,
-                                config: EntryListItemConfig.dayDetails,
-                              );
-                          }
-                        },
-                      ),
-                    ),
-                  ],
+                        // The weekly list itself
+                        Expanded(
+                          child: _WeeklyRowsList(
+                            monday: monday,
+                            rows: rows,
+                            registry: registry,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 );
               },
-            );
-          },
-        ),
+            ),
           ),
         ],
       ),
@@ -973,6 +599,430 @@ class _ResetChip extends StatelessWidget {
         label: 'Reset to week\'s kinds',
         child: chip,
       ),
+    );
+  }
+}
+
+// Filters bar (kinds chips + Reset) extracted as a leaf widget
+class _WeekFiltersBar extends ConsumerWidget {
+  const _WeekFiltersBar({
+    required this.theme,
+    required this.registry,
+    required this.availableKindIds,
+    required this.weekKey,
+    required this.currentModes,
+    required this.defaultKinds,
+    required this.selectionState,
+  });
+
+  final ThemeData theme;
+  final WidgetRegistry registry;
+  final Set<String> availableKindIds;
+  final String weekKey;
+  final Map<String, ChipMode> currentModes;
+  final Set<String> defaultKinds;
+  final _WeekSelectionState? selectionState;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                ...registry.kinds
+                    .where((kind) => availableKindIds.contains(kind.id))
+                    .map((kind) {
+                  final mode = currentModes[kind.id] ?? ChipMode.include;
+                  return _KindModeChip(
+                    label: kind.displayName,
+                    mode: mode,
+                    onChanged: (next) => ref.read(weekKindSelectionProvider.notifier).setKindMode(
+                          weekKey,
+                          kind.id,
+                          next,
+                          current: currentModes,
+                        ),
+                  );
+                }),
+                _ResetChip(
+                  enabled: (selectionState?.isCustomized ?? false) &&
+                      !_WeekKindSelectionController._mapEquals(
+                        currentModes,
+                        {for (final k in defaultKinds) k: ChipMode.off},
+                      ),
+                  onPressed: () {
+                    ref.read(weekKindSelectionProvider.notifier).resetToDefaults(weekKey, defaultKinds);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Platform-agnostic kind mode chip: wraps Linux tri-state and mobile FilterChip interactions
+class _KindModeChip extends StatelessWidget {
+  const _KindModeChip({
+    required this.label,
+    required this.mode,
+    required this.onChanged,
+  });
+
+  final String label;
+  final ChipMode mode;
+  final ValueChanged<ChipMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    // Compute small avatar dot to match previous UI for non-Linux path
+    final Color dotColor = switch (mode) {
+      ChipMode.include => Colors.green,
+      ChipMode.exclude => Colors.orange,
+      ChipMode.off => Theme.of(context).colorScheme.surface,
+    };
+    final avatar = Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        color: mode == ChipMode.off ? Theme.of(context).colorScheme.surface : dotColor,
+        border: Border.all(
+          color: mode == ChipMode.off ? Theme.of(context).colorScheme.outline : dotColor,
+          width: 1.2,
+        ),
+        shape: BoxShape.circle,
+      ),
+    );
+
+    if (defaultTargetPlatform == TargetPlatform.linux) {
+      // Preserve Linux behavior: tri-state control + text label
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TriStateChipSimple(
+            mode: mode,
+            onChanged: onChanged,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      );
+    }
+
+    // Non-Linux: FilterChip that toggles off/include on tap and supports long-press modal for all modes
+    return GestureDetector(
+      onLongPress: () async {
+        final choice = await showModalBottomSheet<ChipMode>(
+          context: context,
+          builder: (ctx) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: const Text('Include'),
+                  onTap: () => Navigator.pop(ctx, ChipMode.include),
+                ),
+                ListTile(
+                  title: const Text('Exclude'),
+                  onTap: () => Navigator.pop(ctx, ChipMode.exclude),
+                ),
+                ListTile(
+                  title: const Text('Off'),
+                  onTap: () => Navigator.pop(ctx, ChipMode.off),
+                ),
+              ],
+            ),
+          ),
+        );
+        if (choice != null) {
+          onChanged(choice);
+        }
+      },
+      child: FilterChip(
+        avatar: avatar,
+        label: Text(label),
+        selected: mode != ChipMode.off,
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+        labelStyle: Theme.of(context).textTheme.bodySmall,
+        onSelected: (_) {
+          final next = (mode == ChipMode.off) ? ChipMode.include : ChipMode.off;
+          onChanged(next);
+        },
+      ),
+    );
+  }
+}
+
+// Summary section (empty state or pie + legend), logic preserved
+class _WeekSummarySection extends StatelessWidget {
+  const _WeekSummarySection({
+    required this.theme,
+    required this.registry,
+    required this.normalizedSelected,
+    required this.pctOfWeek,
+    required this.selectedAmounts,
+    required this.includedKinds,
+  });
+
+  final ThemeData theme;
+  final WidgetRegistry registry;
+  final Map<String, double> normalizedSelected;
+  final double pctOfWeek;
+  final Map<String, double> selectedAmounts;
+  final Set<String> includedKinds;
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget content = normalizedSelected.isEmpty
+        ? Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+            child: Text(
+              includedKinds.isEmpty
+                  ? 'Select kinds above to see chart'
+                  : 'No data for selected kinds',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          )
+        : Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 140,
+                  height: 140,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      PieChart(
+                        PieChartData(
+                          sections: normalizedSelected.entries.map((entry) {
+                            final kind = registry.byId(entry.key);
+                            final color = kind?.accentColor ?? theme.colorScheme.primary;
+                            return PieChartSectionData(
+                              value: entry.value,
+                              title: '',
+                              color: color,
+                              radius: 50,
+                            );
+                          }).toList(),
+                          sectionsSpace: 2,
+                          centerSpaceRadius: 28,
+                          centerSpaceColor: theme.colorScheme.surface,
+                        ),
+                      ),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${pctOfWeek.toStringAsFixed(0)}%',
+                            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          Text(
+                            'of week',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Builder(
+                      builder: (context) {
+                        // Keep original sorting and interleaving (longest, shortest, ...) to preserve intent.
+                        String labelFor(String id) => registry.byId(id)?.displayName ?? id;
+                        String unitFor(String id) => registry.byId(id)?.unit ?? '';
+                        String valueTextFor(String id) {
+                          final v = selectedAmounts[id] ?? 0;
+                          return v < 1 ? v.toStringAsFixed(2) : v.toStringAsFixed(0);
+                        }
+
+                        final sorted = normalizedSelected.entries
+                            .map((e) {
+                              final label = labelFor(e.key);
+                              final txt = valueTextFor(e.key) + unitFor(e.key);
+                              final len = label.length + 1 + txt.length;
+                              return (entry: e, len: len, label: label);
+                            })
+                            .toList()
+                          ..sort((a, b) {
+                            final c = b.len.compareTo(a.len);
+                            if (c != 0) return c;
+                            return a.label.toLowerCase().compareTo(b.label.toLowerCase());
+                          });
+
+                        final ordered = <MapEntry<String, double>>[];
+                        int i = 0, j = sorted.length - 1;
+                        var takeLongest = true;
+                        while (i <= j) {
+                          if (takeLongest) {
+                            ordered.add(sorted[i].entry);
+                            i++;
+                          } else {
+                            ordered.add(sorted[j].entry);
+                            j--;
+                          }
+                          takeLongest = !takeLongest;
+                        }
+
+                        if (ordered.isEmpty) return const SizedBox.shrink();
+
+                        final textStyle = theme.textTheme.bodyMedium ?? const TextStyle();
+                        final items = ordered.map((e) {
+                          final kind = registry.byId(e.key);
+                          final unit = kind?.unit ?? '';
+                          final originalValue = selectedAmounts[e.key] ?? 0;
+                          final formattedValue = originalValue < 1
+                              ? originalValue.toStringAsFixed(2)
+                              : originalValue.toStringAsFixed(0);
+                          final label = kind?.displayName ?? e.key;
+                          final color = kind?.accentColor ?? theme.colorScheme.primary;
+                          return (
+                            label: label,
+                            value: formattedValue,
+                            unit: unit,
+                            color: color,
+                          );
+                        }).toList();
+
+                        // Simplified, adaptive legend grid: no TextPainter/layout math.
+                        return GridView.builder(
+                          primary: false,
+                          shrinkWrap: true,
+                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 280,
+                            mainAxisExtent: 28,
+                            mainAxisSpacing: 4,
+                            crossAxisSpacing: 16,
+                          ),
+                          itemCount: items.length,
+                          itemBuilder: (ctx, idx) {
+                            final it = items[idx];
+                            return Row(
+                              children: [
+                                Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: it.color,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '${it.label}: ${it.value}${it.unit}',
+                                    style: textStyle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+
+    return Column(
+      children: [
+        const Divider(height: 1),
+        content,
+      ],
+    );
+  }
+}
+
+class _InlineAddControl extends StatelessWidget {
+  const _InlineAddControl({
+    required this.theme,
+    required this.onAdd,
+    required this.label,
+  });
+
+  final ThemeData theme;
+  final VoidCallback onAdd;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Add',
+            onPressed: onAdd,
+            icon: const Icon(Icons.add_circle_outline),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: theme.textTheme.titleSmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WeeklyRowsList extends ConsumerWidget {
+  const _WeeklyRowsList({
+    required this.monday,
+    required this.rows,
+    required this.registry,
+  });
+
+  final DateTime monday;
+  final List<_RowItem> rows;
+  final WidgetRegistry registry;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListView.builder(
+      itemCount: rows.length,
+      itemBuilder: (ctx, i) {
+        final item = rows[i];
+        switch (item.type) {
+          case _RowType.header:
+            return _DayHeader(date: item.date!);
+          case _RowType.entry:
+            return EntryListItemFactory.buildEntry(
+              context: context,
+              ref: ref,
+              entry: item.entry!,
+              childrenByParent: ref.watch(weekChildrenByParentProvider(monday)),
+              registry: registry,
+              config: EntryListItemConfig.dayDetails,
+            );
+        }
+      },
     );
   }
 }

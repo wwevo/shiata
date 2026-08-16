@@ -3,6 +3,7 @@
 #### [0.9.5] – 2026-08-16
 ##### Changed
 - Pie chart layout refined for better use of space.
+- Refactored active_week page for better human-readability.
 
 ---
 #### [0.9.4] – 2026-08-16
