@@ -5,10 +5,6 @@ import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../../utils/formatters.dart';
-// import '../editors/protein_editor.dart';
-// import '../editors/fat_editor.dart';
-// import '../editors/carbohydrate_editor.dart';
-import '../editors/kind_instance_editor_dialog.dart';
 import '../main_screen_providers.dart';
 import '../ux_config.dart';
 
@@ -60,10 +56,7 @@ class WeeklyCalendar extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final gridWidth = constraints.maxWidth - grid.padding * 2;
-        final gridHeight =
-            constraints.maxHeight -
-            grid.padding * 2 -
-            36; // reserve header height
+        final gridHeight = 44;
         if (gridWidth <= 0 || gridHeight <= grid.paintMinHeightPx) {
           return const SizedBox.shrink();
         }
@@ -81,29 +74,33 @@ class WeeklyCalendar extends ConsumerWidget {
         final startLocal = firstCellLocal;
         final endLocal = firstCellLocal.add(Duration(days: daysToShow));
 
-        final header = Padding(
-          padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: 'Previous week',
-                icon: const Icon(Icons.chevron_left),
-                onPressed: () => _changeRange(ref, anchor, -1),
-              ),
-              Expanded(
-                child: Center(
-                  child: Text(
-                    weekLabel(anchor),
-                    style: Theme.of(context).textTheme.titleSmall,
+        // The Date-Span header
+        final header = SizedBox(
+          height: 36,
+          child: Padding(
+            padding: const EdgeInsets.all(0),
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: 'Previous week',
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: () => _changeRange(ref, anchor, -1),
+                ),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      weekLabel(anchor),
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
                   ),
                 ),
-              ),
-              IconButton(
-                tooltip: 'Next week',
-                icon: const Icon(Icons.chevron_right),
-                onPressed: () => _changeRange(ref, anchor, 1),
-              ),
-            ],
+                IconButton(
+                  tooltip: 'Next week',
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: () => _changeRange(ref, anchor, 1),
+                ),
+              ],
+            ),
           ),
         );
 
@@ -142,6 +139,7 @@ class WeeklyCalendar extends ConsumerWidget {
                     entriesWithColor.add((entry: rec, color: Colors.purple));
                   }
                 }
+
                 // Cap visible dots at 4
                 final maxDots = 4;
                 final visible = entriesWithColor.take(maxDots).toList();
@@ -156,141 +154,114 @@ class WeeklyCalendar extends ConsumerWidget {
                     final cellW = cellConstraints.maxWidth;
                     // Guard: when cells are very small during animation, avoid laying out text/rows
                     const minContentH =
-                        28.0; // safe minimum to render text + dots
+                        36.0; // safe minimum to render text + dots
                     final canRenderContent =
                         cellH >= minContentH && cellW >= minContentH;
 
-                    final selected = ref.read(selectedDayProvider);
-                    final isSelected =
-                        selected != null &&
-                        selected.year == date.year &&
-                        selected.month == date.month &&
-                        selected.day == date.day;
-                    return GestureDetector(
-                      onTap: () {
-                        ref.read(selectedDayProvider.notifier).state = DateTime(
-                          date.year,
-                          date.month,
-                          date.day,
-                        );
-                        final newAnchor = date.subtract(
-                          Duration(days: date.weekday - 1),
-                        );
-                        ref.read(calendarAnchorProvider.notifier).state =
-                            newAnchor;
-                      },
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHighest
-                              .withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(8),
-                          border: isSelected
-                              ? Border.all(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  width: 2,
-                                )
-                              : null,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(6),
+                    return SizedBox(
+                      height: 44,
+                      width: double.infinity,
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: GestureDetector(
+                          onTap: () {
+                            ref.read(selectedDayProvider.notifier).state =
+                                DateTime(date.year, date.month, date.day);
+                            final newAnchor = date.subtract(
+                              Duration(days: date.weekday - 1),
+                            );
+                            ref.read(calendarAnchorProvider.notifier).state =
+                                newAnchor;
+                          },
+                          // No decoration, margins, or padding — just raw content
                           child: canRenderContent
-                              ? Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${date.day}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.fade,
-                                      softWrap: false,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelMedium
-                                          ?.copyWith(
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.onSurface,
-                                          ),
-                                    ),
-                                    const Spacer(),
-                                    if (visible.isNotEmpty)
-                                      Wrap(
-                                        spacing: 2,
-                                        runSpacing: 2,
-                                        children: [
-                                          for (final v in visible)
-                                            GestureDetector(
-                                              onTap: () {
-                                                final e = v.entry;
-                                                // Open editor directly for this entry
-                                                /*
-                                                if (e.widgetKind == 'protein') {
-                                                  Navigator.of(context).push(
-                                                    MaterialPageRoute(builder: (_) => ProteinEditorScreen(entryId: e.id)),
-                                                  );
-                                                } else if (e.widgetKind == 'fat') {
-                                                  Navigator.of(context).push(
-                                                    MaterialPageRoute(builder: (_) => FatEditorScreen(entryId: e.id)),
-                                                  );
-                                                } else if (e.widgetKind == 'carbohydrate') {
-                                                  Navigator.of(context).push(
-                                                    MaterialPageRoute(builder: (_) => CarbohydrateEditorScreen(entryId: e.id)),
-                                                  );
-                                                } else {
-*/
-                                                final k = registry.byId(
-                                                  e.widgetKind,
-                                                );
-                                                if (k != null) {
-                                                  /*                                                  Navigator.of(context).push(
-                                                    MaterialPageRoute(builder: (_) => KindInstanceEditorScreen(kind: k, entryId: e.id)),
-                                                  );*/
-                                                  showDialog(
-                                                    context: context,
-                                                    builder: (_) =>
-                                                        KindInstanceEditorDialog(
-                                                          kind: k,
-                                                          entryId: e.id,
-                                                        ),
-                                                  );
-                                                }
-                                                //                                                }
-                                              },
-                                              child: Container(
+                              ? FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  // shrink if needed, never grow past 44
+                                  alignment: Alignment.topLeft,
+                                  // stick to top-left
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // Day label with compact line height (no extra leading)
+                                      Text(
+                                        '${date.day}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.fade,
+                                        softWrap: false,
+                                        textHeightBehavior:
+                                            const TextHeightBehavior(
+                                              applyHeightToFirstAscent: false,
+                                              applyHeightToLastDescent: false,
+                                            ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelMedium
+                                            ?.copyWith(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurface,
+                                              height: 1.0,
+                                              leadingDistribution:
+                                                  TextLeadingDistribution.even,
+                                            ),
+                                      ),
+
+                                      const SizedBox(height: 2),
+
+                                      // tiny gap (will also scale if needed)
+                                      if (visible.isNotEmpty)
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            for (
+                                              int i = 0;
+                                              i < visible.length;
+                                              i++
+                                            ) ...[
+                                              Container(
                                                 width: 8,
                                                 height: 8,
                                                 decoration: BoxDecoration(
-                                                  color: v.color,
+                                                  color: visible[i].color,
                                                   shape: BoxShape.circle,
                                                 ),
                                               ),
-                                            ),
-                                          if (overflow > 0)
-                                            GestureDetector(
-                                              onTap: () {
-                                                // Select day to open Day Details
-                                                ref
-                                                    .read(
-                                                      selectedDayProvider
-                                                          .notifier,
-                                                    )
-                                                    .state = DateTime(
-                                                  date.year,
-                                                  date.month,
-                                                  date.day,
-                                                );
-                                              },
-                                              child: Text(
+                                              if (i != visible.length - 1)
+                                                const SizedBox(width: 2),
+                                            ],
+
+                                            if (overflow > 0) ...[
+                                              const SizedBox(width: 4),
+
+                                              Text(
                                                 '+$overflow',
-                                                style: Theme.of(
-                                                  context,
-                                                ).textTheme.labelSmall,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.clip,
+                                                textHeightBehavior:
+                                                    const TextHeightBehavior(
+                                                      applyHeightToFirstAscent:
+                                                          false,
+                                                      applyHeightToLastDescent:
+                                                          false,
+                                                    ),
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .labelSmall
+                                                    ?.copyWith(
+                                                      height: 1.0,
+                                                      leadingDistribution:
+                                                          TextLeadingDistribution
+                                                              .even,
+                                                    ),
                                               ),
-                                            ),
-                                        ],
-                                      ),
-                                  ],
+                                            ],
+                                          ],
+                                        ),
+                                    ],
+                                  ),
                                 )
                               : const SizedBox.shrink(),
                         ),
@@ -303,7 +274,6 @@ class WeeklyCalendar extends ConsumerWidget {
             if (!hasAny) {
               return Stack(
                 children: [
-                  gridView,
                   Center(
                     child: Text(
                       'No entries this week yet',
@@ -314,6 +284,7 @@ class WeeklyCalendar extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  gridView,
                 ],
               );
             } else {
@@ -322,21 +293,11 @@ class WeeklyCalendar extends ConsumerWidget {
           },
         );
 
-        return GestureDetector(
-          onHorizontalDragEnd: (details) {
-            final v = details.primaryVelocity ?? 0;
-            if (v < 0) {
-              _changeRange(ref, anchor, 1); // swipe left → next week
-            } else if (v > 0) {
-              _changeRange(ref, anchor, -1); // swipe right → previous week
-            }
-          },
-          child: Column(
-            children: [
-              header,
-              Expanded(child: gridWidget),
-            ],
-          ),
+        return Column(
+          children: [
+            header,
+            SizedBox(height: 44, child: gridWidget),
+          ],
         );
       },
     );

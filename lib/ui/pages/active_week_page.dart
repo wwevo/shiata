@@ -1,8 +1,7 @@
 import 'dart:convert';
 
 import 'package:fl_chart/fl_chart.dart';
-import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,7 +18,7 @@ enum ChipMode { off, include, exclude }
 
 // Per-week selection state for the ActiveWeek chart
 class _WeekSelectionState {
-  final Map<String, ChipMode> kindModes; // kindId -> mode
+  final Map<String, ChipMode> kindModes;
   final bool isCustomized;
 
   const _WeekSelectionState({
@@ -61,7 +60,7 @@ class _WeekKindSelectionController
     );
   }
 
-  // Initialize with all provided kind ids set to off (neutral)
+  // Initialize with all provided kind ids set to off
   void initializeIfNeeded(String weekKey, Set<String> defaults) {
     if (!state.containsKey(weekKey)) {
       final modes = <String, ChipMode>{
@@ -293,13 +292,25 @@ final weekNormalizedSelectedProvider = Provider.family<Map<String, double>, Date
   return out;
 });
 
-final weekTotalsProvider = Provider.family<(double totalAll, double totalSelected, double pct), DateTime>((ref, monday) {
+// Compatibility-friendly totals container (avoids Dart record types)
+class _WeekTotals {
+  final double totalAll;
+  final double totalSelected;
+  final double pct;
+  const _WeekTotals({
+    required this.totalAll,
+    required this.totalSelected,
+    required this.pct,
+  });
+}
+
+final weekTotalsProvider = Provider.family<_WeekTotals, DateTime>((ref, monday) {
   final allN = ref.watch(weekNormalizedAllProvider(monday));
   final selN = ref.watch(weekNormalizedSelectedProvider(monday));
   final totalAll = allN.values.fold(0.0, (a, b) => a + b);
   final totalSel = selN.values.fold(0.0, (a, b) => a + b);
   final pct = totalAll == 0 ? 0.0 : (totalSel / totalAll * 100);
-  return (totalAll, totalSel, pct);
+  return _WeekTotals(totalAll: totalAll, totalSelected: totalSel, pct: pct);
 });
 
 final weekHiddenAncestorsProvider = Provider.family<Set<String>, DateTime>((ref, monday) {
@@ -451,21 +462,16 @@ class ActiveWeekPage extends ConsumerWidget {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _WeekFiltersBar(
-                          theme: theme,
-                          registry: registry,
-                          availableKindIds: availableKindIds,
-                          weekKey: weekKey,
-                          currentModes: currentModes,
-                          defaultKinds: defaultKinds,
-                          selectionState: selectionState,
-                        ),
-
                         _WeekSummarySection(
                           theme: theme,
                           registry: registry,
+                          weekKey: weekKey,
+                          currentModes: currentModes,
+                          availableKindIds: availableKindIds,
+                          normalizedAll: ref.watch(weekNormalizedAllProvider(monday)),
+                          amountsAll: ref.watch(weekAllAmountsProvider(monday)),
                           normalizedSelected: normalizedSelected,
-                          pctOfWeek: totals.$3,
+                          pctOfWeek: totals.pct,
                           selectedAmounts: selectedAmounts,
                           includedKinds: includedKinds,
                         ),
@@ -518,9 +524,9 @@ class TriStateChipSimple extends StatelessWidget {
     Color segColor(ChipMode m) {
       switch (m) {
         case ChipMode.include:
-          return Colors.green.withValues(alpha: m == mode ? 0.35 : 0.18);
+          return Colors.green.withOpacity(m == mode ? 0.60 : 0.18);
         case ChipMode.exclude:
-          return Colors.orange.withValues(alpha: m == mode ? 0.35 : 0.18);
+          return Colors.orange.withOpacity(m == mode ? 0.60 : 0.18);
         case ChipMode.off:
           return theme.colorScheme.surface;
       }
@@ -584,7 +590,7 @@ class _ResetChip extends StatelessWidget {
         size: 16,
         color: enabled
             ? theme.colorScheme.onSurface
-            : theme.colorScheme.onSurface.withValues(alpha: 0.38),
+            : theme.colorScheme.onSurface.withOpacity(0.38),
       ),
       label: Text('Reset', style: labelStyle),
       onPressed: enabled ? onPressed : null,
@@ -598,73 +604,6 @@ class _ResetChip extends StatelessWidget {
         enabled: enabled,
         label: 'Reset to week\'s kinds',
         child: chip,
-      ),
-    );
-  }
-}
-
-// Filters bar (kinds chips + Reset) extracted as a leaf widget
-class _WeekFiltersBar extends ConsumerWidget {
-  const _WeekFiltersBar({
-    required this.theme,
-    required this.registry,
-    required this.availableKindIds,
-    required this.weekKey,
-    required this.currentModes,
-    required this.defaultKinds,
-    required this.selectionState,
-  });
-
-  final ThemeData theme;
-  final WidgetRegistry registry;
-  final Set<String> availableKindIds;
-  final String weekKey;
-  final Map<String, ChipMode> currentModes;
-  final Set<String> defaultKinds;
-  final _WeekSelectionState? selectionState;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-      child: Column(
-        children: [
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                ...registry.kinds
-                    .where((kind) => availableKindIds.contains(kind.id))
-                    .map((kind) {
-                  final mode = currentModes[kind.id] ?? ChipMode.include;
-                  return _KindModeChip(
-                    label: kind.displayName,
-                    mode: mode,
-                    onChanged: (next) => ref.read(weekKindSelectionProvider.notifier).setKindMode(
-                          weekKey,
-                          kind.id,
-                          next,
-                          current: currentModes,
-                        ),
-                  );
-                }),
-                _ResetChip(
-                  enabled: (selectionState?.isCustomized ?? false) &&
-                      !_WeekKindSelectionController._mapEquals(
-                        currentModes,
-                        {for (final k in defaultKinds) k: ChipMode.off},
-                      ),
-                  onPressed: () {
-                    ref.read(weekKindSelectionProvider.notifier).resetToDefaults(weekKey, defaultKinds);
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -684,12 +623,18 @@ class _KindModeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Compute small avatar dot to match previous UI for non-Linux path
-    final Color dotColor = switch (mode) {
-      ChipMode.include => Colors.green,
-      ChipMode.exclude => Colors.orange,
-      ChipMode.off => Theme.of(context).colorScheme.surface,
-    };
+    Color dotColor;
+    switch (mode) {
+      case ChipMode.include:
+        dotColor = Colors.green;
+        break;
+      case ChipMode.exclude:
+        dotColor = Colors.orange;
+        break;
+      case ChipMode.off:
+        dotColor = Theme.of(context).colorScheme.surface;
+        break;
+    }
     final avatar = Container(
       width: 10,
       height: 10,
@@ -723,32 +668,9 @@ class _KindModeChip extends StatelessWidget {
 
     // Non-Linux: FilterChip that toggles off/include on tap and supports long-press modal for all modes
     return GestureDetector(
-      onLongPress: () async {
-        final choice = await showModalBottomSheet<ChipMode>(
-          context: context,
-          builder: (ctx) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  title: const Text('Include'),
-                  onTap: () => Navigator.pop(ctx, ChipMode.include),
-                ),
-                ListTile(
-                  title: const Text('Exclude'),
-                  onTap: () => Navigator.pop(ctx, ChipMode.exclude),
-                ),
-                ListTile(
-                  title: const Text('Off'),
-                  onTap: () => Navigator.pop(ctx, ChipMode.off),
-                ),
-              ],
-            ),
-          ),
-        );
-        if (choice != null) {
-          onChanged(choice);
-        }
+      onLongPress: () {
+        final next = (mode == ChipMode.exclude) ? ChipMode.off : ChipMode.exclude;
+        onChanged(next);
       },
       child: FilterChip(
         avatar: avatar,
@@ -768,10 +690,15 @@ class _KindModeChip extends StatelessWidget {
 }
 
 // Summary section (empty state or pie + legend), logic preserved
-class _WeekSummarySection extends StatelessWidget {
+class _WeekSummarySection extends ConsumerWidget {
   const _WeekSummarySection({
     required this.theme,
     required this.registry,
+    required this.weekKey,
+    required this.currentModes,
+    required this.availableKindIds,
+    required this.normalizedAll,
+    required this.amountsAll,
     required this.normalizedSelected,
     required this.pctOfWeek,
     required this.selectedAmounts,
@@ -780,22 +707,26 @@ class _WeekSummarySection extends StatelessWidget {
 
   final ThemeData theme;
   final WidgetRegistry registry;
+  final String weekKey;
+  final Map<String, ChipMode> currentModes;
+  final Set<String> availableKindIds;
+  final Map<String, double> normalizedAll;
+  final Map<String, double> amountsAll;
   final Map<String, double> normalizedSelected;
   final double pctOfWeek;
   final Map<String, double> selectedAmounts;
   final Set<String> includedKinds;
 
   @override
-  Widget build(BuildContext context) {
-    final Widget content = normalizedSelected.isEmpty
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bool hasData = normalizedAll.isNotEmpty;
+    final Widget content = !hasData
         ? Padding(
             padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
             child: Text(
-              includedKinds.isEmpty
-                  ? 'Select kinds above to see chart'
-                  : 'No data for selected kinds',
+              'No data this week',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
               ),
               textAlign: TextAlign.center,
             ),
@@ -812,9 +743,22 @@ class _WeekSummarySection extends StatelessWidget {
                     children: [
                       PieChart(
                         PieChartData(
-                          sections: normalizedSelected.entries.map((entry) {
+                          sections: normalizedAll.entries.map((entry) {
                             final kind = registry.byId(entry.key);
-                            final color = kind?.accentColor ?? theme.colorScheme.primary;
+                            final baseColor = kind?.accentColor ?? theme.colorScheme.primary;
+                            final mode = currentModes[entry.key] ?? ChipMode.off;
+                            Color color;
+                            switch (mode) {
+                              case ChipMode.include:
+                                color = baseColor.withOpacity(1.0);
+                                break;
+                              case ChipMode.exclude:
+                                color = baseColor.withOpacity(0.28);
+                                break;
+                              case ChipMode.off:
+                                color = baseColor.withOpacity(0.15);
+                                break;
+                            }
                             return PieChartSectionData(
                               value: entry.value,
                               title: '',
@@ -837,7 +781,7 @@ class _WeekSummarySection extends StatelessWidget {
                           Text(
                             'of week',
                             style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                              color: theme.colorScheme.onSurface.withOpacity(0.6),
                             ),
                           ),
                         ],
@@ -850,95 +794,54 @@ class _WeekSummarySection extends StatelessWidget {
                   child: SingleChildScrollView(
                     child: Builder(
                       builder: (context) {
-                        // Keep original sorting and interleaving (longest, shortest, ...) to preserve intent.
                         String labelFor(String id) => registry.byId(id)?.displayName ?? id;
                         String unitFor(String id) => registry.byId(id)?.unit ?? '';
                         String valueTextFor(String id) {
-                          final v = selectedAmounts[id] ?? 0;
+                          final v = amountsAll[id] ?? 0;
                           return v < 1 ? v.toStringAsFixed(2) : v.toStringAsFixed(0);
                         }
 
-                        final sorted = normalizedSelected.entries
-                            .map((e) {
-                              final label = labelFor(e.key);
-                              final txt = valueTextFor(e.key) + unitFor(e.key);
-                              final len = label.length + 1 + txt.length;
-                              return (entry: e, len: len, label: label);
-                            })
-                            .toList()
+                        // Order kinds by normalized amount desc, then by label
+                        final orderedIds = availableKindIds.toList()
                           ..sort((a, b) {
-                            final c = b.len.compareTo(a.len);
+                            final va = normalizedAll[a] ?? 0;
+                            final vb = normalizedAll[b] ?? 0;
+                            final c = vb.compareTo(va);
                             if (c != 0) return c;
-                            return a.label.toLowerCase().compareTo(b.label.toLowerCase());
+                            return labelFor(a).toLowerCase().compareTo(labelFor(b).toLowerCase());
                           });
 
-                        final ordered = <MapEntry<String, double>>[];
-                        int i = 0, j = sorted.length - 1;
-                        var takeLongest = true;
-                        while (i <= j) {
-                          if (takeLongest) {
-                            ordered.add(sorted[i].entry);
-                            i++;
-                          } else {
-                            ordered.add(sorted[j].entry);
-                            j--;
-                          }
-                          takeLongest = !takeLongest;
-                        }
+                        if (orderedIds.isEmpty) return const SizedBox.shrink();
 
-                        if (ordered.isEmpty) return const SizedBox.shrink();
+                        final textStyle = theme.textTheme.bodySmall ?? const TextStyle(fontSize: 12);
 
-                        final textStyle = theme.textTheme.bodyMedium ?? const TextStyle();
-                        final items = ordered.map((e) {
-                          final kind = registry.byId(e.key);
-                          final unit = kind?.unit ?? '';
-                          final originalValue = selectedAmounts[e.key] ?? 0;
-                          final formattedValue = originalValue < 1
-                              ? originalValue.toStringAsFixed(2)
-                              : originalValue.toStringAsFixed(0);
-                          final label = kind?.displayName ?? e.key;
-                          final color = kind?.accentColor ?? theme.colorScheme.primary;
-                          return (
-                            label: label,
-                            value: formattedValue,
-                            unit: unit,
-                            color: color,
-                          );
-                        }).toList();
-
-                        // Simplified, adaptive legend grid: no TextPainter/layout math.
+                        // Legend composed of interactive tri-state controls integrated with values
                         return GridView.builder(
                           primary: false,
                           shrinkWrap: true,
                           gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 280,
-                            mainAxisExtent: 28,
+                            maxCrossAxisExtent: 320,
+                            mainAxisExtent: 32,
                             mainAxisSpacing: 4,
-                            crossAxisSpacing: 16,
+                            crossAxisSpacing: 12,
                           ),
-                          itemCount: items.length,
+                          itemCount: orderedIds.length,
                           itemBuilder: (ctx, idx) {
-                            final it = items[idx];
-                            return Row(
-                              children: [
-                                Container(
-                                  width: 16,
-                                  height: 16,
-                                  decoration: BoxDecoration(
-                                    color: it.color,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    '${it.label}: ${it.value}${it.unit}',
-                                    style: textStyle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
+                            final id = orderedIds[idx];
+                            final label = labelFor(id);
+                            final valueTxt = valueTextFor(id);
+                            final unit = unitFor(id);
+                            final mode = currentModes[id] ?? ChipMode.off;
+
+                            return _KindModeChip(
+                              label: '$label: $valueTxt$unit',
+                              mode: mode,
+                              onChanged: (next) => ref.read(weekKindSelectionProvider.notifier).setKindMode(
+                                weekKey,
+                                id,
+                                next,
+                                current: currentModes,
+                              ),
                             );
                           },
                         );
@@ -972,21 +875,26 @@ class _InlineAddControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: 'Add',
-            onPressed: onAdd,
-            icon: const Icon(Icons.add_circle_outline),
+    return Tooltip(
+      message: 'Add',
+      child: InkWell(
+        onTap: onAdd,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.add_circle_outline,
+                size: 15,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: theme.textTheme.titleSmall,
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: theme.textTheme.titleSmall,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1051,8 +959,8 @@ class _DayHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final end = date; // single day
     return Container(
-      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.25),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       child: Text(
         '${_weekdayShort(date.weekday)} ${_fmtYmd(end)}',
         style: theme.textTheme.titleSmall,

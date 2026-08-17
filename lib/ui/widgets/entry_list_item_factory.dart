@@ -233,7 +233,7 @@ class EntryListItemFactory {
     if (!hasChildren) {
       return depth == 0
           ? Card(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
               child: listTile,
             )
           : listTile;
@@ -271,7 +271,7 @@ class EntryListItemFactory {
 
     return depth == 0
         ? Card(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
             child: content,
           )
         : content;
