@@ -1,11 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as p;
 
-import '../db/db_open.dart';
 import '../db/raw_db.dart';
 import '../providers.dart';
 import 'entries_repository.dart';
@@ -410,44 +406,6 @@ class ImportExportService {
     }
 
     return bundle;
-  }
-
-  /// Save any bundle to a file. Returns the full path.
-  Future<String> saveBundleToFile(
-    Map<String, Object?> bundle, {
-    String fileName = 'export.json',
-  }) async {
-    final encoder = const JsonEncoder.withIndent('  ');
-    final text = encoder.convert(bundle);
-    final dirPath = await _appDocsDirPath();
-    final path = p.join(dirPath, fileName);
-    final file = File(path);
-    await file.writeAsString(text);
-    return path;
-  }
-
-  /// One-tap backup to single-slot file (JSON bundle). Returns the path.
-  Future<String> backupToFile({String fileName = 'backup.json'}) async {
-    final bundle = await exportBundle();
-    return saveBundleToFile(bundle, fileName: fileName);
-  }
-
-  /// Restore from the single-slot backup file (destructive). Returns the path used.
-  Future<String> restoreFromFile({String fileName = 'backup.json'}) async {
-    final dirPath = await _appDocsDirPath();
-    final path = p.join(dirPath, fileName);
-    final file = File(path);
-    if (!await file.exists()) {
-      throw StateError('Backup file not found at $path');
-    }
-    final text = await file.readAsString();
-    await importBundle(text); // destructive
-    return path;
-  }
-
-  Future<String> _appDocsDirPath() async {
-    final dbPath = await appDbPath();
-    return p.dirname(dbPath);
   }
 
   EntryRecord _entryFromMap(Map raw) {
