@@ -1,7 +1,8 @@
 import 'dart:convert';
 
 import 'package:fl_chart/fl_chart.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -18,7 +19,7 @@ enum ChipMode { off, include, exclude }
 
 // Per-week selection state for the ActiveWeek chart
 class _WeekSelectionState {
-  final Map<String, ChipMode> kindModes;
+  final Map<String, ChipMode> kindModes; // kindId -> mode
   final bool isCustomized;
 
   const _WeekSelectionState({
@@ -60,7 +61,7 @@ class _WeekKindSelectionController
     );
   }
 
-  // Initialize with all provided kind ids set to off
+  // Initialize with all provided kind ids set to off (neutral)
   void initializeIfNeeded(String weekKey, Set<String> defaults) {
     if (!state.containsKey(weekKey)) {
       final modes = <String, ChipMode>{
@@ -623,6 +624,7 @@ class _KindModeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Compute small avatar dot to match previous UI for non-Linux path
     Color dotColor;
     switch (mode) {
       case ChipMode.include:
