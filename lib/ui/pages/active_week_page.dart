@@ -525,9 +525,9 @@ class TriStateChipSimple extends StatelessWidget {
     Color segColor(ChipMode m) {
       switch (m) {
         case ChipMode.include:
-          return Colors.green.withOpacity(m == mode ? 0.60 : 0.18);
+          return Colors.green.withValues(alpha: m == mode ? 0.60 : 0.18);
         case ChipMode.exclude:
-          return Colors.orange.withOpacity(m == mode ? 0.60 : 0.18);
+          return Colors.orange.withValues(alpha: m == mode ? 0.60 : 0.18);
         case ChipMode.off:
           return theme.colorScheme.surface;
       }
@@ -569,42 +569,6 @@ class TriStateChipSimple extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// Reset chip widget appended at the end of kinds list
-class _ResetChip extends StatelessWidget {
-  final bool enabled;
-  final VoidCallback onPressed;
-
-  const _ResetChip({required this.enabled, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final labelStyle = theme.textTheme.bodySmall;
-    final chip = ActionChip(
-      avatar: Icon(
-        Icons.restart_alt,
-        size: 16,
-        color: enabled
-            ? theme.colorScheme.onSurface
-            : theme.colorScheme.onSurface.withOpacity(0.38),
-      ),
-      label: Text('Reset', style: labelStyle),
-      onPressed: enabled ? onPressed : null,
-      visualDensity: VisualDensity.compact,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    );
-    return Tooltip(
-      message: 'Reset to week\'s kinds',
-      child: Semantics(
-        button: true,
-        enabled: enabled,
-        label: 'Reset to week\'s kinds',
-        child: chip,
       ),
     );
   }
@@ -728,7 +692,7 @@ class _WeekSummarySection extends ConsumerWidget {
             child: Text(
               'No data this week',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
               textAlign: TextAlign.center,
             ),
@@ -752,13 +716,13 @@ class _WeekSummarySection extends ConsumerWidget {
                             Color color;
                             switch (mode) {
                               case ChipMode.include:
-                                color = baseColor.withOpacity(1.0);
+                                color = baseColor.withValues(alpha: 1.0);
                                 break;
                               case ChipMode.exclude:
-                                color = baseColor.withOpacity(0.28);
+                                color = baseColor.withValues(alpha: 0.28);
                                 break;
                               case ChipMode.off:
-                                color = baseColor.withOpacity(0.15);
+                                color = baseColor.withValues(alpha: 0.15);
                                 break;
                             }
                             return PieChartSectionData(
@@ -783,7 +747,7 @@ class _WeekSummarySection extends ConsumerWidget {
                           Text(
                             'of week',
                             style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(0.6),
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                             ),
                           ),
                         ],
@@ -814,8 +778,6 @@ class _WeekSummarySection extends ConsumerWidget {
                           });
 
                         if (orderedIds.isEmpty) return const SizedBox.shrink();
-
-                        final textStyle = theme.textTheme.bodySmall ?? const TextStyle(fontSize: 12);
 
                         // Legend composed of interactive tri-state controls integrated with values
                         return GridView.builder(
@@ -961,7 +923,7 @@ class _DayHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final end = date; // single day
     return Container(
-      color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.25),
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       child: Text(
         '${_weekdayShort(date.weekday)} ${_fmtYmd(end)}',

@@ -24,8 +24,6 @@ class MainScreen extends ConsumerWidget {
     final section = ref.watch(currentSectionProvider);
 
     switch (section) {
-      case AppSection.activeWeek:
-        return const ActiveWeekPage();
       case AppSection.products:
         return const ProductTemplatesPage();
       case AppSection.kinds:
