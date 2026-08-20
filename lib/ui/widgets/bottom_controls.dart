@@ -52,44 +52,92 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                   : null,
             ),
           ),
-          IconButton(
-            tooltip: 'Recipes',
-            onPressed: () {
-              ref.read(currentSectionProvider.notifier).state =
-                  AppSection.recipes;
+          MenuAnchor(
+            menuChildren: [
+              MenuItemButton(
+                leadingIcon: Icon(
+                  Icons.restaurant_menu_outlined,
+                  color: section == AppSection.recipes
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                ),
+                trailingIcon: section == AppSection.recipes
+                    ? Icon(
+                        Icons.check,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      )
+                    : null,
+                onPressed: () {
+                  ref.read(currentSectionProvider.notifier).state =
+                      AppSection.recipes;
+                },
+                child: const Text('Recipes'),
+              ),
+              MenuItemButton(
+                leadingIcon: Icon(
+                  Icons.shopping_basket_outlined,
+                  color: section == AppSection.products
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                ),
+                trailingIcon: section == AppSection.products
+                    ? Icon(
+                        Icons.check,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      )
+                    : null,
+                onPressed: () {
+                  ref.read(currentSectionProvider.notifier).state =
+                      AppSection.products;
+                },
+                child: const Text('Products'),
+              ),
+              MenuItemButton(
+                leadingIcon: Icon(
+                  Icons.category_outlined,
+                  color: section == AppSection.kinds
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                ),
+                trailingIcon: section == AppSection.kinds
+                    ? Icon(
+                        Icons.check,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      )
+                    : null,
+                onPressed: () {
+                  ref.read(currentSectionProvider.notifier).state =
+                      AppSection.kinds;
+                },
+                child: const Text('Kinds'),
+              ),
+            ],
+            builder: (ctx, controller, child) {
+              final isRegistryActive = [
+                AppSection.recipes,
+                AppSection.products,
+                AppSection.kinds,
+              ].contains(section);
+              return IconButton(
+                tooltip: 'Registry',
+                onPressed: () {
+                  if (controller.isOpen) {
+                    controller.close();
+                  } else {
+                    controller.open();
+                  }
+                },
+                icon: Icon(
+                  Icons.widgets_outlined,
+                  color: isRegistryActive
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                ),
+              );
             },
-            icon: Icon(
-              Icons.restaurant_menu_outlined,
-              color: section == AppSection.recipes
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
-            ),
-          ),
-          IconButton(
-            tooltip: 'Products',
-            onPressed: () {
-              ref.read(currentSectionProvider.notifier).state =
-                  AppSection.products;
-            },
-            icon: Icon(
-              Icons.shopping_basket_outlined,
-              color: section == AppSection.products
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
-            ),
-          ),
-          IconButton(
-            tooltip: 'Kinds',
-            onPressed: () {
-              ref.read(currentSectionProvider.notifier).state =
-                  AppSection.kinds;
-            },
-            icon: Icon(
-              Icons.category_outlined,
-              color: section == AppSection.kinds
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
-            ),
           ),
           IconButton(
             tooltip: 'Database',
