@@ -15,19 +15,14 @@ class DayDetailsPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(selectedDayProvider);
     final registry = ref.watch(widgetRegistryProvider);
-    final repo = ref.watch(entriesRepositoryProvider);
+    final entriesAsync = ref.watch(entriesForSelectedDayProvider);
 
-    if (selected == null || repo == null) {
+    if (selected == null) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final entriesStream = repo.watchByDay(selected);
-
-    return StreamBuilder<List<EntryRecord>>(
-      stream: entriesStream,
-      builder: (context, snapshot) {
-        final all = snapshot.data ?? const <EntryRecord>[];
-
+    return entriesAsync.when(
+      data: (all) {
         // Parents/standalone are entries without a source; children have a source_entry_id
         final entries = all.where((e) => e.sourceEntryId == null).toList();
         final childrenByParent = <String, List<EntryRecord>>{};
@@ -120,6 +115,8 @@ class DayDetailsPanel extends ConsumerWidget {
           ],
         );
       },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, st) => Center(child: Text('Error: $e')),
     );
   }
 }
