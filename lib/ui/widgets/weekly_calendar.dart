@@ -70,9 +70,7 @@ class WeeklyCalendar extends ConsumerWidget {
         }
         final aspect = cellWidth / cellHeight;
 
-        // Stream for entries within the visible calendar window (local dates)
-        final startLocal = firstCellLocal;
-        final endLocal = firstCellLocal.add(Duration(days: daysToShow));
+        final gridAsync = ref.watch(calendarEntriesProvider);
 
         // The Date-Span header
         final header = SizedBox(
@@ -104,13 +102,8 @@ class WeeklyCalendar extends ConsumerWidget {
           ),
         );
 
-        final gridWidget = StreamBuilder<Map<DateTime, List<dynamic>>>(
-          // We'll map EntryRecord type dynamically (avoid import cycles in this file)
-          stream: repo
-              .watchByDayRange(startLocal, endLocal, onlyShowInCalendar: true)
-              .cast<Map<DateTime, List<dynamic>>>(),
-          builder: (context, snapshot) {
-            final byDay = snapshot.data ?? const <DateTime, List<dynamic>>{};
+        final gridWidget = gridAsync.when(
+          data: (byDay) {
             final hasAny = byDay.values.any((l) => l.isNotEmpty);
 
             final gridView = GridView.builder(
@@ -130,7 +123,7 @@ class WeeklyCalendar extends ConsumerWidget {
 
                 // Map entries to accent colors for dot rendering
                 final entriesWithColor = <({EntryRecord entry, Color color})>[];
-                for (final rec in items.cast<EntryRecord>()) {
+                for (final rec in items) {
                   final kindId = rec.widgetKind;
                   final kind = registry.byId(kindId);
                   if (kind != null) {
@@ -291,6 +284,8 @@ class WeeklyCalendar extends ConsumerWidget {
               return gridView;
             }
           },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, st) => Center(child: Text('Error: $e')),
         );
 
         return Column(

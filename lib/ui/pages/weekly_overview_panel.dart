@@ -37,29 +37,22 @@ class WeeklyOverviewPanel extends ConsumerWidget {
     final today = DateTime(now.year, now.month, now.day);
     final monday = today.subtract(Duration(days: today.weekday - 1));
     final sunday = monday.add(const Duration(days: 6));
-    final nextMonday = monday.add(const Duration(days: 7));
 
     final selectedKinds = ref.watch(selectedKindsForChartProvider);
+    final entriesAsync = ref.watch(weeklyOverviewEntriesProvider);
 
-    final Stream<dynamic> entriesStream = repo.watchByDayRange(
-      monday,
-      nextMonday,
-      onlyShowInCalendar: false,
-    );
-
-    return StreamBuilder<dynamic>(
-      stream: entriesStream,
-      builder: (context, snapshot) {
+    return entriesAsync.when(
+      data: (data) {
         // Handle both Map<DateTime, List<EntryRecord>> and List<EntryRecord>
         List<EntryRecord> allEntries;
-        if (snapshot.data is Map<DateTime, List<EntryRecord>>) {
-          final entriesMap = snapshot.data as Map<DateTime, List<EntryRecord>>;
+        if (data is Map<DateTime, List<EntryRecord>>) {
+          final entriesMap = data;
           allEntries = [];
           for (final dayEntries in entriesMap.values) {
             allEntries.addAll(dayEntries);
           }
         } else {
-          allEntries = (snapshot.data as List<EntryRecord>?) ?? [];
+          allEntries = (data as List<EntryRecord>?) ?? [];
         }
 
         // Filter only parent entries (no children) for display list
@@ -365,6 +358,8 @@ class WeeklyOverviewPanel extends ConsumerWidget {
           ],
         );
       },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, st) => Center(child: Text('Error: $e')),
     );
   }
 }

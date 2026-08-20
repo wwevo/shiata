@@ -137,22 +137,16 @@ class _RecipeTemplateSummary extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final recipesRepo = ref.watch(recipesRepositoryProvider);
     final productsRepo = ref.watch(productsRepositoryProvider);
     final registry = ref.watch(widgetRegistryProvider);
+    final componentsAsync = ref.watch(recipeComponentsProvider(recipeId));
 
-    if (recipesRepo == null || productsRepo == null) {
+    if (productsRepo == null) {
       return Text(recipeId);
     }
 
-    return StreamBuilder<List<RecipeComponentDef>>(
-      stream: recipesRepo.watchComponents(recipeId),
-      builder: (ctx, snapshot) {
-        if (!snapshot.hasData) {
-          return Text(recipeId);
-        }
-
-        final components = snapshot.data!;
+    return componentsAsync.when(
+      data: (components) {
         if (components.isEmpty) {
           return Text('$recipeId • No components');
         }
@@ -223,6 +217,8 @@ class _RecipeTemplateSummary extends ConsumerWidget {
         final summary = parts.isEmpty ? recipeId : parts.join(' • ');
         return Text(summary);
       },
+      loading: () => Text(recipeId),
+      error: (e, st) => Text(recipeId),
     );
   }
 }

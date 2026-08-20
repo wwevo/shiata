@@ -10,6 +10,8 @@ import 'repo/kinds_repository.dart';
 import 'repo/products_repository.dart';
 import 'repo/recipes_repository.dart';
 import 'repo/units_repository.dart';
+import '../ui/main_screen_providers.dart';
+import '../ui/ux_config.dart';
 
 /// Provides an [AppDb] instance when the low-level [QueryExecutor] is available.
 final appDbProvider = Provider<AppDb?>((ref) {
@@ -107,4 +109,54 @@ final allEntriesWithChildrenProvider = StreamProvider<List<EntryRecord>>((ref) {
   final repo = ref.watch(entriesRepositoryProvider);
   if (repo == null) return Stream.value(<EntryRecord>[]);
   return repo.watchAllEntriesWithChildren();
+});
+
+final recipeComponentsProvider =
+    StreamProvider.family<List<RecipeComponentDef>, String>((ref, recipeId) {
+  final repo = ref.watch(recipesRepositoryProvider);
+  if (repo == null) return Stream.value(<RecipeComponentDef>[]);
+  return repo.watchComponents(recipeId);
+});
+
+final entriesForSelectedDayProvider = StreamProvider<List<EntryRecord>>((ref) {
+  final repo = ref.watch(entriesRepositoryProvider);
+  final selected = ref.watch(selectedDayProvider);
+  if (repo == null || selected == null) return Stream.value(<EntryRecord>[]);
+  return repo.watchByDay(selected);
+});
+
+final calendarEntriesProvider =
+    StreamProvider<Map<DateTime, List<EntryRecord>>>((ref) {
+  final repo = ref.watch(entriesRepositoryProvider);
+  final anchor = ref.watch(calendarAnchorProvider);
+  final config = ref.watch(uxConfigProvider);
+  if (repo == null) return Stream.value(<DateTime, List<EntryRecord>>{});
+
+  // Calculate range same as WeeklyCalendar
+  final grid = config.calendarGrid;
+  final daysToShow = grid.columns * grid.rows;
+
+  final startLocal = anchor;
+  final endLocal = anchor.add(Duration(days: daysToShow));
+
+  return repo
+      .watchByDayRange(startLocal, endLocal, onlyShowInCalendar: true)
+      .cast<Map<DateTime, List<EntryRecord>>>();
+});
+
+final weeklyOverviewEntriesProvider = StreamProvider<dynamic>((ref) {
+  final repo = ref.watch(entriesRepositoryProvider);
+  if (repo == null) return Stream.value(<EntryRecord>[]);
+
+  // Calculate range same as WeeklyOverviewPanel
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final monday = today.subtract(Duration(days: today.weekday - 1));
+  final nextMonday = monday.add(const Duration(days: 7));
+
+  return repo.watchByDayRange(
+    monday,
+    nextMonday,
+    onlyShowInCalendar: false,
+  );
 });

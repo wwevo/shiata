@@ -11,35 +11,52 @@ class BottomControls extends ConsumerStatefulWidget {
 }
 
 class _BottomControlsState extends ConsumerState<BottomControls> {
+  final MenuController _menuController = MenuController();
+
   @override
   Widget build(BuildContext context) {
     final section = ref.watch(currentSectionProvider);
 
-    return BottomAppBar(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          // Active Week button (new, placed first)
-          IconButton(
-            tooltip: 'Active Week',
-            onPressed: () {
-              ref.read(currentSectionProvider.notifier).state =
-                  AppSection.activeWeek;
-            },
-            icon: Text(
-              '7',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: section == AppSection.activeWeek
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).iconTheme.color,
-              ),
-            ),
-          ),
-          MenuAnchor(
+    int selectedIndex = 0;
+    if (section == AppSection.activeWeek) {
+      selectedIndex = 0;
+    } else if ([AppSection.recipes, AppSection.products, AppSection.kinds]
+        .contains(section)) {
+      selectedIndex = 1;
+    } else if (section == AppSection.database) {
+      selectedIndex = 2;
+    }
+
+    return NavigationBar(
+      selectedIndex: selectedIndex,
+      onDestinationSelected: (index) {
+        switch (index) {
+          case 0:
+            ref.read(currentSectionProvider.notifier).state =
+                AppSection.activeWeek;
+            break;
+          case 1:
+            if (_menuController.isOpen) {
+              _menuController.close();
+            } else {
+              _menuController.open();
+            }
+            break;
+          case 2:
+            ref.read(currentSectionProvider.notifier).state =
+                AppSection.database;
+            break;
+        }
+      },
+      destinations: [
+        const NavigationDestination(
+          icon: Icon(Icons.format_list_bulleted_outlined),
+          selectedIcon: Icon(Icons.format_list_bulleted),
+          label: 'Tracking',
+        ),
+        NavigationDestination(
+          icon: MenuAnchor(
+            controller: _menuController,
             menuChildren: [
               MenuItemButton(
                 leadingIcon: Icon(
@@ -102,45 +119,18 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                 child: const Text('Kinds'),
               ),
             ],
-            builder: (ctx, controller, child) {
-              final isRegistryActive = [
-                AppSection.recipes,
-                AppSection.products,
-                AppSection.kinds,
-              ].contains(section);
-              return IconButton(
-                tooltip: 'Registry',
-                onPressed: () {
-                  if (controller.isOpen) {
-                    controller.close();
-                  } else {
-                    controller.open();
-                  }
-                },
-                icon: Icon(
-                  Icons.widgets_outlined,
-                  color: isRegistryActive
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                ),
-              );
-            },
-          ),
-          IconButton(
-            tooltip: 'Database',
-            onPressed: () {
-              ref.read(currentSectionProvider.notifier).state =
-                  AppSection.database;
-            },
-            icon: Icon(
-              Icons.storage,
-              color: section == AppSection.database
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
+            child: Icon(
+              selectedIndex == 1 ? Icons.fastfood : Icons.fastfood_outlined,
             ),
           ),
-        ],
-      ),
+          label: 'Food',
+        ),
+        const NavigationDestination(
+          icon: Icon(Icons.settings_outlined),
+          selectedIcon: Icon(Icons.settings),
+          label: 'Settings',
+        ),
+      ],
     );
   }
 }
