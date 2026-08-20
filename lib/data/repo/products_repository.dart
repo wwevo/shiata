@@ -278,6 +278,31 @@ class ProductsRepository {
     }).toList();
   }
 
+  Future<List<ProductComponent>> listAllComponents() async {
+    await _ready;
+    final rows = await db
+        .customSelect(
+          'SELECT * FROM product_components ORDER BY product_id ASC, kind_id ASC;',
+          readsFrom: const {},
+        )
+        .get();
+    return rows.map((r) {
+      final d = r.data;
+      return ProductComponent(
+        productId: d['product_id'] as String,
+        kindId: d['kind_id'] as String,
+        amountPerGram: (d['amount_per_gram'] as num).toDouble(),
+      );
+    }).toList();
+  }
+
+  Stream<List<ProductComponent>> watchAllComponents() async* {
+    yield await listAllComponents();
+    await for (final _ in _changes.stream) {
+      yield await listAllComponents();
+    }
+  }
+
   Stream<List<ProductDef>> watchProducts({bool onlyActive = true}) async* {
     yield await listProducts(onlyActive: onlyActive);
     await for (final _ in _changes.stream) {

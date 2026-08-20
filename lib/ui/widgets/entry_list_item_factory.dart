@@ -23,14 +23,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
+import '../../data/repo/kind_service.dart';
+import '../../data/repo/kinds_repository.dart';
+import '../../data/repo/product_service.dart';
+import '../../data/repo/products_repository.dart';
+import '../../data/repo/recipe_service.dart';
+import '../../data/repo/recipes_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
 import '../editors/kind_instance_editor_dialog.dart';
+import '../editors/kind_template_editor_dialog.dart';
 import '../editors/product_instance_components_editor_dialog.dart';
 import '../editors/product_instance_editor_dialog.dart';
+import '../editors/product_template_editor_dialog.dart';
 import '../editors/recipe_instance_dialog.dart';
+import '../editors/recipe_template_editor_dialog.dart';
 import '../main_screen_providers.dart';
+import './icon_resolver.dart';
+import './standard_list_item.dart';
 
 /// Display mode for entry list items
 enum EntryDisplayMode {
@@ -39,6 +50,22 @@ enum EntryDisplayMode {
 
   /// Checkbox mode: shows checkbox for selection, expand works but no edit/delete
   checkbox,
+
+  /// Selection mode: shows both checkboxes and actions
+  selection,
+}
+
+/// Represents a component within a template (Product or Recipe)
+class ComponentItem {
+  final dynamic definition; // KindDef or ProductDef
+  final double? amount;
+  final String? unit;
+
+  ComponentItem({
+    required this.definition,
+    this.amount,
+    this.unit,
+  });
 }
 
 /// Configuration for metadata display in list items
@@ -86,21 +113,22 @@ class EntryListItemFactory {
   static Widget buildEntry({
     required BuildContext context,
     required WidgetRef ref,
-    required EntryRecord entry,
-    required Map<String, List<EntryRecord>> childrenByParent,
+    required dynamic entry, // EntryRecord, KindDef, ProductDef, RecipeDef, or ComponentItem
+    required Map<String, List> childrenByParent,
     required WidgetRegistry registry,
     EntryListItemConfig config = const EntryListItemConfig(),
     int depth = 0,
     EntryDisplayMode displayMode = EntryDisplayMode.normal,
-    Set<String> selectedIds = const {},
-    void Function(String entryId, bool selected)? onSelectionChanged,
   }) {
-    final children = childrenByParent[entry.id] ?? [];
+    final dynamic realEntry = entry is ComponentItem ? entry.definition : entry;
+    final String entryId = _getEntryId(realEntry);
+    final children = childrenByParent[entryId] ?? [];
     final hasChildren = children.isNotEmpty;
 
-    // Extract entry-specific data
-    final isProduct = entry.widgetKind == 'product';
-    final isRecipe = entry.widgetKind == 'recipe';
+    // Determine type
+    final isProduct = realEntry is ProductDef || (realEntry is EntryRecord && realEntry.widgetKind == 'product');
+    final isRecipe = realEntry is RecipeDef || (realEntry is EntryRecord && realEntry.widgetKind == 'recipe');
+    final isKind = realEntry is KindDef || (realEntry is EntryRecord && realEntry.widgetKind != 'product' && realEntry.widgetKind != 'recipe');
 
     // Determine color, icon, and title
     final Color color;
@@ -108,115 +136,173 @@ class EntryListItemFactory {
     final String title;
 
     if (isProduct) {
-      color = Colors.purple;
-      icon = Icons.shopping_basket;
-      title = _extractProductTitle(entry);
+      color = _getEntryColor(realEntry, Colors.purple);
+      icon = _getEntryIcon(realEntry, Icons.shopping_basket);
+      title = _extractProductTitle(realEntry);
     } else if (isRecipe) {
-      color = Colors.brown;
-      icon = Icons.restaurant_menu;
-      title = _extractRecipeTitle(entry, children, childrenByParent, registry);
+      color = _getEntryColor(realEntry, Colors.brown);
+      icon = _getEntryIcon(realEntry, Icons.restaurant_menu);
+      title = _extractRecipeTitle(realEntry, children, childrenByParent, registry);
     } else {
-      final kind = registry.byId(entry.widgetKind);
-      color = kind?.accentColor ?? Theme.of(context).colorScheme.primary;
-      icon = kind?.icon ?? Icons.circle;
-      // For nested entries (depth > 0), only show display name without amount
-      // For top-level entries (depth == 0), show display name with amount
-      title = _extractKindTitle(entry, kind, depth);
+      final kindId = _getEntryKindId(realEntry);
+      final kind = registry.byId(kindId);
+      color = _getEntryColor(realEntry, kind?.accentColor ?? Theme.of(context).colorScheme.primary);
+      icon = _getEntryIcon(realEntry, kind?.icon ?? Icons.circle);
+      title = _extractKindTitle(realEntry, kind, depth, registry);
     }
 
-    final metadata = depth == 0 ? _buildMetadata(entry, config, context) : null;
+    final metadata = (depth == 0 && realEntry is EntryRecord) ? _buildMetadata(realEntry, config, context) : null;
+    final subtitle = realEntry is KindDef ? _buildKindDefSubtitle(realEntry) : metadata;
 
     // Check expand state
     final expandedSet = ref.watch(expandedEntriesProvider);
-    final isExpanded = expandedSet.contains(entry.id);
+    final isExpanded = expandedSet.contains(entryId);
 
-    // Build trailing widget based on display mode, depth, and entry type
-    final Widget? trailing;
-    if (displayMode == EntryDisplayMode.checkbox && depth == 0) {
-      // Checkbox mode (top-level only): checkbox + optional expand icon
-      final isSelected = selectedIds.contains(entry.id);
-      trailing = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    // Selection state
+    final isSelectionMode = ref.watch(selectionModeProvider);
+    final selectedIds = ref.watch(bulkSelectionProvider);
+    final isSelected = selectedIds.containsKey(entryId);
+    final effectiveDisplayMode =
+        isSelectionMode ? EntryDisplayMode.selection : displayMode;
+
+    // Build trailing widget
+    final List<Widget> trailingActions = [];
+
+    if (effectiveDisplayMode == EntryDisplayMode.checkbox ||
+        effectiveDisplayMode == EntryDisplayMode.selection) {
+      if (depth == 0) {
+        trailingActions.add(
           Checkbox(
             value: isSelected,
             onChanged: (val) {
-              if (onSelectionChanged != null) {
-                onSelectionChanged(entry.id, val == true);
+              final newSelected = {...selectedIds};
+              if (val == true) {
+                newSelected[entryId] = _getEntryCategory(realEntry);
+              } else {
+                newSelected.remove(entryId);
+              }
+              ref.read(bulkSelectionProvider.notifier).state = newSelected;
+              if (newSelected.isEmpty) {
+                ref.read(selectionModeProvider.notifier).state = false;
+              } else {
+                ref.read(selectionModeProvider.notifier).state = true;
               }
             },
           ),
-          // Expand/collapse icon (if has children)
-          if (hasChildren)
-            AnimatedRotation(
-              turns: isExpanded ? 0.5 : 0.0,
-              duration: const Duration(milliseconds: 120),
-              child: const Icon(Icons.expand_more),
-            ),
-        ],
-      );
-    } else if (depth > 0) {
-      // Nested entries: show amount for kinds
-      trailing = _buildKindAmount(entry, registry, context);
-    } else {
-      // Normal mode (top-level): show action buttons
-      trailing = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Edit button (for all entry types)
+        );
+      }
+    }
+
+    if (effectiveDisplayMode == EntryDisplayMode.normal || effectiveDisplayMode == EntryDisplayMode.selection) {
+      if (depth == 0) {
+        // Edit button
+        trailingActions.add(
           IconButton(
             tooltip: 'Edit',
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () =>
-                _showEditDialog(context, entry, isProduct, isRecipe, registry),
+            onPressed: () => _showEditDialog(context, entry, isProduct, isRecipe, registry),
           ),
-          // Delete button (for all entry types)
+        );
+        // Delete button
+        trailingActions.add(
           IconButton(
             tooltip: 'Delete',
             icon: const Icon(Icons.delete_outline),
-            onPressed: () =>
-                _deleteEntry(context, ref, entry, isProduct, isRecipe),
+            onPressed: () => _deleteEntry(context, ref, entry, isProduct, isRecipe),
           ),
-          // Edit components button (only for products)
-          if (isProduct)
+        );
+        // Edit components button (only for product instances)
+        if (isProduct && entry is EntryRecord) {
+          trailingActions.add(
             IconButton(
               tooltip: 'Edit components',
               icon: const Icon(Icons.tune),
               onPressed: () => showDialog(
                 context: context,
-                builder: (_) =>
-                    InstanceComponentsEditorDialog(parentEntryId: entry.id),
+                builder: (_) => InstanceComponentsEditorDialog(parentEntryId: entry.id),
               ),
             ),
-          // Expand/collapse icon (if has children) or chevron (if no children)
-          if (hasChildren)
-            AnimatedRotation(
-              turns: isExpanded ? 0.5 : 0.0,
-              duration: const Duration(milliseconds: 120),
-              child: const Icon(Icons.expand_more),
-            )
-          else
-            const Icon(Icons.chevron_right),
-        ],
-      );
+          );
+        }
+      } else if (realEntry is EntryRecord && isKind) {
+        // Nested kind instances show amount
+        trailingActions.add(_buildKindAmount(realEntry, registry, context));
+      } else if (entry is ComponentItem) {
+        // Template components show amount
+        final text = entry.amount != null
+            ? (entry.amount! < 1
+                ? entry.amount!.toStringAsFixed(2)
+                : entry.amount!.toStringAsFixed(0))
+            : '—';
+        final unit = entry.unit ?? '';
+        trailingActions.add(
+          Text(
+            unit.isEmpty ? text : '$text $unit',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        );
+      }
     }
 
-    // Build the list tile
-    final listTile = ListTile(
-      dense: depth > 0,
-      contentPadding: EdgeInsets.only(
-        left: depth > 0 ? 0 : 12,
-        right: depth > 0 ? 0 : 12,
-      ),
+    // Expand/collapse icon
+    if (hasChildren) {
+      trailingActions.add(
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          tooltip: isExpanded ? 'Collapse' : 'Expand',
+          onPressed: () {
+            final set = {...expandedSet};
+            if (isExpanded) {
+              set.remove(entryId);
+            } else {
+              set.add(entryId);
+            }
+            ref.read(expandedEntriesProvider.notifier).state = set;
+          },
+          icon: AnimatedRotation(
+            turns: isExpanded ? 0.5 : 0.0,
+            duration: const Duration(milliseconds: 120),
+            child: const Icon(Icons.expand_more),
+          ),
+        ),
+      );
+    } else if (depth == 0 && effectiveDisplayMode != EntryDisplayMode.checkbox) {
+      trailingActions.add(const Icon(Icons.chevron_right));
+    }
+
+    final listTile = StandardListItem(
+      isNested: depth > 0,
+      isSelected: isSelected,
       onTap: hasChildren
           ? () {
               final set = {...expandedSet};
               if (isExpanded) {
-                set.remove(entry.id);
+                set.remove(entryId);
               } else {
-                set.add(entry.id);
+                _expandRecursively(entryId, childrenByParent, set);
               }
               ref.read(expandedEntriesProvider.notifier).state = set;
+            }
+          : (effectiveDisplayMode == EntryDisplayMode.selection
+              ? () {
+                  final newSelected = {...selectedIds};
+                  if (isSelected) {
+                    newSelected.remove(entryId);
+                  } else {
+                    newSelected[entryId] = _getEntryCategory(realEntry);
+                  }
+                  ref.read(bulkSelectionProvider.notifier).state = newSelected;
+                  if (newSelected.isEmpty) {
+                    ref.read(selectionModeProvider.notifier).state = false;
+                  }
+                }
+              : null),
+      onLongPress: depth == 0
+          ? () {
+              ref.read(selectionModeProvider.notifier).state = true;
+              final newSelected = {...selectedIds};
+              newSelected[entryId] = _getEntryCategory(realEntry);
+              ref.read(bulkSelectionProvider.notifier).state = newSelected;
             }
           : null,
       leading: CircleAvatar(
@@ -224,22 +310,19 @@ class EntryListItemFactory {
         foregroundColor: Colors.white,
         child: Icon(icon, color: Colors.white, size: depth > 0 ? 16 : null),
       ),
-      title: Text(title),
-      subtitle: metadata,
-      trailing: trailing,
+      title: Text(title, style: depth > 0 ? Theme.of(context).textTheme.bodyMedium : null),
+      subtitle: subtitle,
+      trailing: trailingActions.isEmpty ? null : Row(
+        mainAxisSize: MainAxisSize.min,
+        children: trailingActions,
+      ),
     );
 
-    // If no children, return simple item
+    // Recursive children
     if (!hasChildren) {
-      return depth == 0
-          ? Card(
-              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-              child: listTile,
-            )
-          : listTile;
+      return listTile;
     }
 
-    // If has children, return expandable item with recursive children
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -259,8 +342,6 @@ class EntryListItemFactory {
                       config: config,
                       depth: depth + 1,
                       displayMode: displayMode,
-                      selectedIds: selectedIds,
-                      onSelectionChanged: onSelectionChanged,
                     ),
                   )
                   .toList(),
@@ -269,33 +350,95 @@ class EntryListItemFactory {
       ],
     );
 
-    return depth == 0
-        ? Card(
-            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-            child: content,
-          )
-        : content;
+    return content;
   }
 
-  /// Extracts product title from payload (name • grams g)
-  static String _extractProductTitle(EntryRecord entry) {
-    try {
-      final map = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
-      final name = (map['name'] as String?) ?? 'Product';
-      final grams = (map['grams'] as num?)?.toInt();
-      return grams != null ? '$name • $grams g' : name;
-    } catch (_) {
-      return 'Product';
+  static String _getEntryId(dynamic entry) {
+    if (entry is EntryRecord) return entry.id;
+    if (entry is KindDef) return entry.id;
+    if (entry is ProductDef) return entry.id;
+    if (entry is RecipeDef) return entry.id;
+    return '';
+  }
+
+  /// Recursively expands all entries in the hierarchy
+  static void _expandRecursively(
+    String id,
+    Map<String, List> childrenByParent,
+    Set<String> expandedSet,
+  ) {
+    expandedSet.add(id);
+    final children = childrenByParent[id] ?? [];
+    for (final child in children) {
+      final realChild = child is ComponentItem ? child.definition : child;
+      final childId = _getEntryId(realChild);
+      if (childId.isNotEmpty) {
+        _expandRecursively(childId, childrenByParent, expandedSet);
+      }
     }
   }
 
-  /// Extracts recipe title from payload
+  static SelectionCategory _getEntryCategory(dynamic entry) {
+    final dynamic realEntry = entry is ComponentItem ? entry.definition : entry;
+    if (realEntry is EntryRecord) return SelectionCategory.tracking;
+    if (realEntry is KindDef) return SelectionCategory.kinds;
+    if (realEntry is ProductDef) return SelectionCategory.products;
+    if (realEntry is RecipeDef) return SelectionCategory.recipes;
+    return SelectionCategory.tracking;
+  }
+
+  static String _getEntryKindId(dynamic entry) {
+    if (entry is EntryRecord) return entry.widgetKind;
+    if (entry is KindDef) return entry.id;
+    return '';
+  }
+
+  static Color _getEntryColor(dynamic entry, Color defaultColor) {
+    if (entry is KindDef) return entry.color != null ? Color(entry.color!) : defaultColor;
+    if (entry is ProductDef) return entry.color != null ? Color(entry.color!) : defaultColor;
+    if (entry is RecipeDef) return entry.color != null ? Color(entry.color!) : defaultColor;
+    return defaultColor;
+  }
+
+  static IconData _getEntryIcon(dynamic entry, IconData defaultIcon) {
+    if (entry is KindDef) return resolveIcon(entry.icon, defaultIcon);
+    if (entry is ProductDef) return resolveIcon(entry.icon, defaultIcon);
+    if (entry is RecipeDef) return resolveIcon(entry.icon, defaultIcon);
+    return defaultIcon;
+  }
+
+  static Widget _buildKindDefSubtitle(KindDef k) {
+    return Text(
+      '${k.unit}  •  min ${k.min}  •  max ${k.max}${k.defaultShowInCalendar ? '  •  calendar' : ''}',
+    );
+  }
+
+  /// Extracts product title from payload or definition
+  static String _extractProductTitle(dynamic entry) {
+    if (entry is ProductDef) return entry.name;
+    if (entry is EntryRecord) {
+      try {
+        final map = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
+        final name = (map['name'] as String?) ?? 'Product';
+        final grams = (map['grams'] as num?)?.toInt();
+        return grams != null ? '$name • $grams g' : name;
+      } catch (_) {
+        return 'Product';
+      }
+    }
+    return 'Product';
+  }
+
+  /// Extracts recipe title from payload or definition
   static String _extractRecipeTitle(
-    EntryRecord entry,
-    List<EntryRecord> children,
-    Map<String, List<EntryRecord>> childrenByParent,
+    dynamic entry,
+    List<dynamic> children,
+    Map<String, List<dynamic>> childrenByParent,
     WidgetRegistry registry,
   ) {
+    if (entry is RecipeDef) return entry.name;
+    if (entry is! EntryRecord) return 'Recipe';
+
     try {
       final map = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
       final name = (map['name'] as String?) ?? 'Recipe';
@@ -305,8 +448,9 @@ class EntryListItemFactory {
       final kindSummaries = <String, double>{};
 
       // Recursive helper to aggregate kinds from nested products
-      void aggregateKinds(List<EntryRecord> entries) {
+      void aggregateKinds(List<dynamic> entries) {
         for (final child in entries) {
+          if (child is! EntryRecord) continue;
           if (child.widgetKind == 'product') {
             try {
               final childMap =
@@ -332,6 +476,7 @@ class EntryListItemFactory {
       }
 
       aggregateKinds(children);
+      // ... same summary logic as before ...
 
       // Build summary string
       final parts = <String>[];
@@ -391,10 +536,14 @@ class EntryListItemFactory {
   /// Extracts kind title with amount (displayName • amount unit)
   /// For nested entries (depth > 0), only returns displayName (amount shown in trailing)
   static String _extractKindTitle(
-    EntryRecord entry,
+    dynamic entry,
     WidgetKind? kind,
     int depth,
+    WidgetRegistry registry,
   ) {
+    if (entry is KindDef) return entry.name;
+    if (entry is! EntryRecord) return 'Kind';
+
     final displayName = kind?.displayName ?? entry.widgetKind;
 
     // Nested entries show amount in trailing, not in title
@@ -419,7 +568,7 @@ class EntryListItemFactory {
   }
 
   /// Builds amount widget for nested kind entries (shown in trailing)
-  static Widget? _buildKindAmount(
+  static Widget _buildKindAmount(
     EntryRecord entry,
     WidgetRegistry registry,
     BuildContext context,
@@ -511,30 +660,47 @@ class EntryListItemFactory {
   /// Shows appropriate edit dialog based on entry type
   static void _showEditDialog(
     BuildContext context,
-    EntryRecord entry,
+    dynamic entry,
     bool isProduct,
     bool isRecipe,
     WidgetRegistry registry,
   ) {
-    if (isProduct) {
-      showDialog(
-        context: context,
-        builder: (_) => ProductEditorDialog(entryId: entry.id),
-      );
-    } else if (isRecipe) {
-      showDialog(
-        context: context,
-        builder: (_) => RecipeInstantiateDialog(entryId: entry.id),
-      );
-    } else {
-      final kind = registry.byId(entry.widgetKind);
-      if (kind != null) {
+    if (entry is EntryRecord) {
+      if (isProduct) {
         showDialog(
           context: context,
-          builder: (_) =>
-              KindInstanceEditorDialog(kind: kind, entryId: entry.id),
+          builder: (_) => ProductEditorDialog(entryId: entry.id),
         );
+      } else if (isRecipe) {
+        showDialog(
+          context: context,
+          builder: (_) => RecipeInstantiateDialog(entryId: entry.id),
+        );
+      } else {
+        final kind = registry.byId(entry.widgetKind);
+        if (kind != null) {
+          showDialog(
+            context: context,
+            builder: (_) =>
+                KindInstanceEditorDialog(kind: kind, entryId: entry.id),
+          );
+        }
       }
+    } else if (entry is ProductDef) {
+      showDialog(
+        context: context,
+        builder: (_) => ProductTemplateEditorDialog(existing: entry),
+      );
+    } else if (entry is RecipeDef) {
+      showDialog(
+        context: context,
+        builder: (_) => RecipeEditorDialog(existing: entry),
+      );
+    } else if (entry is KindDef) {
+      showDialog(
+        context: context,
+        builder: (_) => KindTemplateEditorDialog(existing: entry),
+      );
     }
   }
 
@@ -542,61 +708,169 @@ class EntryListItemFactory {
   static Future<void> _deleteEntry(
     BuildContext context,
     WidgetRef ref,
-    EntryRecord entry,
+    dynamic entry,
     bool isProduct,
     bool isRecipe,
   ) async {
-    final repo = ref.read(entriesRepositoryProvider);
-    if (repo == null) return;
-
     final messenger = ScaffoldMessenger.of(context);
 
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete entry?'),
-        content: Text(
-          isProduct
-              ? 'This will remove the product entry and its components.'
-              : isRecipe
-              ? 'This will remove the recipe entry and its components.'
-              : 'This will remove the entry.',
+    if (entry is EntryRecord) {
+      final repo = ref.read(entriesRepositoryProvider);
+      if (repo == null) return;
+
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Delete entry?'),
+          content: Text(
+            isProduct
+                ? 'This will remove the product entry and its components.'
+                : isRecipe
+                ? 'This will remove the recipe entry and its components.'
+                : 'This will remove the entry.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
+      );
 
-    if (confirm != true) return;
+      if (confirm != true) return;
 
-    if (isProduct) {
-      await repo.deleteChildrenOfParent(entry.id);
+      if (isProduct || isRecipe) {
+        await repo.deleteChildrenOfParent(entry.id);
+      }
       await repo.delete(entry.id);
-      if (!context.mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: Text('Product deleted')),
+        SnackBar(content: Text('${isProduct ? 'Product' : isRecipe ? 'Recipe' : 'Entry'} deleted')),
       );
-    } else if (isRecipe) {
-      await repo.deleteChildrenOfParent(entry.id);
-      await repo.delete(entry.id);
+    } else if (entry is ProductDef) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Delete product?'),
+          content: const Text('Instances will be converted: parent rows removed, kind entries kept.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+      final svc = ref.read(productServiceProvider);
+      await svc?.deleteProductTemplate(entry.id);
+      messenger.showSnackBar(SnackBar(content: Text('Deleted ${entry.name}; instances converted')));
+    } else if (entry is RecipeDef) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Delete recipe?'),
+          content: const Text('Instances will convert: children become standalone entries; parents removed.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+      final svc = ref.read(recipeServiceProvider);
+      final repo = ref.read(recipesRepositoryProvider);
+      if (svc != null && repo != null) {
+        await svc.deleteRecipeTemplate(entry.id);
+        await repo.deleteRecipe(entry.id);
+        messenger.showSnackBar(const SnackBar(content: Text('Recipe deleted')));
+      }
+    } else if (entry is KindDef) {
+      final svc = ref.read(kindServiceProvider);
+      if (svc == null) return;
+      final usage = await svc.getUsage(entry.id);
+      if (usage == null) return;
       if (!context.mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Recipe deleted')),
-      );
-    } else {
-      await repo.delete(entry.id);
-      if (!context.mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Entry deleted')),
-      );
+
+      bool removeFromProducts = usage.productsUsing.isNotEmpty;
+      bool deleteDirectEntries = usage.directEntriesCount > 0;
+
+      final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (_) {
+              return StatefulBuilder(
+                builder: (ctx, setState) {
+                  return AlertDialog(
+                    title: const Text('Delete kind'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('"${entry.name}"'),
+                        const SizedBox(height: 8),
+                        if (usage.productsUsing.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              'Used by ${usage.productsUsing.length} product(s): ${usage.productsUsing.map((p) => p.name).join(', ')}',
+                            ),
+                          ),
+                        if (usage.directEntriesCount > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              '${usage.directEntriesCount} direct calendar instance(s)',
+                            ),
+                          ),
+                        if (usage.productsUsing.isEmpty && usage.directEntriesCount == 0)
+                          const Text('This kind is not used.'),
+                        const Divider(),
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Remove from product templates and update existing entries'),
+                          value: removeFromProducts,
+                          onChanged: (v) => setState(() => removeFromProducts = v ?? false),
+                        ),
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Delete direct calendar instances of this kind'),
+                          value: deleteDirectEntries,
+                          onChanged: (v) => setState(() => deleteDirectEntries = v ?? false),
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                      FilledButton(
+                        onPressed: ((usage.productsUsing.isNotEmpty || usage.directEntriesCount > 0) &&
+                                !(removeFromProducts || deleteDirectEntries))
+                            ? null
+                            : () => Navigator.of(ctx).pop(true),
+                        child: const Text('Delete'),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          ) ??
+          false;
+
+      if (!confirmed) return;
+      try {
+        await svc.deleteKindWithSideEffects(
+          kindId: entry.id,
+          removeFromProducts: removeFromProducts,
+          deleteDirectEntries: deleteDirectEntries,
+        );
+        if (!context.mounted) return;
+        messenger.showSnackBar(SnackBar(content: Text('Deleted ${entry.name}')));
+      } catch (e) {
+        if (!context.mounted) return;
+        messenger.showSnackBar(SnackBar(content: Text('Could not delete kind: ${e.toString()}')));
+      }
     }
   }
 }

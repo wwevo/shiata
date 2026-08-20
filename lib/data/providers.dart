@@ -111,6 +111,18 @@ final allEntriesWithChildrenProvider = StreamProvider<List<EntryRecord>>((ref) {
   return repo.watchAllEntriesWithChildren();
 });
 
+final allRecipeComponentsProvider = StreamProvider<List<RecipeComponentDef>>((ref) {
+  final repo = ref.watch(recipesRepositoryProvider);
+  if (repo == null) return Stream.value(<RecipeComponentDef>[]);
+  return repo.watchAllComponents();
+});
+
+final allProductComponentsProvider = StreamProvider<List<ProductComponent>>((ref) {
+  final repo = ref.watch(productsRepositoryProvider);
+  if (repo == null) return Stream.value(<ProductComponent>[]);
+  return repo.watchAllComponents();
+});
+
 final recipeComponentsProvider =
     StreamProvider.family<List<RecipeComponentDef>, String>((ref, recipeId) {
   final repo = ref.watch(recipesRepositoryProvider);

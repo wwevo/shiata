@@ -1,5 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/providers.dart';
+import '../data/repo/recipes_repository.dart';
+import './widgets/entry_list_item_factory.dart';
 
 // Visible calendar anchor (e.g. start of week). Used by calendar navigation.
 final calendarAnchorProvider = StateProvider<DateTime>((_) {
@@ -45,3 +48,101 @@ final entrySortModeProvider = StateProvider<EntrySortMode>(
 // Entry type filter: empty = show all, non-empty = show only selected types
 // Valid types: 'kind' (direct nutrient entries), 'product', 'recipe'
 final entryTypeFilterProvider = StateProvider<Set<String>>((_) => <String>{});
+
+// Bulk selection categories (correspond to main list pages/tabs)
+enum SelectionCategory { tracking, kinds, products, recipes }
+
+// Active database tab (0=entries, 1=kinds, 2=products, 3=recipes)
+final databaseTabProvider = StateProvider<int>((_) => 0);
+
+// Current active category based on section and database tab
+final activeCategoryProvider = Provider<SelectionCategory>((ref) {
+  final section = ref.watch(currentSectionProvider);
+  switch (section) {
+    case AppSection.activeWeek:
+      return SelectionCategory.tracking;
+    case AppSection.products:
+      return SelectionCategory.products;
+    case AppSection.kinds:
+      return SelectionCategory.kinds;
+    case AppSection.recipes:
+      return SelectionCategory.recipes;
+    case AppSection.database:
+      final tabIndex = ref.watch(databaseTabProvider);
+      switch (tabIndex) {
+        case 0:
+          return SelectionCategory.tracking;
+        case 1:
+          return SelectionCategory.kinds;
+        case 2:
+          return SelectionCategory.products;
+        case 3:
+          return SelectionCategory.recipes;
+        default:
+          return SelectionCategory.tracking;
+      }
+  }
+});
+
+// Bulk selection state (holds Map of entry ID -> category)
+final bulkSelectionProvider =
+    StateProvider<Map<String, SelectionCategory>>((_) => {});
+
+// Whether selection mode is active
+final selectionModeProvider = StateProvider<bool>((_) => false);
+
+/// Combined hierarchy for management pages (Kinds, Products, Recipes)
+final managementHierarchyProvider = Provider<Map<String, List<dynamic>>>((ref) {
+  final kinds = ref.watch(kindsListProvider).value ?? [];
+  final products = ref.watch(allProductsListProvider).value ?? [];
+  final productComponents = ref.watch(allProductComponentsProvider).value ?? [];
+  final recipeComponents = ref.watch(allRecipeComponentsProvider).value ?? [];
+
+  final Map<String, List<dynamic>> map = {};
+
+  final kindMap = {for (final k in kinds) k.id: k};
+  final productMap = {for (final p in products) p.id: p};
+
+  // Map product components
+  for (final pc in productComponents) {
+    final kind = kindMap[pc.kindId];
+    if (kind != null) {
+      map.putIfAbsent(pc.productId, () => []).add(
+            ComponentItem(
+              definition: kind,
+              amount: pc.amountPerGram,
+              unit: '${kind.unit}/g',
+            ),
+          );
+    }
+  }
+
+  // Map recipe components
+  for (final rc in recipeComponents) {
+    if (rc.type == RecipeComponentType.product) {
+      final product = productMap[rc.compId];
+      if (product != null) {
+        map.putIfAbsent(rc.recipeId, () => []).add(
+              ComponentItem(
+                definition: product,
+                amount: rc.grams?.toDouble(),
+                unit: 'g',
+              ),
+            );
+      }
+    } else {
+      final kind = kindMap[rc.compId];
+      if (kind != null) {
+        map.putIfAbsent(rc.recipeId, () => []).add(
+              ComponentItem(
+                definition: kind,
+                amount: rc.amount,
+                unit: kind.unit,
+              ),
+            );
+      }
+    }
+  }
+
+  return map;
+});

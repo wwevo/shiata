@@ -11,7 +11,6 @@ import '../../data/repo/entries_repository.dart';
 import '../../data/repo/import_export_service.dart';
 import '../../domain/widgets/registry.dart';
 import '../widgets/entry_list_item_factory.dart';
-import '../widgets/icon_resolver.dart';
 import '../main_screen_providers.dart';
 
 enum WipeMode {
@@ -27,63 +26,76 @@ class DatabasePage extends ConsumerStatefulWidget {
   ConsumerState<DatabasePage> createState() => _DatabasePageState();
 }
 
-class _DatabasePageState extends ConsumerState<DatabasePage> {
-  // Selection state for fine-grained export
-  final Set<String> _selectedKinds = {};
-  final Set<String> _selectedProducts = {};
-  final Set<String> _selectedRecipes = {};
-  final Set<String> _selectedEntries = {};
+class _DatabasePageState extends ConsumerState<DatabasePage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        ref.read(databaseTabProvider.notifier).state = _tabController.index;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        appBar: AppBar(title: const Text('Database')),
-        body: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: _buildFullOperationsSection(),
-            ),
-            TabBar(
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              labelColor: Theme.of(context).colorScheme.primary,
-              unselectedLabelColor:
-                  Theme.of(context).colorScheme.onSurfaceVariant,
-              tabs: const [
-                Tab(text: 'Entries'),
-                Tab(text: 'Kinds'),
-                Tab(text: 'Products'),
-                Tab(text: 'Recipes'),
+    return Scaffold(
+      appBar: AppBar(title: const Text('Database')),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: _buildFullOperationsSection(),
+          ),
+          TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            labelColor: Theme.of(context).colorScheme.primary,
+            unselectedLabelColor:
+                Theme.of(context).colorScheme.onSurfaceVariant,
+            tabs: const [
+              Tab(text: 'Entries'),
+              Tab(text: 'Kinds'),
+              Tab(text: 'Products'),
+              Tab(text: 'Recipes'),
+            ],
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: _buildEntriesSection(),
+                ),
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: _buildKindsSection(),
+                ),
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: _buildProductsSection(),
+                ),
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: _buildRecipesSection(),
+                ),
               ],
             ),
-            const Divider(height: 1),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: _buildEntriesSection(),
-                  ),
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: _buildKindsSection(),
-                  ),
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: _buildProductsSection(),
-                  ),
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: _buildRecipesSection(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -133,6 +145,9 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
 
   Widget _buildKindsSection() {
     final kindsAsync = ref.watch(kindsListProvider);
+    final selectedIds = ref.watch(bulkSelectionProvider);
+    final registry = ref.watch(widgetRegistryProvider);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -140,27 +155,35 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Kinds (${_selectedKinds.length} selected)',
+              'Kinds',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             TextButton(
               onPressed: () {
                 kindsAsync.whenData((kinds) {
-                  setState(() {
-                    if (_selectedKinds.length == kinds.length) {
-                      _selectedKinds.clear();
-                    } else {
-                      _selectedKinds.addAll(kinds.map((k) => k.id));
+                  final newSelected = {...selectedIds};
+                  final kindIds = kinds.map((k) => k.id).toSet();
+                  if (kindIds.every(newSelected.containsKey)) {
+                    for (final id in kindIds) {
+                      newSelected.remove(id);
                     }
-                  });
+                  } else {
+                    for (final id in kindIds) {
+                      newSelected[id] = SelectionCategory.kinds;
+                    }
+                  }
+                  ref.read(bulkSelectionProvider.notifier).state = newSelected;
+                  ref.read(selectionModeProvider.notifier).state =
+                      newSelected.isNotEmpty;
                 });
               },
               child: kindsAsync.maybeWhen(
-                data: (kinds) => Text(
-                  _selectedKinds.length == kinds.length
-                      ? 'Deselect All'
-                      : 'Select All',
-                ),
+                data: (kinds) {
+                  final kindIds = kinds.map((k) => k.id).toSet();
+                  final allSelected = kindIds.isNotEmpty &&
+                      kindIds.every(selectedIds.containsKey);
+                  return Text(allSelected ? 'Deselect All' : 'Select All');
+                },
                 orElse: () => const Text('Select All'),
               ),
             ),
@@ -177,37 +200,13 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
             }
             return Column(
               children: kinds.map((k) {
-                final icon = resolveIcon(k.icon, Icons.category);
-                final color = Color(k.color ?? 0xFF607D8B);
-                final isSelected = _selectedKinds.contains(k.id);
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: color,
-                      foregroundColor: Colors.white,
-                      child: Icon(icon, color: Colors.white),
-                    ),
-                    title: Text(k.name),
-                    subtitle: Text(
-                      '${k.unit}  •  min ${k.min}  •  max ${k.max}',
-                    ),
-                    trailing: Checkbox(
-                      value: isSelected,
-                      onChanged: (val) {
-                        setState(() {
-                          if (val == true) {
-                            _selectedKinds.add(k.id);
-                          } else {
-                            _selectedKinds.remove(k.id);
-                          }
-                        });
-                      },
-                    ),
-                  ),
+                return EntryListItemFactory.buildEntry(
+                  context: context,
+                  ref: ref,
+                  entry: k,
+                  childrenByParent: const {},
+                  registry: registry,
+                  displayMode: EntryDisplayMode.checkbox,
                 );
               }).toList(),
             );
@@ -224,8 +223,8 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
         const SizedBox(height: 8),
         ElevatedButton.icon(
           icon: const Icon(Icons.download),
-          label: const Text('Export Selected Kinds'),
-          onPressed: _selectedKinds.isEmpty ? null : _exportSelected,
+          label: const Text('Export Selected'),
+          onPressed: selectedIds.isEmpty ? null : _exportSelected,
         ),
       ],
     );
@@ -233,6 +232,10 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
 
   Widget _buildProductsSection() {
     final productsAsync = ref.watch(allProductsListProvider);
+    final selectedIds = ref.watch(bulkSelectionProvider);
+    final registry = ref.watch(widgetRegistryProvider);
+    final hierarchy = ref.watch(managementHierarchyProvider);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -240,7 +243,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Products (${_selectedProducts.length} selected)',
+              'Products',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             productsAsync.maybeWhen(
@@ -248,20 +251,29 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                 onPressed: products.isEmpty
                     ? null
                     : () {
-                        setState(() {
-                          if (_selectedProducts.length == products.length) {
-                            _selectedProducts.clear();
-                          } else {
-                            _selectedProducts.addAll(
-                              products.map((p) => p.id),
-                            );
+                        final newSelected = {...selectedIds};
+                        final prodIds = products.map((p) => p.id).toSet();
+                        if (prodIds.every(newSelected.containsKey)) {
+                          for (final id in prodIds) {
+                            newSelected.remove(id);
                           }
-                        });
+                        } else {
+                          for (final id in prodIds) {
+                            newSelected[id] = SelectionCategory.products;
+                          }
+                        }
+                        ref.read(bulkSelectionProvider.notifier).state =
+                            newSelected;
+                        ref.read(selectionModeProvider.notifier).state =
+                            newSelected.isNotEmpty;
                       },
-                child: Text(
-                  _selectedProducts.length == products.length
-                      ? 'Deselect All'
-                      : 'Select All',
+                child: Builder(
+                  builder: (ctx) {
+                    final prodIds = products.map((p) => p.id).toSet();
+                    final allSelected = prodIds.isNotEmpty &&
+                        prodIds.every(selectedIds.containsKey);
+                    return Text(allSelected ? 'Deselect All' : 'Select All');
+                  },
                 ),
               ),
               orElse: () => const TextButton(
@@ -282,33 +294,13 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
             }
             return Column(
               children: products.map((p) {
-                final isSelected = _selectedProducts.contains(p.id);
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  child: ListTile(
-                    leading: const CircleAvatar(
-                      backgroundColor: Colors.purple,
-                      foregroundColor: Colors.white,
-                      child: Icon(Icons.shopping_basket, color: Colors.white),
-                    ),
-                    title: Text(p.name),
-                    subtitle: Text(p.id),
-                    trailing: Checkbox(
-                      value: isSelected,
-                      onChanged: (val) {
-                        setState(() {
-                          if (val == true) {
-                            _selectedProducts.add(p.id);
-                          } else {
-                            _selectedProducts.remove(p.id);
-                          }
-                        });
-                      },
-                    ),
-                  ),
+                return EntryListItemFactory.buildEntry(
+                  context: context,
+                  ref: ref,
+                  entry: p,
+                  childrenByParent: hierarchy,
+                  registry: registry,
+                  displayMode: EntryDisplayMode.checkbox,
                 );
               }).toList(),
             );
@@ -325,8 +317,8 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
         const SizedBox(height: 8),
         ElevatedButton.icon(
           icon: const Icon(Icons.download),
-          label: const Text('Export Selected Products'),
-          onPressed: _selectedProducts.isEmpty ? null : _exportSelected,
+          label: const Text('Export Selected'),
+          onPressed: selectedIds.isEmpty ? null : _exportSelected,
         ),
       ],
     );
@@ -334,6 +326,10 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
 
   Widget _buildRecipesSection() {
     final recipesAsync = ref.watch(allRecipesListProvider);
+    final selectedIds = ref.watch(bulkSelectionProvider);
+    final registry = ref.watch(widgetRegistryProvider);
+    final hierarchy = ref.watch(managementHierarchyProvider);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -341,7 +337,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Recipes (${_selectedRecipes.length} selected)',
+              'Recipes',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             recipesAsync.maybeWhen(
@@ -349,20 +345,29 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                 onPressed: recipes.isEmpty
                     ? null
                     : () {
-                        setState(() {
-                          if (_selectedRecipes.length == recipes.length) {
-                            _selectedRecipes.clear();
-                          } else {
-                            _selectedRecipes.addAll(
-                              recipes.map((r) => r.id),
-                            );
+                        final newSelected = {...selectedIds};
+                        final recIds = recipes.map((r) => r.id).toSet();
+                        if (recIds.every(newSelected.containsKey)) {
+                          for (final id in recIds) {
+                            newSelected.remove(id);
                           }
-                        });
+                        } else {
+                          for (final id in recIds) {
+                            newSelected[id] = SelectionCategory.recipes;
+                          }
+                        }
+                        ref.read(bulkSelectionProvider.notifier).state =
+                            newSelected;
+                        ref.read(selectionModeProvider.notifier).state =
+                            newSelected.isNotEmpty;
                       },
-                child: Text(
-                  _selectedRecipes.length == recipes.length
-                      ? 'Deselect All'
-                      : 'Select All',
+                child: Builder(
+                  builder: (ctx) {
+                    final recIds = recipes.map((r) => r.id).toSet();
+                    final allSelected = recIds.isNotEmpty &&
+                        recIds.every(selectedIds.containsKey);
+                    return Text(allSelected ? 'Deselect All' : 'Select All');
+                  },
                 ),
               ),
               orElse: () => const TextButton(
@@ -383,39 +388,13 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
             }
             return Column(
               children: recipes.map((r) {
-                final icon = r.icon != null
-                    ? resolveIcon(r.icon, Icons.restaurant_menu)
-                    : Icons.restaurant_menu;
-                final color = r.color != null
-                    ? Color(r.color!)
-                    : Colors.brown;
-                final isSelected = _selectedRecipes.contains(r.id);
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: color,
-                      foregroundColor: Colors.white,
-                      child: Icon(icon, color: Colors.white),
-                    ),
-                    title: Text(r.name),
-                    subtitle: Text(r.id),
-                    trailing: Checkbox(
-                      value: isSelected,
-                      onChanged: (val) {
-                        setState(() {
-                          if (val == true) {
-                            _selectedRecipes.add(r.id);
-                          } else {
-                            _selectedRecipes.remove(r.id);
-                          }
-                        });
-                      },
-                    ),
-                  ),
+                return EntryListItemFactory.buildEntry(
+                  context: context,
+                  ref: ref,
+                  entry: r,
+                  childrenByParent: hierarchy,
+                  registry: registry,
+                  displayMode: EntryDisplayMode.checkbox,
                 );
               }).toList(),
             );
@@ -432,8 +411,8 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
         const SizedBox(height: 8),
         ElevatedButton.icon(
           icon: const Icon(Icons.download),
-          label: const Text('Export Selected Recipes'),
-          onPressed: _selectedRecipes.isEmpty ? null : _exportSelected,
+          label: const Text('Export Selected'),
+          onPressed: selectedIds.isEmpty ? null : _exportSelected,
         ),
       ],
     );
@@ -443,6 +422,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
     final entriesAsync = ref.watch(allEntriesWithChildrenProvider);
     final sortMode = ref.watch(entrySortModeProvider);
     final typeFilter = ref.watch(entryTypeFilterProvider);
+    final selectedIds = ref.watch(bulkSelectionProvider);
     final theme = Theme.of(context);
 
     return Column(
@@ -452,7 +432,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Calendar Entries (${_selectedEntries.length} selected)',
+              'Calendar Entries',
               style: theme.textTheme.titleMedium,
             ),
             entriesAsync.maybeWhen(
@@ -467,24 +447,33 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                   onPressed: topLevel.isEmpty
                       ? null
                       : () {
-                          setState(() {
-                            if (_selectedEntries.length == topLevel.length) {
-                              _selectedEntries.clear();
-                            } else {
-                              _selectedEntries.addAll(
-                                topLevel.map((e) => e.id),
-                              );
-                              // Auto-select dependencies
-                              for (final entry in topLevel) {
-                                _autoSelectDependencies(entry);
-                              }
+                          final newSelected = {...selectedIds};
+                          final topLevelIds = topLevel.map((e) => e.id).toSet();
+                          if (topLevelIds.every(newSelected.containsKey)) {
+                            for (final id in topLevelIds) {
+                              newSelected.remove(id);
                             }
-                          });
+                          } else {
+                            for (final id in topLevelIds) {
+                              newSelected[id] = SelectionCategory.tracking;
+                            }
+                            // Auto-select dependencies
+                            for (final entry in topLevel) {
+                              _autoSelectDependencies(entry, newSelected);
+                            }
+                          }
+                          ref.read(bulkSelectionProvider.notifier).state =
+                              newSelected;
+                          ref.read(selectionModeProvider.notifier).state =
+                              newSelected.isNotEmpty;
                         },
-                  child: Text(
-                    _selectedEntries.length == topLevel.length
-                        ? 'Deselect All'
-                        : 'Select All',
+                  child: Builder(
+                    builder: (ctx) {
+                      final topLevelIds = topLevel.map((e) => e.id).toSet();
+                      final allSelected = topLevelIds.isNotEmpty &&
+                          topLevelIds.every(selectedIds.containsKey);
+                      return Text(allSelected ? 'Deselect All' : 'Select All');
+                    },
                   ),
                 );
               },
@@ -683,21 +672,6 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                     registry: registry,
                     config: EntryListItemConfig.fullDateTime,
                     displayMode: EntryDisplayMode.checkbox,
-                    selectedIds: _selectedEntries,
-                    onSelectionChanged: (entryId, selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedEntries.add(entryId);
-                          // Auto-select dependencies
-                          final entry = allEntries.firstWhere(
-                            (e) => e.id == entryId,
-                          );
-                          _autoSelectDependencies(entry);
-                        } else {
-                          _selectedEntries.remove(entryId);
-                        }
-                      });
-                    },
                   );
                 }),
                 const SizedBox(height: 16),
@@ -707,21 +681,21 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
                   children: [
                     ElevatedButton.icon(
                       icon: const Icon(Icons.download),
-                      label: const Text('Export Selected Entries'),
-                      onPressed: _selectedEntries.isEmpty
+                      label: const Text('Export Selected'),
+                      onPressed: selectedIds.isEmpty
                           ? null
                           : _exportSelected,
                     ),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.delete_outline),
-                      label: const Text('Delete Selected Entries'),
+                      label: const Text('Delete Selected'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: _selectedEntries.isEmpty
+                      onPressed: selectedIds.isEmpty
                           ? null
-                          : () => _bulkDeleteEntries(allEntries),
+                          : () => _bulkDeleteEntries(allEntries, selectedIds),
                     ),
                   ],
                 ),
@@ -741,23 +715,24 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
     );
   }
 
-  void _autoSelectDependencies(EntryRecord entry) {
+  void _autoSelectDependencies(
+      EntryRecord entry, Map<String, SelectionCategory> selection) {
     // Auto-select kinds
     if (entry.productId == null &&
         entry.recipeId == null &&
         entry.sourceEntryId == null) {
       // This is a direct kind entry
-      _selectedKinds.add(entry.widgetKind);
+      selection[entry.widgetKind] = SelectionCategory.kinds;
     }
 
     // Auto-select products
     if (entry.productId != null) {
-      _selectedProducts.add(entry.productId!);
+      selection[entry.productId!] = SelectionCategory.products;
     }
 
     // Auto-select recipes
     if (entry.recipeId != null) {
-      _selectedRecipes.add(entry.recipeId!);
+      selection[entry.recipeId!] = SelectionCategory.recipes;
     }
   }
 
@@ -811,11 +786,26 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
     }
 
     try {
+      final selectedIds = ref.read(bulkSelectionProvider);
+      final kinds = ref.read(kindsListProvider).value ?? [];
+      final products = ref.read(allProductsListProvider).value ?? [];
+      final recipes = ref.read(allRecipesListProvider).value ?? [];
+      final entries = ref.read(allEntriesWithChildrenProvider).value ?? [];
+
+      final selectedKinds =
+          kinds.map((k) => k.id).where(selectedIds.containsKey).toList();
+      final selectedProducts =
+          products.map((p) => p.id).where(selectedIds.containsKey).toList();
+      final selectedRecipes =
+          recipes.map((r) => r.id).where(selectedIds.containsKey).toList();
+      final selectedEntries =
+          entries.map((e) => e.id).where(selectedIds.containsKey).toList();
+
       final bundle = await svc.exportSelected(
-        kindIds: _selectedKinds.toList(),
-        productIds: _selectedProducts.toList(),
-        recipeIds: _selectedRecipes.toList(),
-        entryIds: _selectedEntries.toList(),
+        kindIds: selectedKinds,
+        productIds: selectedProducts,
+        recipeIds: selectedRecipes,
+        entryIds: selectedEntries,
       );
 
       final timestamp = DateTime.now()
@@ -849,19 +839,25 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
     }
   }
 
-  Future<void> _bulkDeleteEntries(List<EntryRecord> allEntries) async {
+  Future<void> _bulkDeleteEntries(
+    List<EntryRecord> allEntries,
+    Map<String, SelectionCategory> selectedIds,
+  ) async {
     final repo = ref.read(entriesRepositoryProvider);
     if (repo == null) return;
 
     final messenger = ScaffoldMessenger.of(context);
+
+    // Filter to only selected entries from the passed list
+    final selectedEntries =
+        allEntries.where((e) => selectedIds.containsKey(e.id)).toList();
 
     // Build summary of what will be deleted
     int kindCount = 0;
     int productCount = 0;
     int recipeCount = 0;
 
-    for (final id in _selectedEntries) {
-      final entry = allEntries.firstWhere((e) => e.id == id);
+    for (final entry in selectedEntries) {
       if (entry.widgetKind == 'product') {
         productCount++;
       } else if (entry.widgetKind == 'recipe') {
@@ -881,7 +877,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
           '• $kindCount kind entries\n'
           '• $productCount product entries (with components)\n'
           '• $recipeCount recipe entries (with components)\n\n'
-          'Total: ${_selectedEntries.length} entries',
+          'Total: ${selectedEntries.length} entries',
         ),
         actions: [
           TextButton(
@@ -899,16 +895,8 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
 
     if (confirmed != true || !mounted) return;
 
-    // Collect all entries to delete
-    final entriesToDelete = <EntryRecord>[];
-
-    for (final id in _selectedEntries) {
-      final entry = allEntries.firstWhere((e) => e.id == id);
-      entriesToDelete.add(entry);
-    }
-
-    // Delete all entries (parent + children)
-    for (final entry in entriesToDelete) {
+    // Delete all selected entries (parent + children)
+    for (final entry in selectedEntries) {
       if (entry.widgetKind == 'product' || entry.widgetKind == 'recipe') {
         await repo.deleteChildrenOfParent(entry.id);
       }
@@ -917,13 +905,18 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
 
     if (!mounted) return;
 
-    setState(() {
-      _selectedEntries.clear();
-    });
+    final newSelected = {...selectedIds};
+    for (final e in selectedEntries) {
+      newSelected.remove(e.id);
+    }
+    ref.read(bulkSelectionProvider.notifier).state = newSelected;
+    if (newSelected.isEmpty) {
+      ref.read(selectionModeProvider.notifier).state = false;
+    }
 
     // Show snackbar
     messenger.showSnackBar(
-      SnackBar(content: Text('Deleted ${entriesToDelete.length} entries')),
+      SnackBar(content: Text('Deleted ${selectedEntries.length} entries')),
     );
   }
 

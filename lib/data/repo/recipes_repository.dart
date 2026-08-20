@@ -212,6 +212,46 @@ class RecipesRepository {
     return list;
   }
 
+  Future<List<RecipeComponentDef>> listAllComponents() async {
+    await _ready;
+    final rows = await db
+        .customSelect(
+          'SELECT * FROM recipe_components ORDER BY recipe_id ASC;',
+          readsFrom: const {},
+        )
+        .get();
+    final list = <RecipeComponentDef>[];
+    for (final r in rows) {
+      final d = r.data;
+      final type = (d['type'] as String);
+      if (type == 'kind') {
+        list.add(
+          RecipeComponentDef.kind(
+            recipeId: d['recipe_id'] as String,
+            compId: d['comp_id'] as String,
+            amount: (d['amount'] as num?)?.toDouble() ?? 0.0,
+          ),
+        );
+      } else {
+        list.add(
+          RecipeComponentDef.product(
+            recipeId: d['recipe_id'] as String,
+            compId: d['comp_id'] as String,
+            grams: (d['grams'] as num?)?.toInt() ?? 0,
+          ),
+        );
+      }
+    }
+    return list;
+  }
+
+  Stream<List<RecipeComponentDef>> watchAllComponents() async* {
+    yield await listAllComponents();
+    await for (final _ in _changes.stream) {
+      yield await listAllComponents();
+    }
+  }
+
   /// Watch recipe components (reactive).
   Stream<List<RecipeComponentDef>> watchComponents(String recipeId) async* {
     yield await getComponents(recipeId);
