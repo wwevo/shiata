@@ -23,7 +23,6 @@ enum AppSection {
   products,
   kinds,
   recipes,
-  allEntries,
   database
 }
 

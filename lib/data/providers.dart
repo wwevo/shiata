@@ -79,14 +79,32 @@ final productsListProvider = StreamProvider<List<ProductDef>>((ref) {
   return repo.watchProducts(onlyActive: true);
 });
 
+final allProductsListProvider = StreamProvider<List<ProductDef>>((ref) {
+  final repo = ref.watch(productsRepositoryProvider);
+  if (repo == null) return Stream.value(<ProductDef>[]);
+  return repo.watchProducts(onlyActive: false);
+});
+
 final recipesListProvider = StreamProvider<List<RecipeDef>>((ref) {
   final repo = ref.watch(recipesRepositoryProvider);
   if (repo == null) return Stream.value(<RecipeDef>[]);
   return repo.watchRecipes(onlyActive: true);
 });
 
+final allRecipesListProvider = StreamProvider<List<RecipeDef>>((ref) {
+  final repo = ref.watch(recipesRepositoryProvider);
+  if (repo == null) return Stream.value(<RecipeDef>[]);
+  return repo.watchRecipes(onlyActive: false);
+});
+
 final unitsListProvider = StreamProvider<List<UnitDef>>((ref) {
   final repo = ref.watch(unitsRepositoryProvider);
   if (repo == null) return Stream.value(<UnitDef>[]);
   return repo.watchUnits();
+});
+
+final allEntriesWithChildrenProvider = StreamProvider<List<EntryRecord>>((ref) {
+  final repo = ref.watch(entriesRepositoryProvider);
+  if (repo == null) return Stream.value(<EntryRecord>[]);
+  return repo.watchAllEntriesWithChildren();
 });

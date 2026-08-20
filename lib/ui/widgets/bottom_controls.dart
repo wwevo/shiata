@@ -39,19 +39,6 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
               ),
             ),
           ),
-          IconButton(
-            tooltip: 'All Entries',
-            onPressed: () {
-              ref.read(currentSectionProvider.notifier).state =
-                  AppSection.allEntries;
-            },
-            icon: Icon(
-              Icons.view_list,
-              color: section == AppSection.allEntries
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
-            ),
-          ),
           MenuAnchor(
             menuChildren: [
               MenuItemButton(

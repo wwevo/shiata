@@ -9,11 +9,10 @@ import '../../data/db/db_handle.dart';
 import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../data/repo/import_export_service.dart';
-import '../../data/repo/products_repository.dart';
-import '../../data/repo/recipes_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../widgets/entry_list_item_factory.dart';
 import '../widgets/icon_resolver.dart';
+import '../main_screen_providers.dart';
 
 enum WipeMode {
   blank,
@@ -37,15 +36,54 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Database')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildFullOperationsSection(),
-          const Divider(height: 32),
-          _buildFineGrainedSection(),
-        ],
+    return DefaultTabController(
+      length: 4,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Database')),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: _buildFullOperationsSection(),
+            ),
+            TabBar(
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              labelColor: Theme.of(context).colorScheme.primary,
+              unselectedLabelColor:
+                  Theme.of(context).colorScheme.onSurfaceVariant,
+              tabs: const [
+                Tab(text: 'Entries'),
+                Tab(text: 'Kinds'),
+                Tab(text: 'Products'),
+                Tab(text: 'Recipes'),
+              ],
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: _buildEntriesSection(),
+                  ),
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: _buildKindsSection(),
+                  ),
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: _buildProductsSection(),
+                  ),
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: _buildRecipesSection(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -93,26 +131,11 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
     );
   }
 
-  Widget _buildFineGrainedSection() {
+  Widget _buildKindsSection() {
     final kindsAsync = ref.watch(kindsListProvider);
-    final productsRepo = ref.watch(productsRepositoryProvider);
-    final recipesRepo = ref.watch(recipesRepositoryProvider);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Export Selected Items',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Select specific kinds, products, or recipes to export. Dependencies will be included automatically.',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        const SizedBox(height: 16),
-
-        // Kinds section
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -204,10 +227,15 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
           label: const Text('Export Selected Kinds'),
           onPressed: _selectedKinds.isEmpty ? null : _exportSelected,
         ),
+      ],
+    );
+  }
 
-        const SizedBox(height: 16),
-
-        // Products section
+  Widget _buildProductsSection() {
+    final productsAsync = ref.watch(allProductsListProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -215,96 +243,100 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
               'Products (${_selectedProducts.length} selected)',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            if (productsRepo != null)
-              StreamBuilder<List<ProductDef>>(
-                stream: productsRepo.watchProducts(),
-                builder: (context, snapshot) {
-                  final products = snapshot.data ?? [];
-                  return TextButton(
-                    onPressed: products.isEmpty
-                        ? null
-                        : () {
-                            setState(() {
-                              if (_selectedProducts.length == products.length) {
-                                _selectedProducts.clear();
-                              } else {
-                                _selectedProducts.addAll(
-                                  products.map((p) => p.id),
-                                );
-                              }
-                            });
-                          },
-                    child: Text(
-                      _selectedProducts.length == products.length
-                          ? 'Deselect All'
-                          : 'Select All',
-                    ),
-                  );
-                },
+            productsAsync.maybeWhen(
+              data: (products) => TextButton(
+                onPressed: products.isEmpty
+                    ? null
+                    : () {
+                        setState(() {
+                          if (_selectedProducts.length == products.length) {
+                            _selectedProducts.clear();
+                          } else {
+                            _selectedProducts.addAll(
+                              products.map((p) => p.id),
+                            );
+                          }
+                        });
+                      },
+                child: Text(
+                  _selectedProducts.length == products.length
+                      ? 'Deselect All'
+                      : 'Select All',
+                ),
               ),
+              orElse: () => const TextButton(
+                onPressed: null,
+                child: Text('Select All'),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 8),
-        if (productsRepo == null)
-          const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Text('Repository not ready'),
-          )
-        else
-          StreamBuilder<List<ProductDef>>(
-            stream: productsRepo.watchProducts(),
-            builder: (context, snapshot) {
-              final products = snapshot.data ?? [];
-              if (products.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text('No products available'),
-                );
-              }
-              return Column(
-                children: products.map((p) {
-                  final isSelected = _selectedProducts.contains(p.id);
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    child: ListTile(
-                      leading: const CircleAvatar(
-                        backgroundColor: Colors.purple,
-                        foregroundColor: Colors.white,
-                        child: Icon(Icons.shopping_basket, color: Colors.white),
-                      ),
-                      title: Text(p.name),
-                      subtitle: Text(p.id),
-                      trailing: Checkbox(
-                        value: isSelected,
-                        onChanged: (val) {
-                          setState(() {
-                            if (val == true) {
-                              _selectedProducts.add(p.id);
-                            } else {
-                              _selectedProducts.remove(p.id);
-                            }
-                          });
-                        },
-                      ),
-                    ),
-                  );
-                }).toList(),
+        productsAsync.when(
+          data: (products) {
+            if (products.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text('No products available'),
               );
-            },
+            }
+            return Column(
+              children: products.map((p) {
+                final isSelected = _selectedProducts.contains(p.id);
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  child: ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Colors.purple,
+                      foregroundColor: Colors.white,
+                      child: Icon(Icons.shopping_basket, color: Colors.white),
+                    ),
+                    title: Text(p.name),
+                    subtitle: Text(p.id),
+                    trailing: Checkbox(
+                      value: isSelected,
+                      onChanged: (val) {
+                        setState(() {
+                          if (val == true) {
+                            _selectedProducts.add(p.id);
+                          } else {
+                            _selectedProducts.remove(p.id);
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+          loading: () => const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Center(child: CircularProgressIndicator()),
           ),
+          error: (e, st) => Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text('Error: $e'),
+          ),
+        ),
         const SizedBox(height: 8),
         ElevatedButton.icon(
           icon: const Icon(Icons.download),
           label: const Text('Export Selected Products'),
           onPressed: _selectedProducts.isEmpty ? null : _exportSelected,
         ),
+      ],
+    );
+  }
 
-        const SizedBox(height: 16),
-
-        // Recipes section
+  Widget _buildRecipesSection() {
+    final recipesAsync = ref.watch(allRecipesListProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -312,109 +344,106 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
               'Recipes (${_selectedRecipes.length} selected)',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            if (recipesRepo != null)
-              StreamBuilder<List<RecipeDef>>(
-                stream: recipesRepo.watchRecipes(onlyActive: false),
-                builder: (context, snapshot) {
-                  final recipes = snapshot.data ?? [];
-                  return TextButton(
-                    onPressed: recipes.isEmpty
-                        ? null
-                        : () {
-                            setState(() {
-                              if (_selectedRecipes.length == recipes.length) {
-                                _selectedRecipes.clear();
-                              } else {
-                                _selectedRecipes.addAll(
-                                  recipes.map((r) => r.id),
-                                );
-                              }
-                            });
-                          },
-                    child: Text(
-                      _selectedRecipes.length == recipes.length
-                          ? 'Deselect All'
-                          : 'Select All',
-                    ),
-                  );
-                },
+            recipesAsync.maybeWhen(
+              data: (recipes) => TextButton(
+                onPressed: recipes.isEmpty
+                    ? null
+                    : () {
+                        setState(() {
+                          if (_selectedRecipes.length == recipes.length) {
+                            _selectedRecipes.clear();
+                          } else {
+                            _selectedRecipes.addAll(
+                              recipes.map((r) => r.id),
+                            );
+                          }
+                        });
+                      },
+                child: Text(
+                  _selectedRecipes.length == recipes.length
+                      ? 'Deselect All'
+                      : 'Select All',
+                ),
               ),
+              orElse: () => const TextButton(
+                onPressed: null,
+                child: Text('Select All'),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 8),
-        if (recipesRepo == null)
-          const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Text('Repository not ready'),
-          )
-        else
-          StreamBuilder<List<RecipeDef>>(
-            stream: recipesRepo.watchRecipes(onlyActive: false),
-            builder: (context, snapshot) {
-              final recipes = snapshot.data ?? [];
-              if (recipes.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text('No recipes available'),
-                );
-              }
-              return Column(
-                children: recipes.map((r) {
-                  final icon = r.icon != null
-                      ? resolveIcon(r.icon, Icons.restaurant_menu)
-                      : Icons.restaurant_menu;
-                  final color = r.color != null
-                      ? Color(r.color!)
-                      : Colors.brown;
-                  final isSelected = _selectedRecipes.contains(r.id);
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: color,
-                        foregroundColor: Colors.white,
-                        child: Icon(icon, color: Colors.white),
-                      ),
-                      title: Text(r.name),
-                      subtitle: Text(r.id),
-                      trailing: Checkbox(
-                        value: isSelected,
-                        onChanged: (val) {
-                          setState(() {
-                            if (val == true) {
-                              _selectedRecipes.add(r.id);
-                            } else {
-                              _selectedRecipes.remove(r.id);
-                            }
-                          });
-                        },
-                      ),
-                    ),
-                  );
-                }).toList(),
+        recipesAsync.when(
+          data: (recipes) {
+            if (recipes.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text('No recipes available'),
               );
-            },
+            }
+            return Column(
+              children: recipes.map((r) {
+                final icon = r.icon != null
+                    ? resolveIcon(r.icon, Icons.restaurant_menu)
+                    : Icons.restaurant_menu;
+                final color = r.color != null
+                    ? Color(r.color!)
+                    : Colors.brown;
+                final isSelected = _selectedRecipes.contains(r.id);
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: color,
+                      foregroundColor: Colors.white,
+                      child: Icon(icon, color: Colors.white),
+                    ),
+                    title: Text(r.name),
+                    subtitle: Text(r.id),
+                    trailing: Checkbox(
+                      value: isSelected,
+                      onChanged: (val) {
+                        setState(() {
+                          if (val == true) {
+                            _selectedRecipes.add(r.id);
+                          } else {
+                            _selectedRecipes.remove(r.id);
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+          loading: () => const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Center(child: CircularProgressIndicator()),
           ),
+          error: (e, st) => Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text('Error: $e'),
+          ),
+        ),
         const SizedBox(height: 8),
         ElevatedButton.icon(
           icon: const Icon(Icons.download),
           label: const Text('Export Selected Recipes'),
           onPressed: _selectedRecipes.isEmpty ? null : _exportSelected,
         ),
-
-        const SizedBox(height: 16),
-
-        // Calendar Entries section
-        _buildEntriesSection(),
       ],
     );
   }
 
   Widget _buildEntriesSection() {
-    final entriesRepo = ref.watch(entriesRepositoryProvider);
+    final entriesAsync = ref.watch(allEntriesWithChildrenProvider);
+    final sortMode = ref.watch(entrySortModeProvider);
+    final typeFilter = ref.watch(entryTypeFilterProvider);
+    final theme = Theme.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -424,134 +453,290 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
           children: [
             Text(
               'Calendar Entries (${_selectedEntries.length} selected)',
-              style: Theme.of(context).textTheme.titleMedium,
+              style: theme.textTheme.titleMedium,
             ),
-            if (entriesRepo != null)
-              StreamBuilder<List<EntryRecord>>(
-                stream: entriesRepo.watchAllEntriesWithChildren(),
-                builder: (context, snapshot) {
-                  final allEntries = snapshot.data ?? [];
-                  // Only count top-level entries for "Select All"
-                  final topLevel = allEntries
-                      .where(
-                        (e) => e.sourceEntryId == null || e.sourceEntryId!.isEmpty,
-                      )
-                      .toList();
-                  return TextButton(
-                    onPressed: topLevel.isEmpty
-                        ? null
-                        : () {
-                            setState(() {
-                              if (_selectedEntries.length == topLevel.length) {
-                                _selectedEntries.clear();
-                              } else {
-                                _selectedEntries.addAll(
-                                  topLevel.map((e) => e.id),
-                                );
-                                // Auto-select dependencies
-                                for (final entry in topLevel) {
-                                  _autoSelectDependencies(entry);
-                                }
+            entriesAsync.maybeWhen(
+              data: (allEntries) {
+                // Only count top-level entries for "Select All"
+                final topLevel = allEntries
+                    .where(
+                      (e) => e.sourceEntryId == null || e.sourceEntryId!.isEmpty,
+                    )
+                    .toList();
+                return TextButton(
+                  onPressed: topLevel.isEmpty
+                      ? null
+                      : () {
+                          setState(() {
+                            if (_selectedEntries.length == topLevel.length) {
+                              _selectedEntries.clear();
+                            } else {
+                              _selectedEntries.addAll(
+                                topLevel.map((e) => e.id),
+                              );
+                              // Auto-select dependencies
+                              for (final entry in topLevel) {
+                                _autoSelectDependencies(entry);
                               }
-                            });
-                          },
-                    child: Text(
-                      _selectedEntries.length == topLevel.length
-                          ? 'Deselect All'
-                          : 'Select All',
-                    ),
-                  );
-                },
+                            }
+                          });
+                        },
+                  child: Text(
+                    _selectedEntries.length == topLevel.length
+                        ? 'Deselect All'
+                        : 'Select All',
+                  ),
+                );
+              },
+              orElse: () => const TextButton(
+                onPressed: null,
+                child: Text('Select All'),
               ),
+            ),
           ],
         ),
         const SizedBox(height: 8),
-        if (entriesRepo == null)
-          const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Text('Repository not ready'),
-          )
-        else
-          StreamBuilder<List<EntryRecord>>(
-            stream: entriesRepo.watchAllEntriesWithChildren(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
-
-              final allEntries = snapshot.data ?? [];
-              if (allEntries.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text('No entries available'),
-                );
-              }
-
-              // Build hierarchy: childrenByParent map from ALL entries
-              final childrenByParent = <String, List<EntryRecord>>{};
-              for (final entry in allEntries) {
-                final parentId = entry.sourceEntryId;
-                if (parentId != null && parentId.isNotEmpty) {
-                  childrenByParent.putIfAbsent(parentId, () => []).add(entry);
-                }
-              }
-
-              // Get only top-level entries (those without sourceEntryId)
-              final topLevelEntries = allEntries
-                  .where(
-                    (e) => e.sourceEntryId == null || e.sourceEntryId!.isEmpty,
-                  )
-                  .toList();
-
-              // Sort by targetAt descending (newest first)
-              topLevelEntries.sort((a, b) => b.targetAt.compareTo(a.targetAt));
-
-              // Get registry for icons/colors
-              final registry = ref.watch(widgetRegistryProvider);
-
-              return Column(
-                children: [
-                  ...topLevelEntries.map((entry) {
-                    return EntryListItemFactory.buildEntry(
-                      context: context,
-                      ref: ref,
-                      entry: entry,
-                      childrenByParent: childrenByParent,
-                      registry: registry,
-                      config: EntryListItemConfig.fullDateTime,
-                      displayMode: EntryDisplayMode.checkbox,
-                      selectedIds: _selectedEntries,
-                      onSelectionChanged: (entryId, selected) {
-                        setState(() {
-                          if (selected) {
-                            _selectedEntries.add(entryId);
-                            // Auto-select dependencies
-                            final entry = allEntries.firstWhere(
-                              (e) => e.id == entryId,
-                            );
-                            _autoSelectDependencies(entry);
-                          } else {
-                            _selectedEntries.remove(entryId);
-                          }
-                        });
-                      },
-                    );
-                  }),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.download),
-                    label: const Text('Export Selected Entries'),
-                    onPressed: _selectedEntries.isEmpty
-                        ? null
-                        : _exportSelected,
-                  ),
-                ],
+        entriesAsync.when(
+          data: (allEntries) {
+            if (allEntries.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text('No entries available'),
               );
-            },
+            }
+
+            // Build hierarchy: childrenByParent map from ALL entries
+            final childrenByParent = <String, List<EntryRecord>>{};
+            for (final entry in allEntries) {
+              final parentId = entry.sourceEntryId;
+              if (parentId != null && parentId.isNotEmpty) {
+                childrenByParent.putIfAbsent(parentId, () => []).add(entry);
+              }
+            }
+
+            // Get only top-level entries (those without sourceEntryId)
+            var topLevelEntries = allEntries
+                .where(
+                  (e) => e.sourceEntryId == null || e.sourceEntryId!.isEmpty,
+                )
+                .toList();
+
+            // Apply type filter
+            if (typeFilter.isNotEmpty) {
+              topLevelEntries = topLevelEntries.where((e) {
+                if (e.widgetKind == 'product') {
+                  return typeFilter.contains('product');
+                } else if (e.widgetKind == 'recipe') {
+                  return typeFilter.contains('recipe');
+                } else {
+                  return typeFilter.contains('kind');
+                }
+              }).toList();
+            }
+
+            // Apply sort mode
+            if (sortMode == EntrySortMode.oldest) {
+              topLevelEntries.sort((a, b) => a.targetAt.compareTo(b.targetAt));
+            } else {
+              topLevelEntries.sort((a, b) => b.targetAt.compareTo(a.targetAt));
+            }
+
+            // Get registry for icons/colors
+            final registry = ref.watch(widgetRegistryProvider);
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Filter and Sort UI
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Filter by Type',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          FilterChip(
+                            label: const Text('Kinds'),
+                            selected: typeFilter.contains('kind'),
+                            onSelected: (selected) {
+                              final newSet = {...typeFilter};
+                              if (selected) {
+                                newSet.add('kind');
+                              } else {
+                                newSet.remove('kind');
+                              }
+                              ref
+                                  .read(entryTypeFilterProvider.notifier)
+                                  .state = newSet;
+                            },
+                          ),
+                          FilterChip(
+                            label: const Text('Products'),
+                            selected: typeFilter.contains('product'),
+                            onSelected: (selected) {
+                              final newSet = {...typeFilter};
+                              if (selected) {
+                                newSet.add('product');
+                              } else {
+                                newSet.remove('product');
+                              }
+                              ref
+                                  .read(entryTypeFilterProvider.notifier)
+                                  .state = newSet;
+                            },
+                          ),
+                          FilterChip(
+                            label: const Text('Recipes'),
+                            selected: typeFilter.contains('recipe'),
+                            onSelected: (selected) {
+                              final newSet = {...typeFilter};
+                              if (selected) {
+                                newSet.add('recipe');
+                              } else {
+                                newSet.remove('recipe');
+                              }
+                              ref
+                                  .read(entryTypeFilterProvider.notifier)
+                                  .state = newSet;
+                            },
+                          ),
+                          if (typeFilter.isNotEmpty)
+                            ActionChip(
+                              label: const Text('Clear All'),
+                              onPressed: () {
+                                ref
+                                    .read(entryTypeFilterProvider.notifier)
+                                    .state = {};
+                              },
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Sort by Date',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          ChoiceChip(
+                            label: const Text('Newest First'),
+                            selected: sortMode == EntrySortMode.newest,
+                            onSelected: (selected) {
+                              if (selected) {
+                                ref
+                                    .read(entrySortModeProvider.notifier)
+                                    .state = EntrySortMode.newest;
+                              }
+                            },
+                          ),
+                          ChoiceChip(
+                            label: const Text('Oldest First'),
+                            selected: sortMode == EntrySortMode.oldest,
+                            onSelected: (selected) {
+                              if (selected) {
+                                ref
+                                    .read(entrySortModeProvider.notifier)
+                                    .state = EntrySortMode.oldest;
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (topLevelEntries.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Center(
+                      child: Text(
+                        typeFilter.isNotEmpty
+                            ? 'No entries match selected filters'
+                            : 'No entries available',
+                      ),
+                    ),
+                  )
+                else
+                  ...topLevelEntries.map((entry) {
+                  return EntryListItemFactory.buildEntry(
+                    context: context,
+                    ref: ref,
+                    entry: entry,
+                    childrenByParent: childrenByParent,
+                    registry: registry,
+                    config: EntryListItemConfig.fullDateTime,
+                    displayMode: EntryDisplayMode.checkbox,
+                    selectedIds: _selectedEntries,
+                    onSelectionChanged: (entryId, selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedEntries.add(entryId);
+                          // Auto-select dependencies
+                          final entry = allEntries.firstWhere(
+                            (e) => e.id == entryId,
+                          );
+                          _autoSelectDependencies(entry);
+                        } else {
+                          _selectedEntries.remove(entryId);
+                        }
+                      });
+                    },
+                  );
+                }),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.download),
+                      label: const Text('Export Selected Entries'),
+                      onPressed: _selectedEntries.isEmpty
+                          ? null
+                          : _exportSelected,
+                    ),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Delete Selected Entries'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: _selectedEntries.isEmpty
+                          ? null
+                          : () => _bulkDeleteEntries(allEntries),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+          loading: () => const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Center(child: CircularProgressIndicator()),
           ),
+          error: (e, st) => Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text('Error: $e'),
+          ),
+        ),
       ],
     );
   }
@@ -662,6 +847,84 @@ class _DatabasePageState extends ConsumerState<DatabasePage> {
         _showSnackBar('Export failed: $e');
       }
     }
+  }
+
+  Future<void> _bulkDeleteEntries(List<EntryRecord> allEntries) async {
+    final repo = ref.read(entriesRepositoryProvider);
+    if (repo == null) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+
+    // Build summary of what will be deleted
+    int kindCount = 0;
+    int productCount = 0;
+    int recipeCount = 0;
+
+    for (final id in _selectedEntries) {
+      final entry = allEntries.firstWhere((e) => e.id == id);
+      if (entry.widgetKind == 'product') {
+        productCount++;
+      } else if (entry.widgetKind == 'recipe') {
+        recipeCount++;
+      } else {
+        kindCount++;
+      }
+    }
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Selected Entries?'),
+        content: Text(
+          'This will delete:\n'
+          '• $kindCount kind entries\n'
+          '• $productCount product entries (with components)\n'
+          '• $recipeCount recipe entries (with components)\n\n'
+          'Total: ${_selectedEntries.length} entries',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    // Collect all entries to delete
+    final entriesToDelete = <EntryRecord>[];
+
+    for (final id in _selectedEntries) {
+      final entry = allEntries.firstWhere((e) => e.id == id);
+      entriesToDelete.add(entry);
+    }
+
+    // Delete all entries (parent + children)
+    for (final entry in entriesToDelete) {
+      if (entry.widgetKind == 'product' || entry.widgetKind == 'recipe') {
+        await repo.deleteChildrenOfParent(entry.id);
+      }
+      await repo.delete(entry.id);
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _selectedEntries.clear();
+    });
+
+    // Show snackbar
+    messenger.showSnackBar(
+      SnackBar(content: Text('Deleted ${entriesToDelete.length} entries')),
+    );
   }
 
   Future<String?> _pickAndReadJsonBundle() async {

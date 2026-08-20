@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'pages/all_entries_page.dart';
 import 'pages/database_page.dart';
 import 'pages/kinds_page.dart';
 import 'main_screen_providers.dart';
@@ -30,8 +29,6 @@ class MainScreen extends ConsumerWidget {
         return const KindsPage();
       case AppSection.recipes:
         return const RecipesPage();
-      case AppSection.allEntries:
-        return const AllEntriesPage();
       case AppSection.database:
         return const DatabasePage();
       default:
