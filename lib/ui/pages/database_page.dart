@@ -104,43 +104,9 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Kinds',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            TextButton(
-              onPressed: () {
-                kindsAsync.whenData((kinds) {
-                  final newSelected = {...selectedIds};
-                  final kindIds = kinds.map((k) => k.id).toSet();
-                  if (kindIds.every(newSelected.containsKey)) {
-                    for (final id in kindIds) {
-                      newSelected.remove(id);
-                    }
-                  } else {
-                    for (final id in kindIds) {
-                      newSelected[id] = SelectionCategory.kinds;
-                    }
-                  }
-                  ref.read(bulkSelectionProvider.notifier).state = newSelected;
-                  ref.read(selectionModeProvider.notifier).state =
-                      newSelected.isNotEmpty;
-                });
-              },
-              child: kindsAsync.maybeWhen(
-                data: (kinds) {
-                  final kindIds = kinds.map((k) => k.id).toSet();
-                  final allSelected = kindIds.isNotEmpty &&
-                      kindIds.every(selectedIds.containsKey);
-                  return Text(allSelected ? 'Deselect All' : 'Select All');
-                },
-                orElse: () => const Text('Select All'),
-              ),
-            ),
-          ],
+        Text(
+          'Kinds',
+          style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
         kindsAsync.when(
@@ -192,49 +158,9 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Products',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            productsAsync.maybeWhen(
-              data: (products) => TextButton(
-                onPressed: products.isEmpty
-                    ? null
-                    : () {
-                        final newSelected = {...selectedIds};
-                        final prodIds = products.map((p) => p.id).toSet();
-                        if (prodIds.every(newSelected.containsKey)) {
-                          for (final id in prodIds) {
-                            newSelected.remove(id);
-                          }
-                        } else {
-                          for (final id in prodIds) {
-                            newSelected[id] = SelectionCategory.products;
-                          }
-                        }
-                        ref.read(bulkSelectionProvider.notifier).state =
-                            newSelected;
-                        ref.read(selectionModeProvider.notifier).state =
-                            newSelected.isNotEmpty;
-                      },
-                child: Builder(
-                  builder: (ctx) {
-                    final prodIds = products.map((p) => p.id).toSet();
-                    final allSelected = prodIds.isNotEmpty &&
-                        prodIds.every(selectedIds.containsKey);
-                    return Text(allSelected ? 'Deselect All' : 'Select All');
-                  },
-                ),
-              ),
-              orElse: () => const TextButton(
-                onPressed: null,
-                child: Text('Select All'),
-              ),
-            ),
-          ],
+        Text(
+          'Products',
+          style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
         productsAsync.when(
@@ -286,49 +212,9 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Recipes',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            recipesAsync.maybeWhen(
-              data: (recipes) => TextButton(
-                onPressed: recipes.isEmpty
-                    ? null
-                    : () {
-                        final newSelected = {...selectedIds};
-                        final recIds = recipes.map((r) => r.id).toSet();
-                        if (recIds.every(newSelected.containsKey)) {
-                          for (final id in recIds) {
-                            newSelected.remove(id);
-                          }
-                        } else {
-                          for (final id in recIds) {
-                            newSelected[id] = SelectionCategory.recipes;
-                          }
-                        }
-                        ref.read(bulkSelectionProvider.notifier).state =
-                            newSelected;
-                        ref.read(selectionModeProvider.notifier).state =
-                            newSelected.isNotEmpty;
-                      },
-                child: Builder(
-                  builder: (ctx) {
-                    final recIds = recipes.map((r) => r.id).toSet();
-                    final allSelected = recIds.isNotEmpty &&
-                        recIds.every(selectedIds.containsKey);
-                    return Text(allSelected ? 'Deselect All' : 'Select All');
-                  },
-                ),
-              ),
-              orElse: () => const TextButton(
-                onPressed: null,
-                child: Text('Select All'),
-              ),
-            ),
-          ],
+        Text(
+          'Recipes',
+          style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
         recipesAsync.when(
@@ -381,61 +267,9 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Calendar Entries',
-              style: theme.textTheme.titleMedium,
-            ),
-            entriesAsync.maybeWhen(
-              data: (allEntries) {
-                // Only count top-level entries for "Select All"
-                final topLevel = allEntries
-                    .where(
-                      (e) => e.sourceEntryId == null || e.sourceEntryId!.isEmpty,
-                    )
-                    .toList();
-                return TextButton(
-                  onPressed: topLevel.isEmpty
-                      ? null
-                      : () {
-                          final newSelected = {...selectedIds};
-                          final topLevelIds = topLevel.map((e) => e.id).toSet();
-                          if (topLevelIds.every(newSelected.containsKey)) {
-                            for (final id in topLevelIds) {
-                              newSelected.remove(id);
-                            }
-                          } else {
-                            for (final id in topLevelIds) {
-                              newSelected[id] = SelectionCategory.entries;
-                            }
-                            // Auto-select dependencies
-                            for (final entry in topLevel) {
-                              _autoSelectDependencies(entry, newSelected);
-                            }
-                          }
-                          ref.read(bulkSelectionProvider.notifier).state =
-                              newSelected;
-                          ref.read(selectionModeProvider.notifier).state =
-                              newSelected.isNotEmpty;
-                        },
-                  child: Builder(
-                    builder: (ctx) {
-                      final topLevelIds = topLevel.map((e) => e.id).toSet();
-                      final allSelected = topLevelIds.isNotEmpty &&
-                          topLevelIds.every(selectedIds.containsKey);
-                      return Text(allSelected ? 'Deselect All' : 'Select All');
-                    },
-                  ),
-                );
-              },
-              orElse: () => const TextButton(
-                onPressed: null,
-                child: Text('Select All'),
-              ),
-            ),
-          ],
+        Text(
+          'Calendar Entries',
+          style: theme.textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
         entriesAsync.when(
@@ -657,26 +491,6 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
     );
   }
 
-  void _autoSelectDependencies(
-      EntryRecord entry, Map<String, SelectionCategory> selection) {
-    // Auto-select kinds
-    if (entry.productId == null &&
-        entry.recipeId == null &&
-        entry.sourceEntryId == null) {
-      // This is a direct kind entry
-      selection[entry.widgetKind] = SelectionCategory.kinds;
-    }
-
-    // Auto-select products
-    if (entry.productId != null) {
-      selection[entry.productId!] = SelectionCategory.products;
-    }
-
-    // Auto-select recipes
-    if (entry.recipeId != null) {
-      selection[entry.recipeId!] = SelectionCategory.recipes;
-    }
-  }
 
   Future<void> _exportSelected() async {
     final svc = ref.read(importExportServiceProvider);
