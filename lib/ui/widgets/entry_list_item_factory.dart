@@ -119,6 +119,7 @@ class EntryListItemFactory {
     EntryListItemConfig config = const EntryListItemConfig(),
     int depth = 0,
     EntryDisplayMode displayMode = EntryDisplayMode.normal,
+    void Function(dynamic entry, bool selected)? onSelectionChanged,
   }) {
     final dynamic realEntry = entry is ComponentItem ? entry.definition : entry;
     final String entryId = _getEntryId(realEntry);
@@ -170,22 +171,26 @@ class EntryListItemFactory {
 
     if (effectiveDisplayMode == EntryDisplayMode.checkbox ||
         effectiveDisplayMode == EntryDisplayMode.selection) {
-      if (depth == 0) {
+      if (depth == 0 || effectiveDisplayMode == EntryDisplayMode.checkbox) {
         trailingActions.add(
           Checkbox(
             value: isSelected,
             onChanged: (val) {
-              final newSelected = {...selectedIds};
-              if (val == true) {
-                newSelected[entryId] = _getEntryCategory(realEntry);
+              if (onSelectionChanged != null) {
+                onSelectionChanged(realEntry, val ?? false);
               } else {
-                newSelected.remove(entryId);
-              }
-              ref.read(bulkSelectionProvider.notifier).state = newSelected;
-              if (newSelected.isEmpty) {
-                ref.read(selectionModeProvider.notifier).state = false;
-              } else {
-                ref.read(selectionModeProvider.notifier).state = true;
+                final newSelected = {...selectedIds};
+                if (val == true) {
+                  newSelected[entryId] = _getEntryCategory(realEntry);
+                } else {
+                  newSelected.remove(entryId);
+                }
+                ref.read(bulkSelectionProvider.notifier).state = newSelected;
+                if (newSelected.isEmpty) {
+                  ref.read(selectionModeProvider.notifier).state = false;
+                } else {
+                  ref.read(selectionModeProvider.notifier).state = true;
+                }
               }
             },
           ),
@@ -283,17 +288,22 @@ class EntryListItemFactory {
               }
               ref.read(expandedEntriesProvider.notifier).state = set;
             }
-          : (effectiveDisplayMode == EntryDisplayMode.selection
+          : (effectiveDisplayMode == EntryDisplayMode.selection ||
+                  effectiveDisplayMode == EntryDisplayMode.checkbox
               ? () {
-                  final newSelected = {...selectedIds};
-                  if (isSelected) {
-                    newSelected.remove(entryId);
+                  if (onSelectionChanged != null) {
+                    onSelectionChanged(realEntry, !isSelected);
                   } else {
-                    newSelected[entryId] = _getEntryCategory(realEntry);
-                  }
-                  ref.read(bulkSelectionProvider.notifier).state = newSelected;
-                  if (newSelected.isEmpty) {
-                    ref.read(selectionModeProvider.notifier).state = false;
+                    final newSelected = {...selectedIds};
+                    if (isSelected) {
+                      newSelected.remove(entryId);
+                    } else {
+                      newSelected[entryId] = _getEntryCategory(realEntry);
+                    }
+                    ref.read(bulkSelectionProvider.notifier).state = newSelected;
+                    if (newSelected.isEmpty) {
+                      ref.read(selectionModeProvider.notifier).state = false;
+                    }
                   }
                 }
               : null),
@@ -342,6 +352,7 @@ class EntryListItemFactory {
                       config: config,
                       depth: depth + 1,
                       displayMode: displayMode,
+                      onSelectionChanged: onSelectionChanged,
                     ),
                   )
                   .toList(),

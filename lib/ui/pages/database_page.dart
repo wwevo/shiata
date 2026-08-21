@@ -6,8 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../data/providers.dart';
+import '../../data/repo/database_selection_service.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../data/repo/import_export_service.dart';
+import '../../data/repo/kinds_repository.dart';
+import '../../data/repo/products_repository.dart';
+import '../../data/repo/recipes_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../widgets/entry_list_item_factory.dart';
 import '../main_screen_providers.dart';
@@ -126,6 +130,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
                   childrenByParent: const {},
                   registry: registry,
                   displayMode: EntryDisplayMode.checkbox,
+                  onSelectionChanged: _handleSelectionChanged,
                 );
               }).toList(),
             );
@@ -180,6 +185,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
                   childrenByParent: hierarchy,
                   registry: registry,
                   displayMode: EntryDisplayMode.checkbox,
+                  onSelectionChanged: _handleSelectionChanged,
                 );
               }).toList(),
             );
@@ -234,6 +240,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
                   childrenByParent: hierarchy,
                   registry: registry,
                   displayMode: EntryDisplayMode.checkbox,
+                  onSelectionChanged: _handleSelectionChanged,
                 );
               }).toList(),
             );
@@ -459,6 +466,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
                     registry: registry,
                     config: EntryListItemConfig.fullDateTime,
                     displayMode: EntryDisplayMode.checkbox,
+                    onSelectionChanged: _handleSelectionChanged,
                   );
                 }),
                 const SizedBox(height: 16),
@@ -553,9 +561,117 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
     }
   }
 
+  Future<void> _handleSelectionChanged(dynamic entry, bool selected) async {
+    final dynamic realEntry = entry is ComponentItem ? entry.definition : entry;
+    final String entryId;
+    final SelectionCategory category;
+
+    if (realEntry is EntryRecord) {
+      entryId = realEntry.id;
+      category = SelectionCategory.entries;
+    } else if (realEntry is KindDef) {
+      entryId = realEntry.id;
+      category = SelectionCategory.kinds;
+    } else if (realEntry is ProductDef) {
+      entryId = realEntry.id;
+      category = SelectionCategory.products;
+    } else if (realEntry is RecipeDef) {
+      entryId = realEntry.id;
+      category = SelectionCategory.recipes;
+    } else {
+      return;
+    }
+
+    final currentSelected = ref.read(bulkSelectionProvider);
+    final kinds = ref.read(kindsListProvider).value ?? [];
+    final products = ref.read(allProductsListProvider).value ?? [];
+    final recipes = ref.read(allRecipesListProvider).value ?? [];
+    final recipeComponents = ref.read(allRecipeComponentsProvider).value ?? [];
+    final productComponents =
+        ref.read(allProductComponentsProvider).value ?? [];
+    final allEntries = ref.read(allEntriesWithChildrenProvider).value ?? [];
+
+    final result = DatabaseSelectionService.handleSelectionChange(
+      entryId: entryId,
+      category: category,
+      selected: selected,
+      currentSelection: currentSelected,
+      kinds: kinds,
+      products: products,
+      recipes: recipes,
+      recipeComponents: recipeComponents,
+      productComponents: productComponents,
+      allEntries: allEntries,
+    );
+
+    if (selected) {
+      if (result.includedChildCount > 0) {
+        final count = result.includedChildCount;
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Selection Info'),
+            content: Text(
+              '$count child node${count == 1 ? '' : 's'} need to be included',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Confirm'),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmed != true || !mounted) {
+          return;
+        }
+      }
+    } else {
+      if (result.deselectedParentNames.isNotEmpty) {
+        final names = result.deselectedParentNames.join(', ');
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Warning'),
+            content: Text('Warning: $names will be deselected as well'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Confirm'),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmed != true || !mounted) {
+          return;
+        }
+      }
+    }
+
+    ref.read(bulkSelectionProvider.notifier).state = result.newSelection;
+    ref.read(selectionModeProvider.notifier).state =
+        result.newSelection.isNotEmpty;
+  }
+
   void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 }
