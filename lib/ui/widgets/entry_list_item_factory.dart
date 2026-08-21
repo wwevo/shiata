@@ -380,11 +380,11 @@ class EntryListItemFactory {
 
   static SelectionCategory _getEntryCategory(dynamic entry) {
     final dynamic realEntry = entry is ComponentItem ? entry.definition : entry;
-    if (realEntry is EntryRecord) return SelectionCategory.tracking;
+    if (realEntry is EntryRecord) return SelectionCategory.entries;
     if (realEntry is KindDef) return SelectionCategory.kinds;
     if (realEntry is ProductDef) return SelectionCategory.products;
     if (realEntry is RecipeDef) return SelectionCategory.recipes;
-    return SelectionCategory.tracking;
+    return SelectionCategory.entries;
   }
 
   static String _getEntryKindId(dynamic entry) {

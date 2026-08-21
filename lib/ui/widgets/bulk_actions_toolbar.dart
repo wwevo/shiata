@@ -118,7 +118,7 @@ class BulkActionsToolbar extends ConsumerWidget {
     try {
       // Group by category for efficient deletion
       final trackingIds = selectedIds.entries
-          .where((e) => e.value == SelectionCategory.tracking)
+          .where((e) => e.value == SelectionCategory.entries)
           .map((e) => e.key)
           .toList();
       final kindIds = selectedIds.entries

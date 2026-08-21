@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'pages/database_page.dart';
+import 'pages/database_admin_page.dart';
 import 'pages/kinds_page.dart';
 import 'main_screen_providers.dart';
 import 'pages/products_page.dart';
@@ -15,6 +16,7 @@ import 'pages/active_week_page.dart';
 /// - Recipes section
 /// - All Entries section
 /// - Database section
+/// - Database Admin section
 class MainScreen extends ConsumerWidget {
   const MainScreen({super.key});
 
@@ -31,8 +33,9 @@ class MainScreen extends ConsumerWidget {
         return const RecipesPage();
       case AppSection.database:
         return const DatabasePage();
+      case AppSection.databaseAdmin:
+        return const DatabaseAdminPage();
       default:
-        // Fallback to overview to satisfy exhaustive checking in some analyzers
         return const ActiveWeekPage();
     }
   }

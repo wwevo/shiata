@@ -29,7 +29,7 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
     } else if ([AppSection.recipes, AppSection.products, AppSection.kinds]
         .contains(section)) {
       selectedIndex = 1;
-    } else if (section == AppSection.database) {
+    } else {
       selectedIndex = 2;
     }
 
