@@ -6,8 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
-import '../widgets/date_time_picker.dart';
-import '../widgets/editor_dialog_shell.dart';
+import 'editor_form_support.dart';
 
 /// Generic integer-only editor driven by WidgetKind metadata.
 class KindInstanceEditorDialog extends ConsumerStatefulWidget {

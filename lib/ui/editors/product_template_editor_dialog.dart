@@ -10,9 +10,8 @@ import '../../data/repo/products_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
-import '../widgets/add_kind_dialog.dart';
-import '../widgets/editor_dialog_shell.dart';
-import '../widgets/validation_rules.dart';
+import '../widgets/selection_dialog.dart';
+import 'editor_form_support.dart';
 
 class ProductTemplateEditorDialog extends ConsumerStatefulWidget {
   const ProductTemplateEditorDialog({
@@ -184,7 +183,12 @@ class _ProductTemplateEditorDialogState
     final kinds = registry.kinds.toList();
     final picked = await showDialog<WidgetKind?>(
       context: context,
-      builder: (ctx) => AddKindDialog(kinds: kinds),
+      builder: (ctx) => SelectionDialog<WidgetKind>(
+        title: 'Add kind',
+        hint: 'Select kind',
+        items: kinds,
+        itemLabel: (k) => k.displayName,
+      ),
     );
     if (picked == null) return;
     setState(() {

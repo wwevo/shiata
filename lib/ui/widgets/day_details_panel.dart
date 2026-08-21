@@ -5,7 +5,7 @@ import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../main_screen_providers.dart';
-import 'action_sheet_helpers.dart';
+import 'create_action_sheet.dart';
 import 'entry_list_item_factory.dart';
 
 class DayDetailsPanel extends ConsumerWidget {

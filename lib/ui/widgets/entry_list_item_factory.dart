@@ -40,8 +40,6 @@ import '../editors/product_template_editor_dialog.dart';
 import '../editors/recipe_instance_dialog.dart';
 import '../editors/recipe_template_editor_dialog.dart';
 import '../main_screen_providers.dart';
-import './icon_resolver.dart';
-import './standard_list_item.dart';
 
 /// Display mode for entry list items
 enum EntryDisplayMode {
@@ -883,5 +881,106 @@ class EntryListItemFactory {
         messenger.showSnackBar(SnackBar(content: Text('Could not delete kind: ${e.toString()}')));
       }
     }
+  }
+}
+
+/// A standardized list item widget that follows the application's visual style.
+/// It uses a Card + ListTile pattern for top-level items and a plain ListTile for nested items.
+class StandardListItem extends StatelessWidget {
+  final Widget leading;
+  final Widget title;
+  final Widget? subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final bool isNested;
+  final bool isSelected;
+  final Color? tileColor;
+
+  const StandardListItem({
+    super.key,
+    required this.leading,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+    this.onTap,
+    this.onLongPress,
+    this.isNested = false,
+    this.isSelected = false,
+    this.tileColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final listTile = ListTile(
+      dense: isNested,
+      visualDensity: VisualDensity.compact,
+      contentPadding: EdgeInsets.symmetric(
+        horizontal: isNested ? 0 : 12,
+      ),
+      onTap: onTap,
+      onLongPress: onLongPress,
+      leading: leading,
+      title: title,
+      subtitle: subtitle,
+      trailing: trailing,
+      selected: isSelected,
+      tileColor: tileColor,
+    );
+
+    if (isNested) {
+      return listTile;
+    }
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+      elevation: isSelected ? 4 : 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: isSelected
+            ? BorderSide(color: Theme.of(context).colorScheme.primary, width: 2)
+            : BorderSide.none,
+      ),
+      child: listTile,
+    );
+  }
+}
+
+/// Resolves icon names to IconData.
+/// Used across all pages for consistent icon handling.
+IconData resolveIcon(String? name, IconData fallback) {
+  switch (name) {
+    case 'fitness_center':
+      return Icons.fitness_center;
+    case 'opacity':
+      return Icons.opacity;
+    case 'rice_bowl':
+      return Icons.rice_bowl;
+    case 'battery_charging_full':
+      return Icons.battery_charging_full;
+    case 'blur_on':
+      return Icons.blur_on;
+    case 'bolt':
+      return Icons.bolt;
+    case 'circle':
+      return Icons.circle;
+    case 'hexagon':
+      return Icons.hexagon;
+    case 'science':
+      return Icons.science;
+    case 'visibility':
+      return Icons.visibility;
+    case 'medical_information':
+      return Icons.medical_information;
+    case 'local_florist':
+      return Icons.local_florist;
+    case 'wb_sunny':
+      return Icons.wb_sunny;
+    case 'eco':
+      return Icons.eco;
+    case 'grass':
+      return Icons.grass;
+    default:
+      return fallback;
   }
 }

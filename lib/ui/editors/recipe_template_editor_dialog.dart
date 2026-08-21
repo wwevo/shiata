@@ -9,10 +9,8 @@ import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
 import '../widgets/add_component_menu.dart';
-import '../widgets/add_kind_dialog.dart';
-import '../widgets/add_product_dialog.dart';
-import '../widgets/editor_dialog_shell.dart';
-import '../widgets/validation_rules.dart';
+import '../widgets/selection_dialog.dart';
+import 'editor_form_support.dart';
 
 class RecipeEditorDialog extends ConsumerStatefulWidget {
   const RecipeEditorDialog({
@@ -215,8 +213,11 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog>
       case 'kind':
         final kind = await showDialog<WidgetKind?>(
           context: context,
-          builder: (ctx) => AddKindDialog(
-            kinds: registry.kinds.toList(),
+          builder: (ctx) => SelectionDialog<WidgetKind>(
+            title: 'Add kind',
+            hint: 'Select kind',
+            items: registry.kinds.toList(),
+            itemLabel: (k) => k.displayName,
           ),
         );
 
@@ -249,7 +250,12 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog>
 
         final product = await showDialog<ProductDef?>(
           context: context,
-          builder: (ctx) => AddProductDialog(products: products),
+          builder: (ctx) => SelectionDialog<ProductDef>(
+            title: 'Add product',
+            hint: 'Select product',
+            items: products,
+            itemLabel: (p) => p.name,
+          ),
         );
 
         if (product != null) {

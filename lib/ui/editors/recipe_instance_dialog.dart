@@ -7,9 +7,7 @@ import '../../data/providers.dart';
 import '../../data/repo/recipe_service.dart';
 import '../../domain/widgets/registry.dart';
 import '../../utils/formatters.dart';
-import '../widgets/date_time_picker.dart';
-import '../widgets/editor_dialog_shell.dart';
-import '../widgets/validation_rules.dart';
+import 'editor_form_support.dart';
 
 class RecipeInstantiateDialog extends ConsumerStatefulWidget {
   const RecipeInstantiateDialog({

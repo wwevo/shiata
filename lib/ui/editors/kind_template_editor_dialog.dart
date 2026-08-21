@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/kinds_repository.dart';
 import '../../utils/formatters.dart';
-import '../widgets/editor_dialog_shell.dart';
-import '../widgets/validation_rules.dart';
+import 'editor_form_support.dart';
 
 class KindTemplateEditorDialog extends ConsumerStatefulWidget {
   const KindTemplateEditorDialog({super.key, this.existing});

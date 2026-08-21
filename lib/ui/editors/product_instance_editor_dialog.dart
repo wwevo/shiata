@@ -7,8 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/product_service.dart';
 import '../../utils/formatters.dart';
-import '../widgets/date_time_picker.dart';
-import '../widgets/editor_dialog_shell.dart';
+import 'editor_form_support.dart';
 
 class ProductEditorDialog extends ConsumerStatefulWidget {
   const ProductEditorDialog({

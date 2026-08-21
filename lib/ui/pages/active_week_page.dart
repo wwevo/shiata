@@ -11,7 +11,7 @@ import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../main_screen_providers.dart';
 import '../ux_config.dart';
-import '../widgets/action_sheet_helpers.dart';
+import '../widgets/create_action_sheet.dart';
 import '../widgets/entry_list_item_factory.dart';
 import '../widgets/weekly_calendar.dart';
 
