@@ -167,6 +167,7 @@ class BulkActionsToolbar extends ConsumerWidget {
     return Material(
       elevation: 8,
       child: Container(
+        height: Theme.of(context).appBarTheme.toolbarHeight,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         color: Theme.of(context).colorScheme.primaryContainer,
         child: SafeArea(
@@ -175,13 +176,19 @@ class BulkActionsToolbar extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Text(
                       statusText,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
-                  ),
+                  )
+                ]
+              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   if (pageCount > 1)
                     TextButton(
                       onPressed: () {

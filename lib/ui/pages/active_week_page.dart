@@ -638,18 +638,23 @@ class _KindModeChip extends StatelessWidget {
         final next = (mode == ChipMode.exclude) ? ChipMode.off : ChipMode.exclude;
         onChanged(next);
       },
-      child: FilterChip(
-        avatar: avatar,
-        label: Text(label),
-        selected: mode != ChipMode.off,
-        visualDensity: VisualDensity.compact,
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-        labelStyle: Theme.of(context).textTheme.bodySmall,
-        onSelected: (_) {
-          final next = (mode == ChipMode.off) ? ChipMode.include : ChipMode.off;
-          onChanged(next);
-        },
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          FilterChip(
+            avatar: avatar,
+            label: Text(label),
+            selected: mode != ChipMode.off,
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+            labelStyle: Theme.of(context).textTheme.bodySmall,
+            onSelected: (_) {
+              final next = (mode == ChipMode.off) ? ChipMode.include : ChipMode.off;
+              onChanged(next);
+            },
+          ),
+        ],
       ),
     );
   }
@@ -757,59 +762,63 @@ class _WeekSummarySection extends ConsumerWidget {
                 ),
                 const SizedBox(width: 24),
                 Expanded(
-                  child: SingleChildScrollView(
-                    child: Builder(
-                      builder: (context) {
-                        String labelFor(String id) => registry.byId(id)?.displayName ?? id;
-                        String unitFor(String id) => registry.byId(id)?.unit ?? '';
-                        String valueTextFor(String id) {
-                          final v = amountsAll[id] ?? 0;
-                          return v < 1 ? v.toStringAsFixed(2) : v.toStringAsFixed(0);
-                        }
+                  child: SizedBox(
+                    height: 140,
+                    width: double.infinity,
+                    child: SingleChildScrollView(
+                      child: Builder(
+                        builder: (context) {
+                          String labelFor(String id) => registry.byId(id)?.displayName ?? id;
+                          String unitFor(String id) => registry.byId(id)?.unit ?? '';
+                          String valueTextFor(String id) {
+                            final v = amountsAll[id] ?? 0;
+                            return v < 1 ? v.toStringAsFixed(2) : v.toStringAsFixed(0);
+                          }
 
-                        // Order kinds by normalized amount desc, then by label
-                        final orderedIds = availableKindIds.toList()
-                          ..sort((a, b) {
-                            final va = normalizedAll[a] ?? 0;
-                            final vb = normalizedAll[b] ?? 0;
-                            final c = vb.compareTo(va);
-                            if (c != 0) return c;
-                            return labelFor(a).toLowerCase().compareTo(labelFor(b).toLowerCase());
-                          });
+                          // Order kinds by normalized amount desc, then by label
+                          final orderedIds = availableKindIds.toList()
+                            ..sort((a, b) {
+                              final va = normalizedAll[a] ?? 0;
+                              final vb = normalizedAll[b] ?? 0;
+                              final c = vb.compareTo(va);
+                              if (c != 0) return c;
+                              return labelFor(a).toLowerCase().compareTo(labelFor(b).toLowerCase());
+                            });
 
-                        if (orderedIds.isEmpty) return const SizedBox.shrink();
+                          if (orderedIds.isEmpty) return const SizedBox.shrink();
 
-                        // Legend composed of interactive tri-state controls integrated with values
-                        return GridView.builder(
-                          primary: false,
-                          shrinkWrap: true,
-                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 320,
-                            mainAxisExtent: 32,
-                            mainAxisSpacing: 4,
-                            crossAxisSpacing: 12,
-                          ),
-                          itemCount: orderedIds.length,
-                          itemBuilder: (ctx, idx) {
-                            final id = orderedIds[idx];
-                            final label = labelFor(id);
-                            final valueTxt = valueTextFor(id);
-                            final unit = unitFor(id);
-                            final mode = currentModes[id] ?? ChipMode.off;
+                          // Legend composed of interactive tri-state controls integrated with values
+                          return GridView.builder(
+                            primary: false,
+                            shrinkWrap: true,
+                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 320,
+                              mainAxisExtent: 32,
+                              mainAxisSpacing: 4,
+                              crossAxisSpacing: 12,
+                            ),
+                            itemCount: orderedIds.length,
+                            itemBuilder: (ctx, idx) {
+                              final id = orderedIds[idx];
+                              final label = labelFor(id);
+                              final valueTxt = valueTextFor(id);
+                              final unit = unitFor(id);
+                              final mode = currentModes[id] ?? ChipMode.off;
 
-                            return _KindModeChip(
-                              label: '$label: $valueTxt$unit',
-                              mode: mode,
-                              onChanged: (next) => ref.read(weekKindSelectionProvider.notifier).setKindMode(
-                                weekKey,
-                                id,
-                                next,
-                                current: currentModes,
-                              ),
-                            );
-                          },
-                        );
-                      },
+                              return _KindModeChip(
+                                label: '$label: $valueTxt$unit',
+                                mode: mode,
+                                onChanged: (next) => ref.read(weekKindSelectionProvider.notifier).setKindMode(
+                                  weekKey,
+                                  id,
+                                  next,
+                                  current: currentModes,
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
