@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_picker/file_picker.dart';
 
 import '../../data/providers.dart';
 import '../../data/repo/database_selection_service.dart';
@@ -13,14 +14,32 @@ import '../../data/repo/kinds_repository.dart';
 import '../../data/repo/products_repository.dart';
 import '../../data/repo/recipes_repository.dart';
 import '../../domain/widgets/registry.dart';
-import '../widgets/entry_list_item_factory.dart';
 import '../main_screen_providers.dart';
+import '../widgets/entry_list_item_factory.dart';
 
 enum WipeMode {
   blank,
   demo,
   import,
 }
+
+/// Active database tab (0=entries, 1=kinds, 2=products, 3=recipes)
+final databaseTabProvider = StateProvider<int>((_) => 0);
+
+/// Active selection category for DatabasePage based on its selected tab
+final databaseCategoryProvider = Provider<SelectionCategory>((ref) {
+  final tabIndex = ref.watch(databaseTabProvider);
+  switch (tabIndex) {
+    case 1:
+      return SelectionCategory.kinds;
+    case 2:
+      return SelectionCategory.products;
+    case 3:
+      return SelectionCategory.recipes;
+    default:
+      return SelectionCategory.entries;
+  }
+});
 
 class DatabasePage extends ConsumerStatefulWidget {
   const DatabasePage({super.key});

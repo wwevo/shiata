@@ -10,7 +10,7 @@ class UXConfig {
     this.handle = const HandleConfig(),
     this.calendarGrid = const CalendarGridConfig(),
     this.visuals = const VisualsConfig(),
-    this.actionSheetPresentation = ActionSheetPresentation.side,
+    this.actionSheetPresentation = ActionSheetPresentation.auto,
     this.sideSheet = const SideSheetConfig(),
     this.actionSheet = const ActionSheetConfig(),
   });

@@ -49,23 +49,13 @@ class DbBackedProduct extends WidgetKind {
         priority: 5,
         color: accentColor,
         run: (ctx, date) async {
-          final now = DateTime.now();
           final initial = DateTime(
             date.year,
             date.month,
             date.day,
-            now.hour,
-            now.minute,
+            date.hour,
+            date.minute,
           );
-          /*          await Navigator.of(ctx).push(
-            MaterialPageRoute(
-              builder: (_) => ProductEditorScreen(
-                productId: def.id,
-                initialTargetAt: initial,
-                defaultGrams: 100, // Default 100g
-              ),
-            ),
-          );*/
           await showDialog(
             context: ctx,
             builder: (_) => ProductEditorDialog(

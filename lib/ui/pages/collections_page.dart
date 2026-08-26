@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../widgets/add_floating_action_button.dart';
+
 class CollectionsPage extends ConsumerWidget {
   const CollectionsPage({super.key});
 
@@ -9,13 +11,13 @@ class CollectionsPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Collections'),
-        actions: [
-
-        ],
       ),
-      body: Center(
+      floatingActionButton: const AppAddFloatingActionButton(
+        pageId: 'collections',
+      ),
+      body: const Center(
         child: Text("data"),
-      )
+      ),
     );
   }
 }

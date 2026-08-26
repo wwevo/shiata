@@ -11,7 +11,7 @@ import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../main_screen_providers.dart';
 import '../ux_config.dart';
-import '../widgets/create_action_sheet.dart';
+import '../widgets/add_floating_action_button.dart';
 import '../widgets/entry_list_item_factory.dart';
 import '../widgets/weekly_calendar.dart';
 
@@ -392,84 +392,78 @@ class ActiveWeekPage extends ConsumerWidget {
       return DateTime(now.year, now.month, now.day);
     }
 
-    return Material(
-      color: theme.colorScheme.surface,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            height: 80,
-            child: WeeklyCalendar(grid: config.calendarGrid), // Weekly calendar row
-          ),
-
-          const Divider(height: 1),
-
-          Expanded(
-            child: Consumer(
-              builder: (context, ref, _) {
-                final entriesAsync = ref.watch(weekEntriesProvider(monday));
-                return entriesAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (e, st) => Center(child: Text('Error: $e')),
-                  data: (_) {
-                    final weekKey = _weekKeyOf(monday);
-                    final availableKindIds = ref.watch(weekAvailableKindsProvider(monday));
-                    final defaultKinds = availableKindIds;
-                    final selectionState = ref.watch(weekSelectionForKeyProvider(monday));
-                    final currentModes = selectionState?.kindModes ?? {for (final k in defaultKinds) k: ChipMode.off};
-                    final includedKinds = _WeekKindSelectionController.includesOf(currentModes);
-                    final normalizedSelected = ref.watch(weekNormalizedSelectedProvider(monday));
-                    final totals = ref.watch(weekTotalsProvider(monday));
-                    final selectedAmounts = ref.watch(weekSelectedAmountsProvider(monday));
-                    final rows = ref.watch(weekRowsProvider(monday));
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _WeekSummarySection(
-                          theme: theme,
-                          registry: registry,
-                          weekKey: weekKey,
-                          currentModes: currentModes,
-                          availableKindIds: availableKindIds,
-                          normalizedAll: ref.watch(weekNormalizedAllProvider(monday)),
-                          amountsAll: ref.watch(weekAllAmountsProvider(monday)),
-                          normalizedSelected: normalizedSelected,
-                          pctOfWeek: totals.pct,
-                          selectedAmounts: selectedAmounts,
-                          includedKinds: includedKinds,
-                        ),
-
-                        const Divider(height: 1),
-
-                        _InlineAddControl(
-                          theme: theme,
-                          onAdd: () => showCreateActionSheet(
-                            context,
-                            ref,
-                            targetForAdd(),
-                          ),
-                          label: 'Add to ${_fmtYmd(targetForAdd())}',
-                        ),
-
-                        const Divider(height: 1),
-
-                        // The weekly list itself
-                        Expanded(
-                          child: _WeeklyRowsList(
-                            monday: monday,
-                            rows: rows,
-                            registry: registry,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
+    return Scaffold(
+      floatingActionButton: AppAddFloatingActionButton(
+        pageId: 'active_week',
+        getTargetDate: targetForAdd,
+      ),
+      body: Material(
+        color: theme.colorScheme.surface,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 80,
+              child: WeeklyCalendar(grid: config.calendarGrid), // Weekly calendar row
             ),
-          ),
-        ],
+
+            const Divider(height: 1),
+
+            Expanded(
+              child: Consumer(
+                builder: (context, ref, _) {
+                  final entriesAsync = ref.watch(weekEntriesProvider(monday));
+                  return entriesAsync.when(
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (e, st) => Center(child: Text('Error: $e')),
+                    data: (_) {
+                      final weekKey = _weekKeyOf(monday);
+                      final availableKindIds = ref.watch(weekAvailableKindsProvider(monday));
+                      final defaultKinds = availableKindIds;
+                      final selectionState = ref.watch(weekSelectionForKeyProvider(monday));
+                      final currentModes = selectionState?.kindModes ?? {for (final k in defaultKinds) k: ChipMode.off};
+                      final includedKinds = _WeekKindSelectionController.includesOf(currentModes);
+                      final normalizedSelected = ref.watch(weekNormalizedSelectedProvider(monday));
+                      final totals = ref.watch(weekTotalsProvider(monday));
+                      final selectedAmounts = ref.watch(weekSelectedAmountsProvider(monday));
+                      final rows = ref.watch(weekRowsProvider(monday));
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _WeekSummarySection(
+                            theme: theme,
+                            registry: registry,
+                            weekKey: weekKey,
+                            currentModes: currentModes,
+                            availableKindIds: availableKindIds,
+                            normalizedAll: ref.watch(weekNormalizedAllProvider(monday)),
+                            amountsAll: ref.watch(weekAllAmountsProvider(monday)),
+                            normalizedSelected: normalizedSelected,
+                            pctOfWeek: totals.pct,
+                            selectedAmounts: selectedAmounts,
+                            includedKinds: includedKinds,
+                          ),
+
+                          const Divider(height: 1),
+
+                          // The weekly list itself
+                          Expanded(
+                            child: _WeeklyRowsList(
+                              monday: monday,
+                              rows: rows,
+                              registry: registry,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -794,44 +788,6 @@ class _WeekSummarySection extends ConsumerWidget {
         const Divider(height: 1),
         content,
       ],
-    );
-  }
-}
-
-class _InlineAddControl extends StatelessWidget {
-  const _InlineAddControl({
-    required this.theme,
-    required this.onAdd,
-    required this.label,
-  });
-
-  final ThemeData theme;
-  final VoidCallback onAdd;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: 'Add',
-      child: InkWell(
-        onTap: onAdd,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.add_circle_outline,
-                size: 15,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: theme.textTheme.titleSmall,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/providers.dart';
 import '../data/repo/recipes_repository.dart';
+import '../navigation/nav_registry.dart';
 import './widgets/entry_list_item_factory.dart';
 
 // Visible calendar anchor (e.g. start of week). Used by calendar navigation.
@@ -21,18 +22,8 @@ final selectedDayProvider = StateProvider<DateTime?>((ref) {
 });
 
 // App section navigation (main sections of the app)
-enum AppSection {
-  activeWeek,
-  products,
-  kinds,
-  recipes,
-  database,
-  databaseAdmin,
-  collections, cookingaids,
-}
-
-final currentSectionProvider = StateProvider<AppSection>(
-      (_) => AppSection.activeWeek,
+final currentSectionIdProvider = StateProvider<String>(
+  (_) => 'active_week',
 );
 
 // Expanded product parents in Day Details (by parent entry id)
@@ -54,43 +45,14 @@ final entryTypeFilterProvider = StateProvider<Set<String>>((_) => <String>{});
 // Bulk selection categories (correspond to main list pages/tabs)
 enum SelectionCategory { entries, kinds, products, recipes, collections, cookingaids }
 
-// Active database tab (0=entries, 1=kinds, 2=products, 3=recipes)
-final databaseTabProvider = StateProvider<int>((_) => 0);
-
-// Current active category based on section and database tab
+// Current active category based on section and page-defined resolver
 final activeCategoryProvider = Provider<SelectionCategory>((ref) {
-  final section = ref.watch(currentSectionProvider);
-  switch (section) {
-    case AppSection.activeWeek:
-      return SelectionCategory.entries;
-    case AppSection.cookingaids:
-      return SelectionCategory.cookingaids;
-    case AppSection.products:
-      return SelectionCategory.products;
-    case AppSection.kinds:
-      return SelectionCategory.kinds;
-    case AppSection.recipes:
-      return SelectionCategory.recipes;
-    case AppSection.collections:
-      return SelectionCategory.collections;
-    case AppSection.database:
-      final tabIndex = ref.watch(databaseTabProvider);
-      switch (tabIndex) {
-        case 0:
-          return SelectionCategory.entries;
-        case 1:
-          return SelectionCategory.kinds;
-        case 2:
-          return SelectionCategory.products;
-        case 3:
-          return SelectionCategory.recipes;
-        default:
-          return SelectionCategory.entries;
-      }
-    case AppSection.databaseAdmin:
-      // No selection category yet
-      throw UnimplementedError();
-  }
+  final currentId = ref.watch(currentSectionIdProvider);
+  final registry = ref.watch(navRegistryProvider);
+  final page = registry.findPage(currentId);
+
+  if (page == null) return SelectionCategory.entries;
+  return page.resolveCategory(ref);
 });
 
 // Bulk selection state (holds Map of entry ID -> category)

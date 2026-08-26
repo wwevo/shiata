@@ -5,6 +5,8 @@ import '../../data/providers.dart';
 import '../../data/repo/kind_service.dart';
 import '../../data/repo/product_service.dart';
 import '../../data/repo/recipe_service.dart';
+import '../../navigation/nav_models.dart';
+import '../../navigation/nav_registry.dart';
 import '../main_screen_providers.dart';
 
 class BottomControls extends ConsumerStatefulWidget {
@@ -15,8 +17,7 @@ class BottomControls extends ConsumerStatefulWidget {
 }
 
 class _BottomControlsState extends ConsumerState<BottomControls> {
-  final MenuController _trackingMenuController = MenuController();
-  final MenuController _foodMenuController = MenuController();
+  final Map<String, MenuController> _menuControllers = {};
 
   @override
   Widget build(BuildContext context) {
@@ -25,207 +26,82 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
       return const BulkActionsToolbar();
     }
 
-    final section = ref.watch(currentSectionProvider);
-
-    int selectedIndex = 0;
-    if ([AppSection.activeWeek, AppSection.cookingaids]
-        .contains(section)) {
-      selectedIndex = 0;
-    } else if ([AppSection.recipes, AppSection.products, AppSection.kinds, AppSection.collections]
-        .contains(section)) {
-      selectedIndex = 1;
-    } else if (section == AppSection.database) {
-      selectedIndex = 2;
-    } else if (section == AppSection.databaseAdmin) {
-      selectedIndex = 3;
-    }
+    final registry = ref.watch(navRegistryProvider);
+    final activeId = ref.watch(currentSectionIdProvider);
+    final selectedIndex = registry.findTopLevelIndex(activeId);
 
     return NavigationBar(
       selectedIndex: selectedIndex,
       onDestinationSelected: (index) {
-        switch (index) {
-          case 0:
-            if (_trackingMenuController.isOpen) {
-              _trackingMenuController.close();
-            } else {
-              _trackingMenuController.open();
-            }
-            break;
-          case 1:
-            if (_foodMenuController.isOpen) {
-              _foodMenuController.close();
-            } else {
-              _foodMenuController.open();
-            }
-            break;
-          case 2:
-            ref.read(currentSectionProvider.notifier).state =
-                AppSection.database;
-            break;
-          case 3:
-            ref.read(currentSectionProvider.notifier).state =
-                AppSection.databaseAdmin;
-            break;
-          case 4:
-            ref.read(currentSectionProvider.notifier).state =
-                AppSection.collections;
-            break;
+        if (index < 0 || index >= registry.items.length) return;
+        final item = registry.items[index];
+        if (item is NavPageItem) {
+          ref.read(currentSectionIdProvider.notifier).state = item.id;
+        } else if (item is NavActionItem) {
+          item.onTrigger(context, ref);
+        } else if (item is NavGroupItem) {
+          final controller =
+              _menuControllers.putIfAbsent(item.id, () => MenuController());
+          if (controller.isOpen) {
+            controller.close();
+          } else {
+            controller.open();
+          }
         }
       },
-      destinations: [
-        NavigationDestination(
-          icon: MenuAnchor(
-            controller: _trackingMenuController,
-            menuChildren: [
-              MenuItemButton(
-                leadingIcon: Icon(
-                  Icons.restaurant_menu_outlined,
-                  color: section == AppSection.activeWeek
-                      ? Theme.of(context).colorScheme.primary
+      destinations: registry.items.map((item) {
+        if (item is NavGroupItem) {
+          final controller =
+              _menuControllers.putIfAbsent(item.id, () => MenuController());
+          final hasActiveChild = item.children.any((c) => c.id == activeId);
+
+          return NavigationDestination(
+            icon: MenuAnchor(
+              controller: controller,
+              menuChildren: item.children.map((child) {
+                final isSelected = child.id == activeId;
+                return MenuItemButton(
+                  leadingIcon: Icon(
+                    child.icon,
+                    color: isSelected
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                  trailingIcon: isSelected
+                      ? Icon(
+                          Icons.check,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.primary,
+                        )
                       : null,
-                ),
-                trailingIcon: section == AppSection.activeWeek
-                    ? Icon(
-                  Icons.check,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.primary,
-                )
-                    : null,
-                onPressed: () {
-                  ref.read(currentSectionProvider.notifier).state =
-                      AppSection.activeWeek;
-                },
-                child: const Text('Active Week'),
+                  onPressed: () {
+                    if (child is NavPageItem) {
+                      ref.read(currentSectionIdProvider.notifier).state =
+                          child.id;
+                    } else if (child is NavActionItem) {
+                      child.onTrigger(context, ref);
+                    }
+                  },
+                  child: Text(child.label),
+                );
+              }).toList(),
+              child: Icon(
+                hasActiveChild && item.selectedIcon != null
+                    ? item.selectedIcon!
+                    : item.icon,
               ),
-              MenuItemButton(
-                leadingIcon: Icon(
-                  Icons.shopping_basket_outlined,
-                  color: section == AppSection.cookingaids
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                ),
-                trailingIcon: section == AppSection.cookingaids
-                    ? Icon(
-                  Icons.check,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.primary,
-                )
-                    : null,
-                onPressed: () {
-                  ref.read(currentSectionProvider.notifier).state =
-                      AppSection.cookingaids;
-                },
-                child: const Text('Cooking Aid'),
-              ),
-            ],
-            child: Icon(
-              selectedIndex == 1 ? Icons.format_list_bulleted : Icons.format_list_bulleted_outlined,
             ),
-          ),
-          label: 'Tracking',
-        ),
-        NavigationDestination(
-          icon: MenuAnchor(
-            controller: _foodMenuController,
-            menuChildren: [
-              MenuItemButton(
-                leadingIcon: Icon(
-                  Icons.restaurant_menu_outlined,
-                  color: section == AppSection.recipes
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                ),
-                trailingIcon: section == AppSection.recipes
-                    ? Icon(
-                        Icons.check,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.primary,
-                      )
-                    : null,
-                onPressed: () {
-                  ref.read(currentSectionProvider.notifier).state =
-                      AppSection.recipes;
-                },
-                child: const Text('Recipes'),
-              ),
-              MenuItemButton(
-                leadingIcon: Icon(
-                  Icons.shopping_basket_outlined,
-                  color: section == AppSection.products
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                ),
-                trailingIcon: section == AppSection.products
-                    ? Icon(
-                        Icons.check,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.primary,
-                      )
-                    : null,
-                onPressed: () {
-                  ref.read(currentSectionProvider.notifier).state =
-                      AppSection.products;
-                },
-                child: const Text('Products'),
-              ),
-              MenuItemButton(
-                leadingIcon: Icon(
-                  Icons.category_outlined,
-                  color: section == AppSection.kinds
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                ),
-                trailingIcon: section == AppSection.kinds
-                    ? Icon(
-                  Icons.check,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.primary,
-                )
-                    : null,
-                onPressed: () {
-                  ref.read(currentSectionProvider.notifier).state =
-                      AppSection.kinds;
-                },
-                child: const Text('Kinds'),
-              ),
-              MenuItemButton(
-                leadingIcon: Icon(
-                  Icons.collections_outlined,
-                  color: section == AppSection.collections
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                ),
-                trailingIcon: section == AppSection.collections
-                    ? Icon(
-                  Icons.check,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.primary,
-                )
-                    : null,
-                onPressed: () {
-                  ref.read(currentSectionProvider.notifier).state =
-                      AppSection.collections;
-                },
-                child: const Text('Collections'),
-              ),
-            ],
-            child: Icon(
-              selectedIndex == 1 ? Icons.fastfood : Icons.fastfood_outlined,
-            ),
-          ),
-          label: 'Food',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.settings_outlined),
-          selectedIcon: Icon(Icons.settings),
-          label: 'Settings',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.settings_ethernet_outlined),
-          selectedIcon: Icon(Icons.settings_ethernet),
-          label: 'Admin Settings',
-        )
-      ],
+            label: item.label,
+          );
+        }
+
+        return NavigationDestination(
+          icon: Icon(item.icon),
+          selectedIcon:
+              item.selectedIcon != null ? Icon(item.selectedIcon!) : null,
+          label: item.label,
+        );
+      }).toList(),
     );
   }
 }

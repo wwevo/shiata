@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../domain/widgets/registry.dart';
-import '../editors/product_template_editor_dialog.dart';
 import '../main_screen_providers.dart';
+import '../widgets/add_floating_action_button.dart';
 import '../widgets/entry_list_item_factory.dart';
 
 class ProductTemplatesPage extends ConsumerWidget {
@@ -13,29 +13,15 @@ class ProductTemplatesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final productsAsync = ref.watch(productsListProvider);
-    final repo = ref.watch(productsRepositoryProvider);
     final registry = ref.watch(widgetRegistryProvider);
     final hierarchy = ref.watch(managementHierarchyProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Products'),
-        actions: [
-          IconButton(
-            tooltip: 'Add product',
-            onPressed: repo == null
-                ? null
-                : () async {
-                    showDialog(
-                      context: context,
-                      builder: (_) => const ProductTemplateEditorDialog(
-                        existing: null, // Create mode
-                      ),
-                    );
-                  },
-            icon: const Icon(Icons.add),
-          ),
-        ],
+      ),
+      floatingActionButton: const AppAddFloatingActionButton(
+        pageId: 'products',
       ),
       body: productsAsync.when(
         data: (list) {

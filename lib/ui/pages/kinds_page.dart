@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../domain/widgets/registry.dart';
-import '../editors/kind_template_editor_dialog.dart';
 import '../main_screen_providers.dart';
+import '../widgets/add_floating_action_button.dart';
 import '../widgets/entry_list_item_factory.dart';
 
 class KindsPage extends ConsumerWidget {
@@ -19,18 +19,9 @@ class KindsPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Kinds'),
-        actions: [
-          IconButton(
-            tooltip: 'Add kind',
-            icon: const Icon(Icons.add),
-            onPressed: () async {
-              await showDialog(
-                context: context,
-                builder: (ctx) => KindTemplateEditorDialog(),
-              );
-            },
-          ),
-        ],
+      ),
+      floatingActionButton: const AppAddFloatingActionButton(
+        pageId: 'kinds',
       ),
       body: kindsAsync.when(
         data: (kinds) {
