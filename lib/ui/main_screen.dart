@@ -1,22 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'pages/database_page.dart';
-import 'pages/database_admin_page.dart';
-import 'pages/kinds_page.dart';
 import 'main_screen_providers.dart';
+import 'pages/active_week_page.dart';
+import 'pages/collections_page.dart';
+import 'pages/cooking_aid_page.dart';
+import 'pages/database_admin_page.dart';
+import 'pages/database_page.dart';
+import 'pages/kinds_page.dart';
 import 'pages/products_page.dart';
 import 'pages/recipes_page.dart';
-import 'pages/active_week_page.dart';
 
-/// Main screen with section-based navigation:
-/// - Overview section (weekly summary with pie chart)
-/// - Products section
-/// - Kinds section
-/// - Recipes section
-/// - All Entries section
-/// - Database section
-/// - Database Admin section
 class MainScreen extends ConsumerWidget {
   const MainScreen({super.key});
 
@@ -25,6 +19,8 @@ class MainScreen extends ConsumerWidget {
     final section = ref.watch(currentSectionProvider);
 
     switch (section) {
+      case AppSection.cookingaids:
+        return const CookingAidPage();
       case AppSection.products:
         return const ProductTemplatesPage();
       case AppSection.kinds:
@@ -35,6 +31,8 @@ class MainScreen extends ConsumerWidget {
         return const DatabasePage();
       case AppSection.databaseAdmin:
         return const DatabaseAdminPage();
+      case AppSection.collections:
+        return const CollectionsPage();
       default:
         return const ActiveWeekPage();
     }

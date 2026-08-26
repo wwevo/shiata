@@ -15,7 +15,8 @@ class BottomControls extends ConsumerStatefulWidget {
 }
 
 class _BottomControlsState extends ConsumerState<BottomControls> {
-  final MenuController _menuController = MenuController();
+  final MenuController _trackingMenuController = MenuController();
+  final MenuController _foodMenuController = MenuController();
 
   @override
   Widget build(BuildContext context) {
@@ -27,13 +28,16 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
     final section = ref.watch(currentSectionProvider);
 
     int selectedIndex = 0;
-    if (section == AppSection.activeWeek) {
+    if ([AppSection.activeWeek, AppSection.cookingaids]
+        .contains(section)) {
       selectedIndex = 0;
-    } else if ([AppSection.recipes, AppSection.products, AppSection.kinds]
+    } else if ([AppSection.recipes, AppSection.products, AppSection.kinds, AppSection.collections]
         .contains(section)) {
       selectedIndex = 1;
-    } else {
+    } else if (section == AppSection.database) {
       selectedIndex = 2;
+    } else if (section == AppSection.databaseAdmin) {
+      selectedIndex = 3;
     }
 
     return NavigationBar(
@@ -41,31 +45,88 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
       onDestinationSelected: (index) {
         switch (index) {
           case 0:
-            ref.read(currentSectionProvider.notifier).state =
-                AppSection.activeWeek;
+            if (_trackingMenuController.isOpen) {
+              _trackingMenuController.close();
+            } else {
+              _trackingMenuController.open();
+            }
             break;
           case 1:
-            if (_menuController.isOpen) {
-              _menuController.close();
+            if (_foodMenuController.isOpen) {
+              _foodMenuController.close();
             } else {
-              _menuController.open();
+              _foodMenuController.open();
             }
             break;
           case 2:
             ref.read(currentSectionProvider.notifier).state =
                 AppSection.database;
             break;
+          case 3:
+            ref.read(currentSectionProvider.notifier).state =
+                AppSection.databaseAdmin;
+            break;
+          case 4:
+            ref.read(currentSectionProvider.notifier).state =
+                AppSection.collections;
+            break;
         }
       },
       destinations: [
-        const NavigationDestination(
-          icon: Icon(Icons.format_list_bulleted_outlined),
-          selectedIcon: Icon(Icons.format_list_bulleted),
+        NavigationDestination(
+          icon: MenuAnchor(
+            controller: _trackingMenuController,
+            menuChildren: [
+              MenuItemButton(
+                leadingIcon: Icon(
+                  Icons.restaurant_menu_outlined,
+                  color: section == AppSection.activeWeek
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                ),
+                trailingIcon: section == AppSection.activeWeek
+                    ? Icon(
+                  Icons.check,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.primary,
+                )
+                    : null,
+                onPressed: () {
+                  ref.read(currentSectionProvider.notifier).state =
+                      AppSection.activeWeek;
+                },
+                child: const Text('Active Week'),
+              ),
+              MenuItemButton(
+                leadingIcon: Icon(
+                  Icons.shopping_basket_outlined,
+                  color: section == AppSection.cookingaids
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                ),
+                trailingIcon: section == AppSection.cookingaids
+                    ? Icon(
+                  Icons.check,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.primary,
+                )
+                    : null,
+                onPressed: () {
+                  ref.read(currentSectionProvider.notifier).state =
+                      AppSection.cookingaids;
+                },
+                child: const Text('Cooking Aid'),
+              ),
+            ],
+            child: Icon(
+              selectedIndex == 1 ? Icons.format_list_bulleted : Icons.format_list_bulleted_outlined,
+            ),
+          ),
           label: 'Tracking',
         ),
         NavigationDestination(
           icon: MenuAnchor(
-            controller: _menuController,
+            controller: _foodMenuController,
             menuChildren: [
               MenuItemButton(
                 leadingIcon: Icon(
@@ -116,16 +177,36 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                 ),
                 trailingIcon: section == AppSection.kinds
                     ? Icon(
-                        Icons.check,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.primary,
-                      )
+                  Icons.check,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.primary,
+                )
                     : null,
                 onPressed: () {
                   ref.read(currentSectionProvider.notifier).state =
                       AppSection.kinds;
                 },
                 child: const Text('Kinds'),
+              ),
+              MenuItemButton(
+                leadingIcon: Icon(
+                  Icons.collections_outlined,
+                  color: section == AppSection.collections
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                ),
+                trailingIcon: section == AppSection.collections
+                    ? Icon(
+                  Icons.check,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.primary,
+                )
+                    : null,
+                onPressed: () {
+                  ref.read(currentSectionProvider.notifier).state =
+                      AppSection.collections;
+                },
+                child: const Text('Collections'),
               ),
             ],
             child: Icon(
@@ -139,6 +220,11 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
           selectedIcon: Icon(Icons.settings),
           label: 'Settings',
         ),
+        const NavigationDestination(
+          icon: Icon(Icons.settings_ethernet_outlined),
+          selectedIcon: Icon(Icons.settings_ethernet),
+          label: 'Admin Settings',
+        )
       ],
     );
   }

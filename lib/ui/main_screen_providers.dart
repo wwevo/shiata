@@ -27,7 +27,8 @@ enum AppSection {
   kinds,
   recipes,
   database,
-  databaseAdmin
+  databaseAdmin,
+  collections, cookingaids,
 }
 
 final currentSectionProvider = StateProvider<AppSection>(
@@ -51,7 +52,7 @@ final entrySortModeProvider = StateProvider<EntrySortMode>(
 final entryTypeFilterProvider = StateProvider<Set<String>>((_) => <String>{});
 
 // Bulk selection categories (correspond to main list pages/tabs)
-enum SelectionCategory { entries, kinds, products, recipes }
+enum SelectionCategory { entries, kinds, products, recipes, collections, cookingaids }
 
 // Active database tab (0=entries, 1=kinds, 2=products, 3=recipes)
 final databaseTabProvider = StateProvider<int>((_) => 0);
@@ -62,12 +63,16 @@ final activeCategoryProvider = Provider<SelectionCategory>((ref) {
   switch (section) {
     case AppSection.activeWeek:
       return SelectionCategory.entries;
+    case AppSection.cookingaids:
+      return SelectionCategory.cookingaids;
     case AppSection.products:
       return SelectionCategory.products;
     case AppSection.kinds:
       return SelectionCategory.kinds;
     case AppSection.recipes:
       return SelectionCategory.recipes;
+    case AppSection.collections:
+      return SelectionCategory.collections;
     case AppSection.database:
       final tabIndex = ref.watch(databaseTabProvider);
       switch (tabIndex) {
@@ -83,7 +88,7 @@ final activeCategoryProvider = Provider<SelectionCategory>((ref) {
           return SelectionCategory.entries;
       }
     case AppSection.databaseAdmin:
-      // TODO: Handle this case.
+      // No selection category yet
       throw UnimplementedError();
   }
 });

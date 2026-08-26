@@ -17,7 +17,12 @@ import '../widgets/weekly_calendar.dart';
 
 enum ChipMode { off, include, exclude }
 
-// Per-week selection state for the ActiveWeek chart
+/* DEV-Comment, to be removed
+   Per-week selection state for the ActiveWeek chart
+   Each week will store the kindMode ChipModes selected for the session
+   TODO for 2027: Make it an option between per week and persistent, possibly
+                  a toggle
+*/
 class _WeekSelectionState {
   final Map<String, ChipMode> kindModes; // kindId -> mode
   final bool isCustomized;
@@ -44,7 +49,6 @@ class _WeekKindSelectionController
     state = {...state, weekKey: value};
   }
 
-  // Set a chip to an exact mode (used by platform-specific UIs)
   void setKindMode(
     String weekKey,
     String kindId,
@@ -71,7 +75,7 @@ class _WeekKindSelectionController
     }
   }
 
-  void setModes(
+  void setKindModes(
     String weekKey,
     Map<String, ChipMode> modes, {
     bool customized = true,
@@ -82,30 +86,6 @@ class _WeekKindSelectionController
       (cur ?? const _WeekSelectionState(kindModes: {}, isCustomized: false))
           .copyWith(kindModes: {...modes}, isCustomized: customized),
     );
-  }
-
-  void resetToDefaults(String weekKey, Set<String> defaults) {
-    final cur = state[weekKey];
-    final desired = <String, ChipMode>{
-      for (final k in defaults) k: ChipMode.off,
-    };
-    if (cur == null ||
-        !_mapEquals(cur.kindModes, desired) ||
-        cur.isCustomized) {
-      _set(
-        weekKey,
-        _WeekSelectionState(kindModes: desired, isCustomized: false),
-      );
-    }
-  }
-
-  static bool _mapEquals(Map<String, ChipMode> a, Map<String, ChipMode> b) {
-    if (identical(a, b)) return true;
-    if (a.length != b.length) return false;
-    for (final e in a.entries) {
-      if (b[e.key] != e.value) return false;
-    }
-    return true;
   }
 
   static Set<String> includesOf(Map<String, ChipMode> modes) => modes.entries
@@ -344,7 +324,8 @@ bool _entryMatchesKindsProviderHelper(
 }
 
 final weekRowsProvider = Provider.family<List<_RowItem>, DateTime>((ref, monday) {
-  final days = List.generate(7, (i) => monday.add(Duration(days: i)));
+  var numberOfDaysToFetch = 7;
+  final days = List.generate(numberOfDaysToFetch, (i) => monday.add(Duration(days: i)));
   final mapByDay = <DateTime, List<EntryRecord>>{};
   final all = ref.watch(weekEntriesProvider(monday)).asData?.value ?? const <EntryRecord>[];
   for (final e in all) {
@@ -392,22 +373,18 @@ final weekRowsProvider = Provider.family<List<_RowItem>, DateTime>((ref, monday)
 class ActiveWeekPage extends ConsumerWidget {
   const ActiveWeekPage({super.key});
 
-  static bool _coachShown = false; // one-time per app run
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final config = ref.watch(uxConfigProvider);
     final repo = ref.watch(entriesRepositoryProvider);
     final registry = ref.watch(widgetRegistryProvider);
-    final anchor = ref.watch(calendarAnchorProvider); // Monday of current week
+    final monday = ref.watch(calendarAnchorProvider); // Monday of current week
     final selectedDay = ref.watch(selectedDayProvider);
 
     if (repo == null) {
       return const Center(child: CircularProgressIndicator());
     }
-
-    final monday = anchor; // already a Monday per provider
 
     DateTime targetForAdd() {
       if (selectedDay != null) return selectedDay;
@@ -415,28 +392,14 @@ class ActiveWeekPage extends ConsumerWidget {
       return DateTime(now.year, now.month, now.day);
     }
 
-    // One-time Android coach-mark via SnackBar
-    if (defaultTargetPlatform == TargetPlatform.android && !_coachShown) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _coachShown = true;
-        final messenger = ScaffoldMessenger.maybeOf(context);
-        if (messenger != null) {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('Tip: Long-press a chip to Exclude.')),
-          );
-        }
-      });
-    }
-
     return Material(
       color: theme.colorScheme.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Weekly calendar row
           SizedBox(
             height: 80,
-            child: WeeklyCalendar(grid: config.calendarGrid),
+            child: WeeklyCalendar(grid: config.calendarGrid), // Weekly calendar row
           ),
 
           const Divider(height: 1),

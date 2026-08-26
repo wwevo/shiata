@@ -1,31 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Centralized UX configuration for the main layout.
-///
-/// How to use
-/// - Edit values below (or provide your own [UXConfig] via the provider) to tune
-///   thresholds, sizes, durations, and haptics without touching UI code.
-/// - All values have sensible defaults optimized for a smooth feel.
-///
-/// Groups and what they control
-/// - topSheet: geometry of the collapsible top section (expanded/collapsed heights)
-/// - thresholds: drag thresholds for staying open/closed
-/// - animations: durations/curves for settle animations and base controller
-/// - haptics: whether/when to fire haptics, and which type
-/// - handle: handle visuals (touch area and the bar size changes past threshold)
-/// - calendarGrid: layout padding/spacing/rows/columns and paint safety guards
-/// - visuals: elevation and opacity ranges tied to expansion
-/// - actionSheet: default layout mode (wrap/grid) and user preference persistence
-/// - sideSheet: sizing constraints for side presentation
-///
-/// Notes
-/// - Increasing [Thresholds.openKeepFraction] makes opening require a longer drag
-///   (harder to open accidentally, better for quick peeks).
-/// - Expanded/collapsed heights should leave the handle visible and tappable in
-///   collapsed state.
-/// - The grid safety guards avoid tiny text layouts that can trigger Impeller
-///   glyph errors when the sheet is almost collapsed.
 class UXConfig {
   const UXConfig({
     this.topSheet = const TopSheetConfig(),

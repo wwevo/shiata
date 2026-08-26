@@ -1,10 +1,10 @@
 import 'dart:convert';
 
+import '../../ui/main_screen_providers.dart';
 import 'entries_repository.dart';
 import 'kinds_repository.dart';
 import 'products_repository.dart';
 import 'recipes_repository.dart';
-import '../../ui/main_screen_providers.dart';
 
 class SelectionChangeResult {
   final Map<String, SelectionCategory> newSelection;
@@ -78,6 +78,12 @@ class DatabaseSelectionService {
 
         collectChildEntries(entryId);
         break;
+      case SelectionCategory.collections:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+      case SelectionCategory.cookingaids:
+        // TODO: Handle this case.
+        throw UnimplementedError();
     }
 
     return result;
@@ -173,6 +179,11 @@ class DatabaseSelectionService {
           }
           currentParentId = nextParentId;
         }
+        break;
+      case SelectionCategory.collections:
+        break;
+        
+      case SelectionCategory.cookingaids:
         break;
     }
 
