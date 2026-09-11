@@ -203,7 +203,6 @@ class CreateActionSheetContent extends ConsumerStatefulWidget {
     this.title = 'Add entry',
     this.showTimePicker = false,
     this.actions,
-    this.items, // backwards compatibility
     this.itemsWithKind,
   });
 
@@ -211,7 +210,6 @@ class CreateActionSheetContent extends ConsumerStatefulWidget {
   final String title;
   final bool showTimePicker;
   final List<CreateAction>? actions;
-  final List<({WidgetKind kind, CreateAction action})>? items;
   final List<({WidgetKind kind, CreateAction action})>? itemsWithKind;
 
   @override
@@ -236,13 +234,12 @@ class _CreateActionSheetContentState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final ExpansibleController controller = ExpansibleController();
 
     // Resolve list of actions
     final List<CreateAction> actionList;
     if (widget.actions != null) {
       actionList = widget.actions!;
-    } else if (widget.items != null) {
-      actionList = widget.items!.map((e) => e.action).toList();
     } else if (widget.itemsWithKind != null) {
       actionList = widget.itemsWithKind!.map((e) => e.action).toList();
     } else {
@@ -263,7 +260,6 @@ class _CreateActionSheetContentState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -302,16 +298,33 @@ class _CreateActionSheetContentState
 
               // Time picker on top for active_week / when requested
               if (widget.showTimePicker) ...[
-                InlineTimePicker(
-                  initialTime: _selectedTime,
-                  onTimeChanged: (t) {
-                    setState(() {
-                      _selectedTime = t;
-                    });
-                  },
+                ExpansionTile(
+                  controller: controller,
+                  title: const Text('set time and date for entry'),
+                  children: <Widget>[
+                    InlineTimePicker(
+                      initialTime: _selectedTime,
+                      onTimeChanged: (t) {
+                        setState(() {
+                          _selectedTime = t;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ]
                 ),
-                const SizedBox(height: 16),
               ],
+
+              /*ElevatedButton(
+                child: const Text('Expand/Collapse the Tile Above'),
+                onPressed: () {
+                  if (controller.isExpanded) {
+                    controller.collapse();
+                  } else {
+                    controller.expand();
+                  }
+                },
+              ),*/
 
               // Actions section
               if (actionList.isEmpty)
