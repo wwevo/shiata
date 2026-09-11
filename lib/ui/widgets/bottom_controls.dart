@@ -53,38 +53,15 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
         if (item is NavGroupItem) {
           final controller =
               _menuControllers.putIfAbsent(item.id, () => MenuController());
-          final hasActiveChild = item.children.any((c) => c.id == activeId);
+          final hasActiveChild = _hasActiveChild(item, activeId);
 
           return NavigationDestination(
             icon: MenuAnchor(
               controller: controller,
-              menuChildren: item.children.map((child) {
-                final isSelected = child.id == activeId;
-                return MenuItemButton(
-                  leadingIcon: Icon(
-                    child.icon,
-                    color: isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
-                  ),
-                  trailingIcon: isSelected
-                      ? Icon(
-                          Icons.check,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.primary,
-                        )
-                      : null,
-                  onPressed: () {
-                    if (child is NavPageItem) {
-                      ref.read(currentSectionIdProvider.notifier).state =
-                          child.id;
-                    } else if (child is NavActionItem) {
-                      child.onTrigger(context, ref);
-                    }
-                  },
-                  child: Text(child.label),
-                );
-              }).toList(),
+              menuChildren: item.children
+                  .map((child) =>
+                      _buildMenuItem(context, ref, child, activeId))
+                  .toList(),
               child: Icon(
                 hasActiveChild && item.selectedIcon != null
                     ? item.selectedIcon!
@@ -102,6 +79,56 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
           label: item.label,
         );
       }).toList(),
+    );
+  }
+
+  bool _hasActiveChild(NavGroupItem group, String activeId) {
+    for (final child in group.children) {
+      if (child.id == activeId) return true;
+      if (child is NavGroupItem && _hasActiveChild(child, activeId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Widget _buildMenuItem(
+    BuildContext context,
+    WidgetRef ref,
+    NavItem item,
+    String activeId,
+  ) {
+    if (item is NavGroupItem) {
+      return SubmenuButton(
+        leadingIcon: Icon(item.icon),
+        menuChildren: item.children
+            .map((child) => _buildMenuItem(context, ref, child, activeId))
+            .toList(),
+        child: Text(item.label),
+      );
+    }
+
+    final isSelected = item.id == activeId;
+    return MenuItemButton(
+      leadingIcon: Icon(
+        item.icon,
+        color: isSelected ? Theme.of(context).colorScheme.primary : null,
+      ),
+      trailingIcon: isSelected
+          ? Icon(
+              Icons.check,
+              size: 16,
+              color: Theme.of(context).colorScheme.primary,
+            )
+          : null,
+      onPressed: () {
+        if (item is NavPageItem) {
+          ref.read(currentSectionIdProvider.notifier).state = item.id;
+        } else if (item is NavActionItem) {
+          item.onTrigger(context, ref);
+        }
+      },
+      child: Text(item.label),
     );
   }
 }

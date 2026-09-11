@@ -10,6 +10,7 @@ import '../ui/pages/database_page.dart';
 import '../ui/pages/kinds_page.dart';
 import '../ui/pages/products_page.dart';
 import '../ui/pages/recipes_page.dart';
+import '../ui/window/window_size_service.dart';
 import 'nav_models.dart';
 
 class NavRegistry {
@@ -19,38 +20,58 @@ class NavRegistry {
 
   /// Recursively find a page item by its string ID.
   NavPageItem? findPage(String id) {
-    for (final item in items) {
+    NavPageItem? search(NavItem item) {
       if (item is NavPageItem && item.id == id) return item;
       if (item is NavGroupItem) {
         for (final child in item.children) {
-          if (child is NavPageItem && child.id == id) return child;
+          final found = search(child);
+          if (found != null) return found;
         }
       }
+      return null;
+    }
+
+    for (final item in items) {
+      final found = search(item);
+      if (found != null) return found;
     }
     return null;
   }
 
   /// Find any NavItem by its string ID (top-level or child).
   NavItem? findItem(String id) {
-    for (final item in items) {
+    NavItem? search(NavItem item) {
       if (item.id == id) return item;
       if (item is NavGroupItem) {
         for (final child in item.children) {
-          if (child.id == id) return child;
+          final found = search(child);
+          if (found != null) return found;
         }
       }
+      return null;
+    }
+
+    for (final item in items) {
+      final found = search(item);
+      if (found != null) return found;
     }
     return null;
   }
 
   /// Find which top-level index corresponds to the currently active page ID.
   int findTopLevelIndex(String currentId) {
-    for (int i = 0; i < items.length; i++) {
-      final item = items[i];
-      if (item.id == currentId) return i;
+    bool containsId(NavItem item) {
+      if (item.id == currentId) return true;
       if (item is NavGroupItem) {
-        if (item.children.any((c) => c.id == currentId)) return i;
+        for (final child in item.children) {
+          if (containsId(child)) return true;
+        }
       }
+      return false;
+    }
+
+    for (int i = 0; i < items.length; i++) {
+      if (containsId(items[i])) return i;
     }
     return 0;
   }
@@ -136,8 +157,24 @@ final navRegistryProvider = Provider<NavRegistry>((ref) {
           icon: Icons.settings_ethernet_outlined,
           selectedIcon: Icons.settings_ethernet,
           pageBuilder: (_, _) => const DatabaseAdminPage(),
-        )
-      ]
+        ),
+        if (WindowSizeService.isDesktopSupported)
+          NavGroupItem(
+            id: 'window_sizes',
+            label: 'Window Size',
+            icon: Icons.aspect_ratio_outlined,
+            children: WindowResolutionPreset.values.map((preset) {
+              return NavActionItem(
+                id: 'window_size_${preset.name}',
+                label: preset.label,
+                icon: preset.icon,
+                onTrigger: (_, _) async {
+                  await WindowSizeService.applyResolution(preset);
+                },
+              );
+            }).toList(),
+          ),
+      ],
     ),
   ]);
 });

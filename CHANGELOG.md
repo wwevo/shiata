@@ -1,9 +1,15 @@
 ### Changelog
 
-#### [0.9.5] – 2026-08-16
+#### [0.9.5] – 2026-10-25
+##### Added
+- Desktop window size presets to quickly preview standard display resolutions.
+- Dependency warnings during item selection to prevent broken references.
+
 ##### Changed
-- Pie chart layout refined for better use of space.
-- Refactored active_week page for better human-readability.
+- Switched data import and export to file handling to simplify backups and transfers.
+- Consolidated entry browsing into the database view to streamline navigation.
+- Nested secondary actions into hierarchical submenus to reduce toolbar clutter.
+- Refined weekly chart and filter chip layouts to maximize usable screen space.
 
 ---
 #### [0.9.4] – 2026-08-16
