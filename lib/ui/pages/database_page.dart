@@ -36,6 +36,10 @@ final databaseCategoryProvider = Provider<SelectionCategory>((ref) {
       return SelectionCategory.products;
     case 3:
       return SelectionCategory.recipes;
+    case 4:
+      return SelectionCategory.collections;
+    case 5:
+      return SelectionCategory.cookingaids;
     default:
       return SelectionCategory.entries;
   }
@@ -55,7 +59,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         ref.read(databaseTabProvider.notifier).state = _tabController.index;
@@ -87,6 +91,8 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
               Tab(text: 'Kinds'),
               Tab(text: 'Products'),
               Tab(text: 'Recipes'),
+              Tab(text: 'Collections'),
+              Tab(text: 'Cooking Aids'),
             ],
           ),
           const Divider(height: 1),
@@ -109,6 +115,14 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
                 SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: _buildRecipesSection(),
+                ),
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Text("buildCollectionsSection"),
+                ),
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Text("buildCookinAidsSection"),
                 ),
               ],
             ),
