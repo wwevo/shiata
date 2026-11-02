@@ -59,7 +59,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         ref.read(databaseTabProvider.notifier).state = _tabController.index;
@@ -93,6 +93,7 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
               Tab(text: 'Recipes'),
               Tab(text: 'Collections'),
               Tab(text: 'Cooking Aids'),
+              Tab(text: 'Settings'),
             ],
           ),
           const Divider(height: 1),
@@ -123,6 +124,10 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
                 SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: Text("buildCookinAidsSection"),
+                ),
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: _buildSettingsSection(),
                 ),
               ],
             ),
@@ -694,6 +699,41 @@ class _DatabasePageState extends ConsumerState<DatabasePage>
     ref.read(bulkSelectionProvider.notifier).state = result.newSelection;
     ref.read(selectionModeProvider.notifier).state =
         result.newSelection.isNotEmpty;
+  }
+
+  Widget _buildSettingsSection() {
+    final styleAsync = ref.watch(headerStyleProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'App Settings',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 16),
+        styleAsync.when(
+          data: (style) {
+            final isCircles = style == 'circles';
+            return SwitchListTile(
+              title: const Text('Circle week header'),
+              subtitle: const Text(
+                'Use segmented circles instead of the classic calendar grid for the week header.',
+              ),
+              value: isCircles,
+              onChanged: (value) {
+                ref.read(settingsRepositoryProvider)?.setSetting(
+                  'header_style',
+                  value ? 'circles' : 'classic',
+                );
+              },
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, st) => Text('Error: $e'),
+        ),
+      ],
+    );
   }
 
   void _showSnackBar(String message) {

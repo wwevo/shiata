@@ -3,15 +3,16 @@ import 'dart:async';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../ui/main_screen_providers.dart';
+import '../ui/ux_config.dart';
 import 'db/db_handle.dart';
 import 'db/raw_db.dart';
 import 'repo/entries_repository.dart';
 import 'repo/kinds_repository.dart';
 import 'repo/products_repository.dart';
 import 'repo/recipes_repository.dart';
+import 'repo/settings_repository.dart';
 import 'repo/units_repository.dart';
-import '../ui/main_screen_providers.dart';
-import '../ui/ux_config.dart';
 
 /// Provides an [AppDb] instance when the low-level [QueryExecutor] is available.
 final appDbProvider = Provider<AppDb?>((ref) {
@@ -66,6 +67,19 @@ final unitsRepositoryProvider = Provider<UnitsRepository?>((ref) {
   final db = ref.watch(appDbProvider);
   if (db == null) return null;
   return UnitsRepository(db: db);
+});
+
+final settingsRepositoryProvider = Provider<SettingsRepository?>((ref) {
+  final db = ref.watch(appDbProvider);
+  if (db == null) return null;
+  return SettingsRepository(db: db);
+});
+
+/// Current week header style: 'circles' or 'classic'. Defaults to 'circles'.
+final headerStyleProvider = StreamProvider<String>((ref) {
+  final repo = ref.watch(settingsRepositoryProvider);
+  if (repo == null) return Stream.value('circles');
+  return repo.watchSetting('header_style').map((v) => v ?? 'circles');
 });
 
 // FIXED: Use consistent pattern for all three stream providers

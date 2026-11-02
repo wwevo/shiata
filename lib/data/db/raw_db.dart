@@ -129,12 +129,25 @@ class AppDb extends GeneratedDatabase {
       );
     ''');
 
+    // settings table
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        text_value TEXT
+      );
+    ''');
+
     // 2. Pre-populate data
     // units
     await customStatement("INSERT OR IGNORE INTO units (id, label) VALUES ('g', 'g');");
     await customStatement("INSERT OR IGNORE INTO units (id, label) VALUES ('mg', 'mg');");
     await customStatement("INSERT OR IGNORE INTO units (id, label) VALUES ('ug', 'µg');");
     await customStatement("INSERT OR IGNORE INTO units (id, label) VALUES ('mL', 'mL');");
+
+    // settings defaults
+    await customStatement(
+      "INSERT OR IGNORE INTO settings (key, text_value) VALUES ('header_style', 'circles');",
+    );
 
     // 3. Indexes for performance
     await _safeCreateIndex(

@@ -1,7 +1,9 @@
 ### Changelog
 
-#### [0.9.5] – 2026-10-25
+#### [0.9.5] – 2026-11-02
 ##### Added
+- Circle week header: an alternative row-of-circles view for the weekly calendar, configurable in the new Settings tab.
+- Settings tab in the Database page for app preferences.
 - Desktop window size presets to quickly preview standard display resolutions.
 - Dependency warnings during item selection to prevent broken references.
 

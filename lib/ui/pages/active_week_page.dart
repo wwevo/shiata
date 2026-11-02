@@ -12,6 +12,7 @@ import '../../domain/widgets/registry.dart';
 import '../main_screen_providers.dart';
 import '../ux_config.dart';
 import '../widgets/add_floating_action_button.dart';
+import '../widgets/circle_week_header.dart';
 import '../widgets/entry_list_item_factory.dart';
 import '../widgets/weekly_calendar.dart';
 
@@ -402,9 +403,23 @@ class ActiveWeekPage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(
-              height: 80,
-              child: WeeklyCalendar(grid: config.calendarGrid), // Weekly calendar row
+            Consumer(
+              builder: (context, ref, _) {
+                final style = ref.watch(headerStyleProvider);
+                return SizedBox(
+                  height: 80,
+                  child: style.when(
+                    data: (s) {
+                      if (s == 'circles') {
+                        return CircleWeekHeader(monday: monday);
+                      }
+                      return WeeklyCalendar(grid: config.calendarGrid);
+                    },
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => WeeklyCalendar(grid: config.calendarGrid),
+                  ),
+                );
+              },
             ),
 
             const Divider(height: 1),
