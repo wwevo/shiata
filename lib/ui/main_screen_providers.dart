@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/providers.dart';
+import '../data/repo/collections_repository.dart';
 import '../data/repo/recipes_repository.dart';
 import '../navigation/nav_registry.dart';
 import './widgets/entry_list_item_factory.dart';
@@ -62,12 +63,13 @@ final bulkSelectionProvider =
 // Whether selection mode is active
 final selectionModeProvider = StateProvider<bool>((_) => false);
 
-/// Combined hierarchy for management pages (Kinds, Products, Recipes)
+/// Combined hierarchy for management pages (Kinds, Products, Recipes, Collections)
 final managementHierarchyProvider = Provider<Map<String, List<dynamic>>>((ref) {
   final kinds = ref.watch(kindsListProvider).value ?? [];
   final products = ref.watch(allProductsListProvider).value ?? [];
   final productComponents = ref.watch(allProductComponentsProvider).value ?? [];
   final recipeComponents = ref.watch(allRecipeComponentsProvider).value ?? [];
+  final collectionComponents = ref.watch(allCollectionComponentsProvider).value ?? [];
 
   final Map<String, List<dynamic>> map = {};
 
@@ -108,6 +110,33 @@ final managementHierarchyProvider = Provider<Map<String, List<dynamic>>>((ref) {
               ComponentItem(
                 definition: kind,
                 amount: rc.amount,
+                unit: kind.unit,
+              ),
+            );
+      }
+    }
+  }
+
+  // Map collection components
+  for (final cc in collectionComponents) {
+    if (cc.type == CollectionComponentType.product) {
+      final product = productMap[cc.compId];
+      if (product != null) {
+        map.putIfAbsent(cc.collectionId, () => []).add(
+              ComponentItem(
+                definition: product,
+                amount: cc.grams?.toDouble(),
+                unit: 'g',
+              ),
+            );
+      }
+    } else {
+      final kind = kindMap[cc.compId];
+      if (kind != null) {
+        map.putIfAbsent(cc.collectionId, () => []).add(
+              ComponentItem(
+                definition: kind,
+                amount: cc.amount,
                 unit: kind.unit,
               ),
             );

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
+import '../../data/repo/collections_repository.dart';
 import '../../data/repo/kinds_repository.dart';
 import '../../data/repo/products_repository.dart';
 import '../../data/repo/recipes_repository.dart';
+import 'collections/db_backed_collection.dart';
 import 'create_action.dart';
 import 'kinds/db_backed_kind.dart';
 import 'products/db_backed_product.dart';
@@ -33,6 +35,11 @@ class WidgetRegistry {
   /// Only Recipes
   List<WidgetKind> get recipes => _kinds.values
       .where((k) => k.id.startsWith('recipe:'))
+      .toList(growable: false);
+
+  /// Only Collections
+  List<WidgetKind> get collections => _kinds.values
+      .where((k) => k.id.startsWith('collection:'))
       .toList(growable: false);
 
   WidgetKind? byId(String id) => _kinds[id];
@@ -130,6 +137,12 @@ final widgetRegistryProvider = Provider<WidgetRegistry>((ref) {
     orElse: () => const <RecipeDef>[],
   );
 
+  final collectionsValue = ref.watch(collectionsListProvider);
+  final collections = collectionsValue.maybeWhen(
+    data: (list) => list,
+    orElse: () => const <CollectionDef>[],
+  );
+
   final map = <String, WidgetKind>{};
 
   // Add Kinds (with original IDs)
@@ -147,6 +160,12 @@ final widgetRegistryProvider = Provider<WidgetRegistry>((ref) {
   for (final r in recipes) {
     final adapter = DbBackedRecipe(r, iconResolver: resolveIcon);
     map[adapter.id] = adapter; // Uses 'recipe:${r.id}'
+  }
+
+  // Add Collections (with 'collection:' prefix to avoid ID collisions)
+  for (final c in collections) {
+    final adapter = DbBackedCollection(c, iconResolver: resolveIcon);
+    map[adapter.id] = adapter; // Uses 'collection:${c.id}'
   }
 
   return WidgetRegistry(map);

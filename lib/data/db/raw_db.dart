@@ -121,6 +121,32 @@ class AppDb extends GeneratedDatabase {
       );
     ''');
 
+    // collections table
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS collections (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        icon TEXT NULL,
+        color INTEGER NULL,
+        is_protected INTEGER NOT NULL DEFAULT 0
+      );
+    ''');
+
+    // collection_components table
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS collection_components (
+        collection_id TEXT NOT NULL,
+        type TEXT NOT NULL CHECK(type IN ('kind','product')),
+        comp_id TEXT NOT NULL,
+        amount REAL NULL,
+        grams INTEGER NULL,
+        PRIMARY KEY (collection_id, type, comp_id)
+      );
+    ''');
+
     // units table
     await customStatement('''
       CREATE TABLE IF NOT EXISTS units (

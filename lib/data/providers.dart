@@ -7,6 +7,7 @@ import '../ui/main_screen_providers.dart';
 import '../ui/ux_config.dart';
 import 'db/db_handle.dart';
 import 'db/raw_db.dart';
+import 'repo/collections_repository.dart';
 import 'repo/entries_repository.dart';
 import 'repo/kinds_repository.dart';
 import 'repo/products_repository.dart';
@@ -63,6 +64,12 @@ final recipesRepositoryProvider = Provider<RecipesRepository?>((ref) {
   return RecipesRepository(db: db);
 });
 
+final collectionsRepositoryProvider = Provider<CollectionsRepository?>((ref) {
+  final db = ref.watch(appDbProvider);
+  if (db == null) return null;
+  return CollectionsRepository(db: db);
+});
+
 final unitsRepositoryProvider = Provider<UnitsRepository?>((ref) {
   final db = ref.watch(appDbProvider);
   if (db == null) return null;
@@ -113,6 +120,18 @@ final allRecipesListProvider = StreamProvider<List<RecipeDef>>((ref) {
   return repo.watchRecipes(onlyActive: false);
 });
 
+final collectionsListProvider = StreamProvider<List<CollectionDef>>((ref) {
+  final repo = ref.watch(collectionsRepositoryProvider);
+  if (repo == null) return Stream.value(<CollectionDef>[]);
+  return repo.watchCollections(onlyActive: true);
+});
+
+final allCollectionsListProvider = StreamProvider<List<CollectionDef>>((ref) {
+  final repo = ref.watch(collectionsRepositoryProvider);
+  if (repo == null) return Stream.value(<CollectionDef>[]);
+  return repo.watchCollections(onlyActive: false);
+});
+
 final unitsListProvider = StreamProvider<List<UnitDef>>((ref) {
   final repo = ref.watch(unitsRepositoryProvider);
   if (repo == null) return Stream.value(<UnitDef>[]);
@@ -142,6 +161,19 @@ final recipeComponentsProvider =
   final repo = ref.watch(recipesRepositoryProvider);
   if (repo == null) return Stream.value(<RecipeComponentDef>[]);
   return repo.watchComponents(recipeId);
+});
+
+final collectionComponentsProvider =
+    StreamProvider.family<List<CollectionComponentDef>, String>((ref, collectionId) {
+  final repo = ref.watch(collectionsRepositoryProvider);
+  if (repo == null) return Stream.value(<CollectionComponentDef>[]);
+  return repo.watchComponents(collectionId);
+});
+
+final allCollectionComponentsProvider = StreamProvider<List<CollectionComponentDef>>((ref) {
+  final repo = ref.watch(collectionsRepositoryProvider);
+  if (repo == null) return Stream.value(<CollectionComponentDef>[]);
+  return repo.watchAllComponents();
 });
 
 final entriesForSelectedDayProvider = StreamProvider<List<EntryRecord>>((ref) {

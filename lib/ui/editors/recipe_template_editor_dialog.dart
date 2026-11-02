@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/products_repository.dart';
 import '../../data/repo/recipe_hierarchy_service.dart';
+import '../../data/repo/recipe_to_collection_converter.dart';
 import '../../data/repo/recipes_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
@@ -284,6 +285,80 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog>
     }
   }
 
+  Future<void> _showConvertToCollectionMenu() async {
+    if (widget.existing == null) return;
+
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Convert to Collection'),
+        content: const Text(
+          'Choose how to convert this recipe to a collection:\n\n'
+          '• Copy: Create a collection, keep the recipe\n'
+          '• Move+Convert: Delete recipe, convert non-static instances\n'
+          '• Move+Convert All: Delete recipe, convert all instances',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(null),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop('copy'),
+            child: const Text('Copy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop('move'),
+            child: const Text('Move+Convert'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop('moveAll'),
+            child: const Text('Move+Convert All'),
+          ),
+        ],
+      ),
+    );
+
+    if (action == null || !mounted) return;
+
+    final converter = ref.read(recipeToCollectionConverterProvider);
+    if (converter == null) return;
+
+    try {
+      switch (action) {
+        case 'copy':
+          await converter.copyRecipeToCollection(widget.existing!.id);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Recipe copied to collection')),
+          );
+          Navigator.of(context).pop();
+          break;
+        case 'move':
+          await converter.moveRecipeToCollection(widget.existing!.id, convertAll: false);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Recipe converted to collection')),
+          );
+          Navigator.of(context).pop();
+          break;
+        case 'moveAll':
+          await converter.moveRecipeToCollection(widget.existing!.id, convertAll: true);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Recipe converted to collection (all instances)')),
+          );
+          Navigator.of(context).pop();
+          break;
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final registry = ref.watch(widgetRegistryProvider);
@@ -310,6 +385,14 @@ class _RecipeEditorDialogState extends ConsumerState<RecipeEditorDialog>
             decoration: const InputDecoration(labelText: 'Name (display)'),
             validator: (v) => ValidationRules.required(v, 'Name'),
           ),
+          if (isEdit) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _showConvertToCollectionMenu,
+              icon: const Icon(Icons.layers),
+              label: const Text('Convert to Collection'),
+            ),
+          ],
           const SizedBox(height: 16),
           const Divider(height: 1),
           const SizedBox(height: 8),

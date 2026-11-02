@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
+import '../../ui/editors/collection_template_editor_dialog.dart';
 import '../../ui/editors/kind_template_editor_dialog.dart';
 import '../../ui/editors/product_template_editor_dialog.dart';
 import '../../ui/editors/recipe_template_editor_dialog.dart';
@@ -145,19 +146,15 @@ final addRegistryProvider = Provider<AddRegistry>((ref) {
             color: const Color(0xFF3F51B5),
             priority: 10,
             run: (ctx, d) async {
-              await showDialog(
-                context: ctx,
-                builder: (c) => AlertDialog(
-                  title: const Text('Add Collection'),
-                  content: const Text('Collections feature coming soon.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(c).pop(),
-                      child: const Text('OK'),
-                    ),
-                  ],
-                ),
-              );
+              final repo = ref.read(collectionsRepositoryProvider);
+              if (repo != null) {
+                await showDialog(
+                  context: ctx,
+                  builder: (_) => const CollectionEditorDialog(
+                    existing: null,
+                  ),
+                );
+              }
             },
           ),
         ];

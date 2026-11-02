@@ -22,6 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
+import '../../data/repo/collections_repository.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../data/repo/kind_service.dart';
 import '../../data/repo/kinds_repository.dart';
@@ -32,6 +33,8 @@ import '../../data/repo/recipes_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
+import '../editors/collection_instance_dialog.dart';
+import '../editors/collection_template_editor_dialog.dart';
 import '../editors/kind_instance_editor_dialog.dart';
 import '../editors/kind_template_editor_dialog.dart';
 import '../editors/product_instance_components_editor_dialog.dart';
@@ -127,7 +130,8 @@ class EntryListItemFactory {
     // Determine type
     final isProduct = realEntry is ProductDef || (realEntry is EntryRecord && realEntry.widgetKind == 'product');
     final isRecipe = realEntry is RecipeDef || (realEntry is EntryRecord && realEntry.widgetKind == 'recipe');
-    final isKind = realEntry is KindDef || (realEntry is EntryRecord && realEntry.widgetKind != 'product' && realEntry.widgetKind != 'recipe');
+    final isCollection = realEntry is CollectionDef || (realEntry is EntryRecord && realEntry.widgetKind == 'collection');
+    final isKind = realEntry is KindDef || (realEntry is EntryRecord && realEntry.widgetKind != 'product' && realEntry.widgetKind != 'recipe' && realEntry.widgetKind != 'collection');
 
     // Determine color, icon, and title
     final Color color;
@@ -142,6 +146,10 @@ class EntryListItemFactory {
       color = _getEntryColor(realEntry, Colors.brown);
       icon = _getEntryIcon(realEntry, Icons.restaurant_menu);
       title = _extractRecipeTitle(realEntry, children, childrenByParent, registry);
+    } else if (isCollection) {
+      color = _getEntryColor(realEntry, const Color(0xFF3F51B5));
+      icon = _getEntryIcon(realEntry, Icons.layers);
+      title = _extractCollectionTitle(realEntry);
     } else {
       final kindId = _getEntryKindId(realEntry);
       final kind = registry.byId(kindId);
@@ -203,7 +211,7 @@ class EntryListItemFactory {
           IconButton(
             tooltip: 'Edit',
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () => _showEditDialog(context, entry, isProduct, isRecipe, registry),
+            onPressed: () => _showEditDialog(context, entry, isProduct, isRecipe, isCollection, registry),
           ),
         );
         // Delete button
@@ -211,7 +219,7 @@ class EntryListItemFactory {
           IconButton(
             tooltip: 'Delete',
             icon: const Icon(Icons.delete_outline),
-            onPressed: () => _deleteEntry(context, ref, entry, isProduct, isRecipe),
+            onPressed: () => _deleteEntry(context, ref, entry, isProduct, isRecipe, isCollection),
           ),
         );
         // Edit components button (only for product instances)
@@ -367,6 +375,7 @@ class EntryListItemFactory {
     if (entry is KindDef) return entry.id;
     if (entry is ProductDef) return entry.id;
     if (entry is RecipeDef) return entry.id;
+    if (entry is CollectionDef) return entry.id;
     return '';
   }
 
@@ -393,6 +402,7 @@ class EntryListItemFactory {
     if (realEntry is KindDef) return SelectionCategory.kinds;
     if (realEntry is ProductDef) return SelectionCategory.products;
     if (realEntry is RecipeDef) return SelectionCategory.recipes;
+    if (realEntry is CollectionDef) return SelectionCategory.collections;
     return SelectionCategory.entries;
   }
 
@@ -406,6 +416,7 @@ class EntryListItemFactory {
     if (entry is KindDef) return entry.color != null ? Color(entry.color!) : defaultColor;
     if (entry is ProductDef) return entry.color != null ? Color(entry.color!) : defaultColor;
     if (entry is RecipeDef) return entry.color != null ? Color(entry.color!) : defaultColor;
+    if (entry is CollectionDef) return entry.color != null ? Color(entry.color!) : defaultColor;
     return defaultColor;
   }
 
@@ -413,6 +424,7 @@ class EntryListItemFactory {
     if (entry is KindDef) return resolveIcon(entry.icon, defaultIcon);
     if (entry is ProductDef) return resolveIcon(entry.icon, defaultIcon);
     if (entry is RecipeDef) return resolveIcon(entry.icon, defaultIcon);
+    if (entry is CollectionDef) return resolveIcon(entry.icon, defaultIcon);
     return defaultIcon;
   }
 
@@ -436,6 +448,21 @@ class EntryListItemFactory {
       }
     }
     return 'Product';
+  }
+
+  /// Extracts collection title from payload or definition
+  static String _extractCollectionTitle(dynamic entry) {
+    if (entry is CollectionDef) return entry.name;
+    if (entry is EntryRecord) {
+      try {
+        final map = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
+        final name = (map['name'] as String?) ?? 'Collection';
+        return name;
+      } catch (_) {
+        return 'Collection';
+      }
+    }
+    return 'Collection';
   }
 
   /// Extracts recipe title from payload or definition
@@ -672,6 +699,7 @@ class EntryListItemFactory {
     dynamic entry,
     bool isProduct,
     bool isRecipe,
+    bool isCollection,
     WidgetRegistry registry,
   ) {
     if (entry is EntryRecord) {
@@ -684,6 +712,11 @@ class EntryListItemFactory {
         showDialog(
           context: context,
           builder: (_) => RecipeInstantiateDialog(entryId: entry.id),
+        );
+      } else if (isCollection) {
+        showDialog(
+          context: context,
+          builder: (_) => CollectionInstantiateDialog(entryId: entry.id),
         );
       } else {
         final kind = registry.byId(entry.widgetKind);
@@ -705,6 +738,11 @@ class EntryListItemFactory {
         context: context,
         builder: (_) => RecipeEditorDialog(existing: entry),
       );
+    } else if (entry is CollectionDef) {
+      showDialog(
+        context: context,
+        builder: (_) => CollectionEditorDialog(existing: entry),
+      );
     } else if (entry is KindDef) {
       showDialog(
         context: context,
@@ -720,6 +758,7 @@ class EntryListItemFactory {
     dynamic entry,
     bool isProduct,
     bool isRecipe,
+    bool isCollection,
   ) async {
     final messenger = ScaffoldMessenger.of(context);
 
@@ -736,6 +775,8 @@ class EntryListItemFactory {
                 ? 'This will remove the product entry and its components.'
                 : isRecipe
                 ? 'This will remove the recipe entry and its components.'
+                : isCollection
+                ? 'This will remove the collection entry and its components.'
                 : 'This will remove the entry.',
           ),
           actions: [
@@ -753,12 +794,12 @@ class EntryListItemFactory {
 
       if (confirm != true) return;
 
-      if (isProduct || isRecipe) {
+      if (isProduct || isRecipe || isCollection) {
         await repo.deleteChildrenOfParent(entry.id);
       }
       await repo.delete(entry.id);
       messenger.showSnackBar(
-        SnackBar(content: Text('${isProduct ? 'Product' : isRecipe ? 'Recipe' : 'Entry'} deleted')),
+        SnackBar(content: Text('${isProduct ? 'Product' : isRecipe ? 'Recipe' : isCollection ? 'Collection' : 'Entry'} deleted')),
       );
     } else if (entry is ProductDef) {
       final confirm = await showDialog<bool>(
@@ -795,6 +836,24 @@ class EntryListItemFactory {
         await svc.deleteRecipeTemplate(entry.id);
         await repo.deleteRecipe(entry.id);
         messenger.showSnackBar(const SnackBar(content: Text('Recipe deleted')));
+      }
+    } else if (entry is CollectionDef) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Delete collection?'),
+          content: const Text('Instances will convert: children become standalone entries; parents removed.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+      final repo = ref.read(collectionsRepositoryProvider);
+      if (repo != null) {
+        await repo.deleteCollection(entry.id);
+        messenger.showSnackBar(const SnackBar(content: Text('Collection deleted')));
       }
     } else if (entry is KindDef) {
       final svc = ref.read(kindServiceProvider);
