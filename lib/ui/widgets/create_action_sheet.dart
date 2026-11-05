@@ -8,6 +8,10 @@ import '../../domain/widgets/widget_kind.dart';
 import '../ux_config.dart';
 import 'inline_time_picker.dart';
 
+final createActionSheetTimePickerExpandedProvider = StateProvider<bool>(
+  (_) => true,
+);
+
 /// Shows the action sheet for adding elements on a specific page.
 /// Opens as a side sheet on the right side on Linux / desktop,
 /// and as a bottom panel / sheet on Android / mobile.
@@ -23,7 +27,8 @@ Future<void> showAddActionSheet({
 
   final title = config?.title ?? 'Add';
   final showTimePicker = config?.showTimePicker ?? false;
-  final actions = config?.actionsBuilder(context, ref, target) ??
+  final actions =
+      config?.actionsBuilder(context, ref, target) ??
       ref
           .read(widgetRegistryProvider)
           .actionsForDate(context, target)
@@ -80,11 +85,12 @@ Future<void> _showActionSheetGeneric({
   final ux = ref.read(uxConfigProvider);
   final platform = Theme.of(context).platform;
 
-  final isDesktop = platform == TargetPlatform.linux ||
+  final isDesktop =
+      platform == TargetPlatform.linux ||
       platform == TargetPlatform.windows ||
       platform == TargetPlatform.macOS;
-  final isAndroid = platform == TargetPlatform.android ||
-      platform == TargetPlatform.iOS;
+  final isAndroid =
+      platform == TargetPlatform.android || platform == TargetPlatform.iOS;
 
   ActionSheetPresentation mode = ux.actionSheetPresentation;
   if (mode == ActionSheetPresentation.auto) {
@@ -219,6 +225,7 @@ class CreateActionSheetContent extends ConsumerStatefulWidget {
 
 class _CreateActionSheetContentState
     extends ConsumerState<CreateActionSheetContent> {
+  final ExpansibleController _timePickerController = ExpansibleController();
   late SectionLayout _layout;
   late TimeOfDay _selectedTime;
 
@@ -231,10 +238,15 @@ class _CreateActionSheetContentState
   }
 
   @override
+  void dispose() {
+    _timePickerController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final ExpansibleController controller = ExpansibleController();
 
     // Resolve list of actions
     final List<CreateAction> actionList;
@@ -299,7 +311,19 @@ class _CreateActionSheetContentState
               // Time picker on top for active_week / when requested
               if (widget.showTimePicker) ...[
                 ExpansionTile(
-                  controller: controller,
+                  controller: _timePickerController,
+                  initiallyExpanded: ref.read(
+                    createActionSheetTimePickerExpandedProvider,
+                  ),
+                  onExpansionChanged: (expanded) {
+                    ref
+                            .read(
+                              createActionSheetTimePickerExpandedProvider
+                                  .notifier,
+                            )
+                            .state =
+                        expanded;
+                  },
                   title: const Text('set time and date for entry'),
                   children: <Widget>[
                     InlineTimePicker(
@@ -311,17 +335,17 @@ class _CreateActionSheetContentState
                       },
                     ),
                     const SizedBox(height: 16),
-                  ]
+                  ],
                 ),
               ],
 
               /*ElevatedButton(
                 child: const Text('Expand/Collapse the Tile Above'),
                 onPressed: () {
-                  if (controller.isExpanded) {
-                    controller.collapse();
+                  if (_timePickerController.isExpanded) {
+                    _timePickerController.collapse();
                   } else {
-                    controller.expand();
+                    _timePickerController.expand();
                   }
                 },
               ),*/
@@ -349,8 +373,7 @@ class _CreateActionSheetContentState
                 ),
 
               // Blank space at bottom for other pages
-              if (!widget.showTimePicker)
-                const SizedBox(height: 32),
+              if (!widget.showTimePicker) const SizedBox(height: 32),
             ],
           ),
         ),
@@ -358,7 +381,10 @@ class _CreateActionSheetContentState
     );
   }
 
-  Widget _buildSingleActionProminent(BuildContext context, CreateAction action) {
+  Widget _buildSingleActionProminent(
+    BuildContext context,
+    CreateAction action,
+  ) {
     final theme = Theme.of(context);
     final color = action.color ?? theme.colorScheme.primary;
 
@@ -424,8 +450,8 @@ class _CreateActionSheetContentState
         final col = width >= 480
             ? 3
             : width >= 320
-                ? 2
-                : 1;
+            ? 2
+            : 1;
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),

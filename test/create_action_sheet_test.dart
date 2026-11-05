@@ -42,10 +42,7 @@ void main() {
           ),
         );
 
-        await tester.tap(find.text('set time and date for entry'));
-        await tester.pumpAndSettle();
-
-        // Verify InlineTimePicker is present on top
+        // The time picker starts expanded.
         expect(find.byType(InlineTimePicker), findsOneWidget);
         expect(find.text('Add entry'), findsOneWidget);
         expect(find.text('Add Oats 50g'), findsOneWidget);
@@ -53,6 +50,7 @@ void main() {
         // Adjust time with +1h
         await tester.tap(find.text('+1h'));
         await tester.pumpAndSettle();
+        expect(find.byType(InlineTimePicker), findsOneWidget);
 
         // Tap the action chip
         await tester.tap(find.text('Add Oats 50g'));
@@ -64,6 +62,66 @@ void main() {
         expect(executedDateTime!.day, 26);
         expect(executedDateTime!.hour, 9); // 8 + 1
         expect(executedDateTime!.minute, 0);
+      },
+    );
+
+    testWidgets(
+      'time picker stays open when used and remembers collapsed state',
+      (tester) async {
+        var isSheetOpen = true;
+
+        await tester.pumpWidget(
+          ProviderScope(
+            child: MaterialApp(
+              home: Scaffold(
+                body: StatefulBuilder(
+                  builder: (context, setState) => Column(
+                    children: [
+                      if (isSheetOpen)
+                        Expanded(
+                          child: CreateActionSheetContent(
+                            targetDate: DateTime(2026, 8, 26, 8),
+                            showTimePicker: true,
+                            actions: [
+                              CreateAction(
+                                id: 'action_1',
+                                label: 'Add oats',
+                                icon: Icons.rice_bowl,
+                                run: (ctx, targetAt) async {},
+                              ),
+                            ],
+                          ),
+                        ),
+                      TextButton(
+                        onPressed: () => setState(() {
+                          isSheetOpen = !isSheetOpen;
+                        }),
+                        child: Text(isSheetOpen ? 'Close sheet' : 'Open sheet'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        expect(find.byType(InlineTimePicker), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Current Time'));
+        await tester.pumpAndSettle();
+        expect(find.byType(InlineTimePicker), findsOneWidget);
+
+        await tester.tap(find.text('set time and date for entry'));
+        await tester.pumpAndSettle();
+        expect(find.byType(InlineTimePicker), findsNothing);
+
+        await tester.tap(find.text('Close sheet'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Open sheet'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(InlineTimePicker), findsNothing);
       },
     );
 
