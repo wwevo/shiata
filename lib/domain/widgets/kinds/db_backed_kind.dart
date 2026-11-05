@@ -45,7 +45,7 @@ class DbBackedKind extends WidgetKind {
       CreateAction(
         id: 'custom',
         label: 'Add $displayName',
-        icon: Icons.add,
+        icon: icon,
         priority: 10,
         color: accentColor,
         run: (ctx, date) async {

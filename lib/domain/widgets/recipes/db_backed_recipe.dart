@@ -45,7 +45,7 @@ class DbBackedRecipe extends WidgetKind {
       CreateAction(
         id: 'add_recipe',
         label: 'Add $displayName',
-        icon: Icons.add,
+        icon: icon,
         priority: 5,
         color: accentColor,
         run: (ctx, date) async {

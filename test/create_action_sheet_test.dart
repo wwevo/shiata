@@ -8,71 +8,89 @@ import 'package:shiata/ui/widgets/inline_time_picker.dart';
 
 void main() {
   group('CreateActionSheet & showAddActionSheet Tests', () {
-    testWidgets('ActiveWeek action sheet content includes InlineTimePicker and passes selected time to action', (tester) async {
-      DateTime? executedDateTime;
+    testWidgets(
+      'ActiveWeek action sheet content includes InlineTimePicker and passes selected time to action',
+      (tester) async {
+        DateTime? executedDateTime;
 
+        final testActions = [
+          CreateAction(
+            id: 'action_1',
+            label: 'Add Oats 50g',
+            icon: Icons.rice_bowl,
+            color: Colors.green,
+            run: (ctx, targetAt) async {
+              executedDateTime = targetAt;
+            },
+          ),
+        ];
+
+        final targetDate = DateTime(2026, 8, 26, 8, 0);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ProviderScope(
+                child: CreateActionSheetContent(
+                  targetDate: targetDate,
+                  title: 'Add entry',
+                  showTimePicker: true,
+                  actions: testActions,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('set time and date for entry'));
+        await tester.pumpAndSettle();
+
+        // Verify InlineTimePicker is present on top
+        expect(find.byType(InlineTimePicker), findsOneWidget);
+        expect(find.text('Add entry'), findsOneWidget);
+        expect(find.text('Add Oats 50g'), findsOneWidget);
+
+        // Adjust time with +1h
+        await tester.tap(find.text('+1h'));
+        await tester.pumpAndSettle();
+
+        // Tap the action chip
+        await tester.tap(find.text('Add Oats 50g'));
+        await tester.pumpAndSettle();
+
+        expect(executedDateTime, isNotNull);
+        expect(executedDateTime!.year, 2026);
+        expect(executedDateTime!.month, 8);
+        expect(executedDateTime!.day, 26);
+        expect(executedDateTime!.hour, 9); // 8 + 1
+        expect(executedDateTime!.minute, 0);
+      },
+    );
+
+    testWidgets('renders each action icon and color in wrap and grid layouts', (
+      tester,
+    ) async {
       final testActions = [
         CreateAction(
           id: 'action_1',
-          label: 'Add Oats 50g',
+          label: 'Add oats',
           icon: Icons.rice_bowl,
           color: Colors.green,
-          run: (ctx, targetAt) async {
-            executedDateTime = targetAt;
-          },
+          run: (ctx, targetAt) async {},
         ),
-      ];
-
-      final targetDate = DateTime(2026, 8, 26, 8, 0);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ProviderScope(
-              child: CreateActionSheetContent(
-                targetDate: targetDate,
-                title: 'Add entry',
-                showTimePicker: true,
-                actions: testActions,
-              ),
-            ),
-          ),
-        ),
-      );
-
-      // Verify InlineTimePicker is present on top
-      expect(find.byType(InlineTimePicker), findsOneWidget);
-      expect(find.text('Add entry'), findsOneWidget);
-      expect(find.text('Add Oats 50g'), findsOneWidget);
-
-      // Adjust time with +1h
-      await tester.tap(find.text('+1h'));
-      await tester.pumpAndSettle();
-
-      // Tap the action chip
-      await tester.tap(find.text('Add Oats 50g'));
-      await tester.pumpAndSettle();
-
-      expect(executedDateTime, isNotNull);
-      expect(executedDateTime!.year, 2026);
-      expect(executedDateTime!.month, 8);
-      expect(executedDateTime!.day, 26);
-      expect(executedDateTime!.hour, 9); // 8 + 1
-      expect(executedDateTime!.minute, 0);
-    });
-
-    testWidgets('Non-timepicker single action sheet renders prominent action with no timepicker and blank space', (tester) async {
-      bool actionRan = false;
-
-      final testActions = [
         CreateAction(
-          id: 'add_recipe',
-          label: 'Add recipe',
-          icon: Icons.restaurant_menu,
+          id: 'action_2',
+          label: 'Add water',
+          icon: Icons.opacity,
+          color: Colors.blue,
+          run: (ctx, targetAt) async {},
+        ),
+        CreateAction(
+          id: 'action_3',
+          label: 'Add vitamins',
+          icon: Icons.medical_information,
           color: Colors.orange,
-          run: (ctx, targetAt) async {
-            actionRan = true;
-          },
+          run: (ctx, targetAt) async {},
         ),
       ];
 
@@ -81,9 +99,7 @@ void main() {
           home: Scaffold(
             body: ProviderScope(
               child: CreateActionSheetContent(
-                targetDate: DateTime.now(),
-                title: 'Add recipe',
-                showTimePicker: false,
+                targetDate: DateTime(2026, 8, 26),
                 actions: testActions,
               ),
             ),
@@ -91,85 +107,149 @@ void main() {
         ),
       );
 
-      // TimePicker must NOT be rendered
-      expect(find.byType(InlineTimePicker), findsNothing);
-      expect(find.text('Add recipe'), findsNWidgets(2)); // Title and Card label
+      void expectActionIconsAndColors() {
+        for (final action in testActions) {
+          expect(find.byIcon(action.icon), findsOneWidget);
+          expect(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is CircleAvatar &&
+                  widget.backgroundColor == action.color,
+            ),
+            findsOneWidget,
+          );
+        }
+      }
 
-      await tester.tap(find.text('Add recipe').last);
+      expectActionIconsAndColors();
+
+      await tester.tap(find.byTooltip('Switch to grid'));
       await tester.pumpAndSettle();
 
-      expect(actionRan, isTrue);
+      expectActionIconsAndColors();
     });
 
-    testWidgets('showAddActionSheet adapts to Linux (right side sheet) and Android (bottom sheet)', (tester) async {
-      // Test Linux side sheet
-      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    testWidgets(
+      'Non-timepicker single action sheet renders prominent action with no timepicker and blank space',
+      (tester) async {
+        bool actionRan = false;
 
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp(
-            theme: ThemeData(platform: TargetPlatform.linux),
+        final testActions = [
+          CreateAction(
+            id: 'add_recipe',
+            label: 'Add recipe',
+            icon: Icons.restaurant_menu,
+            color: Colors.orange,
+            run: (ctx, targetAt) async {
+              actionRan = true;
+            },
+          ),
+        ];
+
+        await tester.pumpWidget(
+          MaterialApp(
             home: Scaffold(
-              body: Consumer(
-                builder: (context, ref, _) {
-                  return ElevatedButton(
-                    onPressed: () => showAddActionSheet(
-                      context: context,
-                      ref: ref,
-                      pageId: 'recipes',
-                    ),
-                    child: const Text('Open Sheet'),
-                  );
-                },
+              body: ProviderScope(
+                child: CreateActionSheetContent(
+                  targetDate: DateTime.now(),
+                  title: 'Add recipe',
+                  showTimePicker: false,
+                  actions: testActions,
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
 
-      await tester.tap(find.text('Open Sheet'));
-      await tester.pumpAndSettle();
+        // TimePicker must NOT be rendered
+        expect(find.byType(InlineTimePicker), findsNothing);
+        expect(
+          find.text('Add recipe'),
+          findsNWidgets(2),
+        ); // Title and Card label
 
-      // Verify side sheet dialog is displayed aligned to right
-      final alignWidgets = tester.widgetList<Align>(find.byType(Align));
-      expect(alignWidgets.any((a) => a.alignment == Alignment.centerRight), isTrue);
+        await tester.tap(find.text('Add recipe').last);
+        await tester.pumpAndSettle();
 
-      // Close sheet
-      await tester.tap(find.byIcon(Icons.close));
-      await tester.pumpAndSettle();
+        expect(actionRan, isTrue);
+      },
+    );
 
-      // Test Android bottom sheet
-      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    testWidgets(
+      'showAddActionSheet adapts to Linux (right side sheet) and Android (bottom sheet)',
+      (tester) async {
+        // Test Linux side sheet
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
 
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp(
-            theme: ThemeData(platform: TargetPlatform.android),
-            home: Scaffold(
-              body: Consumer(
-                builder: (context, ref, _) {
-                  return ElevatedButton(
-                    onPressed: () => showAddActionSheet(
-                      context: context,
-                      ref: ref,
-                      pageId: 'recipes',
-                    ),
-                    child: const Text('Open Sheet'),
-                  );
-                },
+        await tester.pumpWidget(
+          ProviderScope(
+            child: MaterialApp(
+              theme: ThemeData(platform: TargetPlatform.linux),
+              home: Scaffold(
+                body: Consumer(
+                  builder: (context, ref, _) {
+                    return ElevatedButton(
+                      onPressed: () => showAddActionSheet(
+                        context: context,
+                        ref: ref,
+                        pageId: 'recipes',
+                      ),
+                      child: const Text('Open Sheet'),
+                    );
+                  },
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
 
-      await tester.tap(find.text('Open Sheet'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Open Sheet'));
+        await tester.pumpAndSettle();
 
-      // Verify bottom sheet modal is displayed
-      expect(find.byType(CreateActionSheetContent), findsOneWidget);
+        // Verify side sheet dialog is displayed aligned to right
+        final alignWidgets = tester.widgetList<Align>(find.byType(Align));
+        expect(
+          alignWidgets.any((a) => a.alignment == Alignment.centerRight),
+          isTrue,
+        );
 
-      debugDefaultTargetPlatformOverride = null;
-    });
+        // Close sheet
+        await tester.tap(find.byIcon(Icons.close));
+        await tester.pumpAndSettle();
+
+        // Test Android bottom sheet
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+
+        await tester.pumpWidget(
+          ProviderScope(
+            child: MaterialApp(
+              theme: ThemeData(platform: TargetPlatform.android),
+              home: Scaffold(
+                body: Consumer(
+                  builder: (context, ref, _) {
+                    return ElevatedButton(
+                      onPressed: () => showAddActionSheet(
+                        context: context,
+                        ref: ref,
+                        pageId: 'recipes',
+                      ),
+                      child: const Text('Open Sheet'),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Open Sheet'));
+        await tester.pumpAndSettle();
+
+        // Verify bottom sheet modal is displayed
+        expect(find.byType(CreateActionSheetContent), findsOneWidget);
+
+        debugDefaultTargetPlatformOverride = null;
+      },
+    );
   });
 }

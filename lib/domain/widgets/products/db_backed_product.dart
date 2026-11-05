@@ -45,7 +45,7 @@ class DbBackedProduct extends WidgetKind {
       CreateAction(
         id: 'add_100g',
         label: 'Add $displayName',
-        icon: Icons.add,
+        icon: icon,
         priority: 5,
         color: accentColor,
         run: (ctx, date) async {
