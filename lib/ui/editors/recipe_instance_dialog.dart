@@ -7,6 +7,7 @@ import '../../data/providers.dart';
 import '../../data/repo/recipe_service.dart';
 import '../../domain/widgets/registry.dart';
 import '../../utils/formatters.dart';
+import '../widgets/entry_date_time_picker.dart';
 import 'editor_form_support.dart';
 
 class RecipeInstantiateDialog extends ConsumerStatefulWidget {
@@ -26,7 +27,8 @@ class RecipeInstantiateDialog extends ConsumerStatefulWidget {
 }
 
 class RecipeInstantiateDialogState
-    extends ConsumerState<RecipeInstantiateDialog> with EditorDialogShell {
+    extends ConsumerState<RecipeInstantiateDialog>
+    with EditorDialogShell {
   // State variables
   String? _recipeId;
   String _recipeName = '';
@@ -190,13 +192,6 @@ class RecipeInstantiateDialogState
     }
   }
 
-  Future<void> _handlePickDateTime(BuildContext context) async {
-    final picked = await pickDateTime(context, _targetAt);
-    if (picked != null) {
-      setState(() => _targetAt = picked);
-    }
-  }
-
   Future<void> _handleStaticToggle(bool newValue) async {
     // If switching from static to dynamic, offer to reset to template values
     if (_isStatic && !newValue) {
@@ -313,10 +308,9 @@ class RecipeInstantiateDialogState
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          OutlinedButton.icon(
-            onPressed: () => _handlePickDateTime(context),
-            icon: const Icon(Icons.schedule),
-            label: Text('${_targetAt.toLocal()}'),
+          EntryDateTimePicker(
+            value: _targetAt,
+            onChanged: (value) => setState(() => _targetAt = value),
           ),
           const SizedBox(height: 16),
           SwitchListTile(

@@ -6,11 +6,7 @@ import '../../domain/widgets/create_action.dart';
 import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../ux_config.dart';
-import 'inline_time_picker.dart';
-
-final createActionSheetTimePickerExpandedProvider = StateProvider<bool>(
-  (_) => true,
-);
+import 'entry_date_time_picker.dart';
 
 /// Shows the action sheet for adding elements on a specific page.
 /// Opens as a side sheet on the right side on Linux / desktop,
@@ -225,22 +221,21 @@ class CreateActionSheetContent extends ConsumerStatefulWidget {
 
 class _CreateActionSheetContentState
     extends ConsumerState<CreateActionSheetContent> {
-  final ExpansibleController _timePickerController = ExpansibleController();
   late SectionLayout _layout;
-  late TimeOfDay _selectedTime;
+  late DateTime _selectedDateTime;
 
   @override
   void initState() {
     super.initState();
     final config = ref.read(uxConfigProvider);
     _layout = config.actionSheet.defaultLayout;
-    _selectedTime = TimeOfDay.fromDateTime(widget.targetDate);
-  }
-
-  @override
-  void dispose() {
-    _timePickerController.dispose();
-    super.dispose();
+    _selectedDateTime = DateTime(
+      widget.targetDate.year,
+      widget.targetDate.month,
+      widget.targetDate.day,
+      widget.targetDate.hour,
+      widget.targetDate.minute,
+    );
   }
 
   @override
@@ -310,45 +305,16 @@ class _CreateActionSheetContentState
 
               // Time picker on top for active_week / when requested
               if (widget.showTimePicker) ...[
-                ExpansionTile(
-                  controller: _timePickerController,
-                  initiallyExpanded: ref.read(
-                    createActionSheetTimePickerExpandedProvider,
-                  ),
-                  onExpansionChanged: (expanded) {
-                    ref
-                            .read(
-                              createActionSheetTimePickerExpandedProvider
-                                  .notifier,
-                            )
-                            .state =
-                        expanded;
-                  },
-                  title: const Text('set time and date for entry'),
-                  children: <Widget>[
-                    InlineTimePicker(
-                      initialTime: _selectedTime,
-                      onTimeChanged: (t) {
-                        setState(() {
-                          _selectedTime = t;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+                EntryDateTimePicker(
+                  value: _selectedDateTime,
+                  onChanged: (value) => setState(() {
+                    _selectedDateTime = value;
+                  }),
+                  showDateButton: false,
+                  title: 'set time and date for entry',
                 ),
+                const SizedBox(height: 16),
               ],
-
-              /*ElevatedButton(
-                child: const Text('Expand/Collapse the Tile Above'),
-                onPressed: () {
-                  if (_timePickerController.isExpanded) {
-                    _timePickerController.collapse();
-                  } else {
-                    _timePickerController.expand();
-                  }
-                },
-              ),*/
 
               // Actions section
               if (actionList.isEmpty)
@@ -522,14 +488,7 @@ class _CreateActionSheetContentState
   }
 
   Future<void> _executeAction(BuildContext context, CreateAction action) async {
-    final finalDateTime = DateTime(
-      widget.targetDate.year,
-      widget.targetDate.month,
-      widget.targetDate.day,
-      _selectedTime.hour,
-      _selectedTime.minute,
-    );
     Navigator.of(context).pop();
-    await action.run(context, finalDateTime);
+    await action.run(context, _selectedDateTime);
   }
 }

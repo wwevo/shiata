@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
+import '../widgets/entry_date_time_picker.dart';
 import 'editor_form_support.dart';
 
 /// Generic integer-only editor driven by WidgetKind metadata.
@@ -27,7 +28,8 @@ class KindInstanceEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _KindInstanceEditorDialogState
-    extends ConsumerState<KindInstanceEditorDialog> with EditorDialogShell {
+    extends ConsumerState<KindInstanceEditorDialog>
+    with EditorDialogShell {
   // State variables
   late final TextEditingController _amountController;
   late DateTime _targetAt;
@@ -72,13 +74,6 @@ class _KindInstanceEditorDialogState
     super.dispose();
   }
 
-  Future<void> _handlePickDateTime(BuildContext context) async {
-    final picked = await pickDateTime(context, _targetAt);
-    if (picked != null) {
-      setState(() => _targetAt = picked);
-    }
-  }
-
   Future<void> _onSave({required bool closeAfter}) async {
     await safeSave(
       closeAfter: closeAfter,
@@ -95,7 +90,7 @@ class _KindInstanceEditorDialogState
               'amount': amountToStore,
               'unit': widget.kind.unit,
             }),
-            'show_in_calendar': _showInCalendar ? 1 : 0
+            'show_in_calendar': _showInCalendar ? 1 : 0,
           });
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -169,7 +164,8 @@ class _KindInstanceEditorDialogState
                 children: [
                   IconButton(
                     onPressed: () {
-                      final current = parseDouble(_amountController.text) ?? 0.0;
+                      final current =
+                          parseDouble(_amountController.text) ?? 0.0;
                       final next = (current + 1.0).clamp(
                         widget.kind.minValue.toDouble(),
                         widget.kind.maxValue.toDouble(),
@@ -181,7 +177,8 @@ class _KindInstanceEditorDialogState
                   ),
                   IconButton(
                     onPressed: () {
-                      final current = parseDouble(_amountController.text) ?? 0.0;
+                      final current =
+                          parseDouble(_amountController.text) ?? 0.0;
                       final next = (current - 1.0).clamp(
                         widget.kind.minValue.toDouble(),
                         widget.kind.maxValue.toDouble(),
@@ -196,12 +193,9 @@ class _KindInstanceEditorDialogState
             ],
           ),
           const SizedBox(height: 16),
-          Text('When', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: () => _handlePickDateTime(context),
-            icon: const Icon(Icons.schedule),
-            label: Text('${_targetAt.toLocal()}'),
+          EntryDateTimePicker(
+            value: _targetAt,
+            onChanged: (value) => setState(() => _targetAt = value),
           ),
           const SizedBox(height: 16),
           SwitchListTile(

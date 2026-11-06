@@ -11,6 +11,7 @@ import '../../domain/widgets/registry.dart';
 import '../../domain/widgets/widget_kind.dart';
 import '../../utils/formatters.dart';
 import '../widgets/add_component_menu.dart';
+import '../widgets/entry_date_time_picker.dart';
 import '../widgets/selection_dialog.dart';
 import 'editor_form_support.dart';
 
@@ -32,7 +33,8 @@ class CollectionInstantiateDialog extends ConsumerStatefulWidget {
 }
 
 class CollectionInstantiateDialogState
-    extends ConsumerState<CollectionInstantiateDialog> with EditorDialogShell {
+    extends ConsumerState<CollectionInstantiateDialog>
+    with EditorDialogShell {
   // State variables
   String? _collectionId;
   String _collectionName = '';
@@ -204,13 +206,6 @@ class CollectionInstantiateDialogState
     }
   }
 
-  Future<void> _handlePickDateTime(BuildContext context) async {
-    final picked = await pickDateTime(context, _targetAt);
-    if (picked != null) {
-      setState(() => _targetAt = picked);
-    }
-  }
-
   Future<void> _handleStaticToggle(bool newValue) async {
     // If switching from static to dynamic, offer to reset to template values
     if (_isStatic && !newValue) {
@@ -252,9 +247,8 @@ class CollectionInstantiateDialogState
     // Step 1: Ask what type of component to add
     final type = await showDialog<String>(
       context: context,
-      builder: (ctx) => const AddComponentMenu(
-        enabledTypes: {'kind', 'product'},
-      ),
+      builder: (ctx) =>
+          const AddComponentMenu(enabledTypes: {'kind', 'product'}),
     );
 
     if (type == null || !mounted) return;
@@ -350,7 +344,8 @@ class CollectionInstantiateDialogState
 
     // Add to current instance
     setState(() {
-      _components = List<CollectionComponentDef>.from(_components)..add(component);
+      _components = List<CollectionComponentDef>.from(_components)
+        ..add(component);
       if (component.type == CollectionComponentType.kind) {
         _kindCtrls[component.compId] = TextEditingController(text: '0');
       } else {
@@ -445,10 +440,9 @@ class CollectionInstantiateDialogState
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          OutlinedButton.icon(
-            onPressed: () => _handlePickDateTime(context),
-            icon: const Icon(Icons.schedule),
-            label: Text('${_targetAt.toLocal()}'),
+          EntryDateTimePicker(
+            value: _targetAt,
+            onChanged: (value) => setState(() => _targetAt = value),
           ),
           const SizedBox(height: 16),
           SwitchListTile(
@@ -469,7 +463,9 @@ class CollectionInstantiateDialogState
           if (_components.isEmpty)
             const SizedBox(
               height: 100,
-              child: Center(child: Text('No components in this collection yet')),
+              child: Center(
+                child: Text('No components in this collection yet'),
+              ),
             )
           else ...[
             for (final c in _components)
@@ -504,10 +500,11 @@ class CollectionInstantiateDialogState
                               ),
                               child: TextFormField(
                                 controller: _kindCtrls[c.compId],
-                                keyboardType: const TextInputType.numberWithOptions(
-                                  decimal: true,
-                                  signed: true,
-                                ),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                      signed: true,
+                                    ),
                                 decoration: const InputDecoration(
                                   hintText: 'Amount',
                                   isDense: true,

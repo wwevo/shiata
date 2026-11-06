@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../data/repo/product_service.dart';
 import '../../utils/formatters.dart';
+import '../widgets/entry_date_time_picker.dart';
 import 'editor_form_support.dart';
 
 class ProductEditorDialog extends ConsumerStatefulWidget {
@@ -90,13 +91,6 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog>
     super.dispose();
   }
 
-  Future<void> _handlePickDateTime(BuildContext context) async {
-    final picked = await pickDateTime(context, _targetAt);
-    if (picked != null) {
-      setState(() => _targetAt = picked);
-    }
-  }
-
   Future<void> _handleStaticToggle(bool newValue) async {
     // If switching from static to dynamic, warn about recomputation
     if (_isStatic && !newValue) {
@@ -146,7 +140,9 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog>
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Updated ${_productName ?? 'Product'} • $grams g'),
+                content: Text(
+                  'Updated ${_productName ?? 'Product'} • $grams g',
+                ),
               ),
             );
           }
@@ -168,7 +164,9 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog>
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Added ${_productName ?? 'Product'} • $grams g'),
+                  content: Text(
+                    'Added ${_productName ?? 'Product'} • $grams g',
+                  ),
                 ),
               );
             }
@@ -221,7 +219,8 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog>
                   IconButton(
                     onPressed: () {
                       final val =
-                          parseInt(_gramsController.text) ?? widget.defaultGrams;
+                          parseInt(_gramsController.text) ??
+                          widget.defaultGrams;
                       final next = (val + 10).clamp(1, 2000);
                       _gramsController.text = next.toString();
                     },
@@ -231,7 +230,8 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog>
                   IconButton(
                     onPressed: () {
                       final val =
-                          parseInt(_gramsController.text) ?? widget.defaultGrams;
+                          parseInt(_gramsController.text) ??
+                          widget.defaultGrams;
                       final next = (val - 10).clamp(1, 2000);
                       _gramsController.text = next.toString();
                     },
@@ -243,12 +243,9 @@ class _ProductEditorDialogState extends ConsumerState<ProductEditorDialog>
             ],
           ),
           const SizedBox(height: 16),
-          Text('When', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: () => _handlePickDateTime(context),
-            icon: const Icon(Icons.schedule),
-            label: Text('${_targetAt.toLocal()}'),
+          EntryDateTimePicker(
+            value: _targetAt,
+            onChanged: (value) => setState(() => _targetAt = value),
           ),
           const SizedBox(height: 16),
           SwitchListTile(
