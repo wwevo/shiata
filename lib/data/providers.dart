@@ -144,13 +144,17 @@ final allEntriesWithChildrenProvider = StreamProvider<List<EntryRecord>>((ref) {
   return repo.watchAllEntriesWithChildren();
 });
 
-final allRecipeComponentsProvider = StreamProvider<List<RecipeComponentDef>>((ref) {
+final allRecipeComponentsProvider = StreamProvider<List<RecipeComponentDef>>((
+  ref,
+) {
   final repo = ref.watch(recipesRepositoryProvider);
   if (repo == null) return Stream.value(<RecipeComponentDef>[]);
   return repo.watchAllComponents();
 });
 
-final allProductComponentsProvider = StreamProvider<List<ProductComponent>>((ref) {
+final allProductComponentsProvider = StreamProvider<List<ProductComponent>>((
+  ref,
+) {
   final repo = ref.watch(productsRepositoryProvider);
   if (repo == null) return Stream.value(<ProductComponent>[]);
   return repo.watchAllComponents();
@@ -158,23 +162,27 @@ final allProductComponentsProvider = StreamProvider<List<ProductComponent>>((ref
 
 final recipeComponentsProvider =
     StreamProvider.family<List<RecipeComponentDef>, String>((ref, recipeId) {
-  final repo = ref.watch(recipesRepositoryProvider);
-  if (repo == null) return Stream.value(<RecipeComponentDef>[]);
-  return repo.watchComponents(recipeId);
-});
+      final repo = ref.watch(recipesRepositoryProvider);
+      if (repo == null) return Stream.value(<RecipeComponentDef>[]);
+      return repo.watchComponents(recipeId);
+    });
 
 final collectionComponentsProvider =
-    StreamProvider.family<List<CollectionComponentDef>, String>((ref, collectionId) {
-  final repo = ref.watch(collectionsRepositoryProvider);
-  if (repo == null) return Stream.value(<CollectionComponentDef>[]);
-  return repo.watchComponents(collectionId);
-});
+    StreamProvider.family<List<CollectionComponentDef>, String>((
+      ref,
+      collectionId,
+    ) {
+      final repo = ref.watch(collectionsRepositoryProvider);
+      if (repo == null) return Stream.value(<CollectionComponentDef>[]);
+      return repo.watchComponents(collectionId);
+    });
 
-final allCollectionComponentsProvider = StreamProvider<List<CollectionComponentDef>>((ref) {
-  final repo = ref.watch(collectionsRepositoryProvider);
-  if (repo == null) return Stream.value(<CollectionComponentDef>[]);
-  return repo.watchAllComponents();
-});
+final allCollectionComponentsProvider =
+    StreamProvider<List<CollectionComponentDef>>((ref) {
+      final repo = ref.watch(collectionsRepositoryProvider);
+      if (repo == null) return Stream.value(<CollectionComponentDef>[]);
+      return repo.watchAllComponents();
+    });
 
 final entriesForSelectedDayProvider = StreamProvider<List<EntryRecord>>((ref) {
   final repo = ref.watch(entriesRepositoryProvider);
@@ -185,22 +193,22 @@ final entriesForSelectedDayProvider = StreamProvider<List<EntryRecord>>((ref) {
 
 final calendarEntriesProvider =
     StreamProvider<Map<DateTime, List<EntryRecord>>>((ref) {
-  final repo = ref.watch(entriesRepositoryProvider);
-  final anchor = ref.watch(calendarAnchorProvider);
-  final config = ref.watch(uxConfigProvider);
-  if (repo == null) return Stream.value(<DateTime, List<EntryRecord>>{});
+      final repo = ref.watch(entriesRepositoryProvider);
+      final anchor = ref.watch(headerCalendarAnchorProvider);
+      final config = ref.watch(uxConfigProvider);
+      if (repo == null) return Stream.value(<DateTime, List<EntryRecord>>{});
 
-  // Calculate range same as WeeklyCalendar
-  final grid = config.calendarGrid;
-  final daysToShow = grid.columns * grid.rows;
+      // Calculate range same as WeeklyCalendar
+      final grid = config.calendarGrid;
+      final daysToShow = grid.columns * grid.rows;
 
-  final startLocal = anchor;
-  final endLocal = anchor.add(Duration(days: daysToShow));
+      final startLocal = anchor;
+      final endLocal = anchor.add(Duration(days: daysToShow));
 
-  return repo
-      .watchByDayRange(startLocal, endLocal, onlyShowInCalendar: true)
-      .cast<Map<DateTime, List<EntryRecord>>>();
-});
+      return repo
+          .watchByDayRange(startLocal, endLocal, onlyShowInCalendar: true)
+          .cast<Map<DateTime, List<EntryRecord>>>();
+    });
 
 final weeklyOverviewEntriesProvider = StreamProvider<dynamic>((ref) {
   final repo = ref.watch(entriesRepositoryProvider);
@@ -212,9 +220,5 @@ final weeklyOverviewEntriesProvider = StreamProvider<dynamic>((ref) {
   final monday = today.subtract(Duration(days: today.weekday - 1));
   final nextMonday = monday.add(const Duration(days: 7));
 
-  return repo.watchByDayRange(
-    monday,
-    nextMonday,
-    onlyShowInCalendar: false,
-  );
+  return repo.watchByDayRange(monday, nextMonday, onlyShowInCalendar: false);
 });

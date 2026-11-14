@@ -37,9 +37,14 @@ final circleHeaderDayDataProvider =
 /// Each circle is divided into arcs proportional to the number of top-level
 /// calendar entries on that day. The current day is highlighted with a ring.
 class CircleWeekHeader extends ConsumerWidget {
-  const CircleWeekHeader({super.key, required this.monday});
+  const CircleWeekHeader({
+    super.key,
+    required this.monday,
+    this.onDayTap,
+  });
 
   final DateTime monday;
+  final void Function(DateTime day)? onDayTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,13 +70,8 @@ class CircleWeekHeader extends ConsumerWidget {
                 tooltip: 'Previous week',
                 icon: const Icon(Icons.chevron_left, size: 20),
                 onPressed: () {
-                  ref.read(calendarAnchorProvider.notifier).state =
+                  ref.read(headerCalendarAnchorProvider.notifier).state =
                       monday.subtract(const Duration(days: 7));
-                  final sel = ref.read(selectedDayProvider);
-                  if (sel != null) {
-                    ref.read(selectedDayProvider.notifier).state =
-                        sel.subtract(const Duration(days: 7));
-                  }
                 },
               ),
               Expanded(
@@ -89,6 +89,7 @@ class CircleWeekHeader extends ConsumerWidget {
                       isCurrentDay: isToday,
                       weekdayAbbr: abbrevs[i],
                       theme: theme,
+                      onDayTap: onDayTap,
                     );
                   }),
                 ),
@@ -98,13 +99,8 @@ class CircleWeekHeader extends ConsumerWidget {
                 tooltip: 'Next week',
                 icon: const Icon(Icons.chevron_right, size: 20),
                 onPressed: () {
-                  ref.read(calendarAnchorProvider.notifier).state =
+                  ref.read(headerCalendarAnchorProvider.notifier).state =
                       monday.add(const Duration(days: 7));
-                  final sel = ref.read(selectedDayProvider);
-                  if (sel != null) {
-                    ref.read(selectedDayProvider.notifier).state =
-                        sel.add(const Duration(days: 7));
-                  }
                 },
               ),
             ],
@@ -122,6 +118,7 @@ class _CircleDay extends StatelessWidget {
     required this.isCurrentDay,
     required this.weekdayAbbr,
     required this.theme,
+    this.onDayTap,
   });
 
   final DateTime day;
@@ -129,43 +126,51 @@ class _CircleDay extends StatelessWidget {
   final bool isCurrentDay;
   final String weekdayAbbr;
   final ThemeData theme;
+  final void Function(DateTime day)? onDayTap;
 
   @override
   Widget build(BuildContext context) {
     final dayNumber = day.day;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: 44,
-          height: 44,
-          child: CustomPaint(
-            painter: _SegmentedCirclePainter(
-              entryColors: entryColors,
-              isCurrentDay: isCurrentDay,
-              theme: theme,
-            ),
-            child: Center(
-              child: Text(
-                '$dayNumber',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: isCurrentDay ? FontWeight.bold : FontWeight.normal,
-                  color: isCurrentDay
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurface,
+    return GestureDetector(
+      onTap: () {
+        if (onDayTap != null) {
+          onDayTap!(day);
+        }
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 44,
+            height: 44,
+            child: CustomPaint(
+              painter: _SegmentedCirclePainter(
+                entryColors: entryColors,
+                isCurrentDay: isCurrentDay,
+                theme: theme,
+              ),
+              child: Center(
+                child: Text(
+                  '$dayNumber',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: isCurrentDay ? FontWeight.bold : FontWeight.normal,
+                    color: isCurrentDay
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface,
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          weekdayAbbr,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+          const SizedBox(height: 2),
+          Text(
+            weekdayAbbr,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

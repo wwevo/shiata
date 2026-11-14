@@ -6,11 +6,19 @@ import '../data/repo/recipes_repository.dart';
 import '../navigation/nav_registry.dart';
 import './widgets/entry_list_item_factory.dart';
 
-// Visible calendar anchor (e.g. start of week). Used by calendar navigation.
+// Visible calendar anchor (e.g. start of week). Used by page content (e.g. ActiveWeekPage listview).
 final calendarAnchorProvider = StateProvider<DateTime>((_) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   // Default to start of current week (Monday)
+  return today.subtract(Duration(days: today.weekday - 1));
+});
+
+// Separate anchor for the global header's chevron navigation.
+// This allows the header to scroll through weeks without affecting page content.
+final headerCalendarAnchorProvider = StateProvider<DateTime>((_) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
   return today.subtract(Duration(days: today.weekday - 1));
 });
 
@@ -21,6 +29,13 @@ final selectedDayProvider = StateProvider<DateTime?>((ref) {
   // avoid Riverpod initialization side-effects.
   return DateTime(now.year, now.month, now.day);
 });
+
+/// Day-click callback for the global weekly header.
+/// Pages can override this for custom behavior.
+/// Default: navigates to ActiveWeekPage for the week of the tapped day.
+final dayClickHandlerProvider = StateProvider<void Function(DateTime day)?>(
+  (ref) => null,
+);
 
 // App section navigation (main sections of the app)
 final currentSectionIdProvider = StateProvider<String>(

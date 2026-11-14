@@ -10,20 +10,11 @@ import '../../data/providers.dart';
 import '../../data/repo/entries_repository.dart';
 import '../../domain/widgets/registry.dart';
 import '../main_screen_providers.dart';
-import '../ux_config.dart';
 import '../widgets/add_floating_action_button.dart';
-import '../widgets/circle_week_header.dart';
 import '../widgets/entry_list_item_factory.dart';
-import '../widgets/weekly_calendar.dart';
 
 enum ChipMode { off, include, exclude }
 
-/* DEV-Comment, to be removed
-   Per-week selection state for the ActiveWeek chart
-   Each week will store the kindMode ChipModes selected for the session
-   TODO for 2027: Make it an option between per week and persistent, possibly
-                  a toggle
-*/
 class _WeekSelectionState {
   final Map<String, ChipMode> kindModes; // kindId -> mode
   final bool isCustomized;
@@ -377,7 +368,6 @@ class ActiveWeekPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final config = ref.watch(uxConfigProvider);
     final repo = ref.watch(entriesRepositoryProvider);
     final registry = ref.watch(widgetRegistryProvider);
     final monday = ref.watch(calendarAnchorProvider); // Monday of current week
@@ -403,27 +393,6 @@ class ActiveWeekPage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Consumer(
-              builder: (context, ref, _) {
-                final style = ref.watch(headerStyleProvider);
-                return SizedBox(
-                  height: 80,
-                  child: style.when(
-                    data: (s) {
-                      if (s == 'circles') {
-                        return CircleWeekHeader(monday: monday);
-                      }
-                      return WeeklyCalendar(grid: config.calendarGrid);
-                    },
-                    loading: () => const SizedBox.shrink(),
-                    error: (_, __) => WeeklyCalendar(grid: config.calendarGrid),
-                  ),
-                );
-              },
-            ),
-
-            const Divider(height: 1),
-
             Expanded(
               child: Consumer(
                 builder: (context, ref, _) {
